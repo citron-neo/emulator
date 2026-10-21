@@ -46,21 +46,21 @@ public:
     }
 
     RefCount GetRefCount(KVirtualAddress addr) {
-        ASSERT(this->IsInRange(addr));
+        assert(this->IsInRange(addr));
         return *this->GetRefCountPointer(addr);
     }
 
     void Open(KVirtualAddress addr, int count) {
-        ASSERT(this->IsInRange(addr));
+        assert(this->IsInRange(addr));
 
         *this->GetRefCountPointer(addr) += static_cast<RefCount>(count);
 
-        ASSERT(this->GetRefCount(addr) > 0);
+        assert(this->GetRefCount(addr) > 0);
     }
 
     bool Close(KVirtualAddress addr, int count) {
-        ASSERT(this->IsInRange(addr));
-        ASSERT(this->GetRefCount(addr) >= count);
+        assert(this->IsInRange(addr));
+        assert(this->GetRefCount(addr) >= count);
 
         *this->GetRefCountPointer(addr) -= static_cast<RefCount>(count);
         return this->GetRefCount(addr) == 0;

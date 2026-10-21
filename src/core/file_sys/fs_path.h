@@ -122,7 +122,7 @@ public:
 
     constexpr Result SetShallowBuffer(const char* buffer) {
         // Check pre-conditions
-        ASSERT(m_write_buffer.GetLength() == 0);
+        assert(m_write_buffer.GetLength() == 0);
 
         // Check the buffer is valid
         R_UNLESS(buffer != nullptr, ResultNullptrArgument);
@@ -138,7 +138,7 @@ public:
 
     constexpr const char* GetString() const {
         // Check pre-conditions
-        ASSERT(this->IsNormalized());
+        assert(this->IsNormalized());
 
         return m_str;
     }
@@ -455,9 +455,9 @@ private:
 
     void SetModifiableBuffer(WriteBuffer&& buffer) {
         // Check pre-conditions
-        ASSERT(buffer.Get() != nullptr);
-        ASSERT(buffer.GetLength() > 0);
-        ASSERT(Common::IsAligned(buffer.GetLength(), WriteBufferAlignmentLength));
+        assert(buffer.Get() != nullptr);
+        assert(buffer.GetLength() > 0);
+        assert(Common::IsAligned(buffer.GetLength(), WriteBufferAlignmentLength));
 
         // Get whether we're normalized
         if (m_write_buffer.IsNormalized()) {
@@ -508,7 +508,7 @@ private:
     }
 
     constexpr char* GetWriteBuffer() {
-        ASSERT(m_write_buffer.Get() != nullptr);
+        assert(m_write_buffer.Get() != nullptr);
         return m_write_buffer.Get();
     }
 

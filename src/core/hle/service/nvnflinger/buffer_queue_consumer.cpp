@@ -286,7 +286,7 @@ void BufferQueueConsumer::Transact(u32 code, std::span<const u8> parcel_data,
 
         // TODO: can't write this directly, needs a flattener for the sp<GraphicBuffer>
         // parcel_out.WriteFlattened(item);
-        UNREACHABLE();
+        std::unreachable();
     }
     case TransactionId::ReleaseBuffer: {
         const s32 slot = parcel_in.Read<s32>();
@@ -306,7 +306,7 @@ void BufferQueueConsumer::Transact(u32 code, std::span<const u8> parcel_data,
         break;
     }
     default:
-        ASSERT_MSG(false, "called, code={} flags={}", code, flags);
+        assert(false && "called, code={} flags={}" && (void(code), void(flags), true));
         break;
     }
 
@@ -318,7 +318,7 @@ void BufferQueueConsumer::Transact(u32 code, std::span<const u8> parcel_data,
 }
 
 Kernel::KReadableEvent* BufferQueueConsumer::GetNativeHandle(u32 type_id) {
-    ASSERT_MSG(false, "called, type_id={}", type_id);
+    assert(false && "called, type_id={}" && (void(type_id), true));
     return nullptr;
 }
 

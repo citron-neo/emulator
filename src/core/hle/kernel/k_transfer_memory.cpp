@@ -48,8 +48,9 @@ void KTransferMemory::Finalize() {
     // Unlock.
     if (!m_is_mapped) {
         const size_t size = m_page_group->GetNumPages() * PageSize;
-        ASSERT(R_SUCCEEDED(
-            m_owner->GetPageTable().UnlockForTransferMemory(m_address, size, *m_page_group)));
+        [[maybe_unused]] const auto unlock_for_transfer_memory_result =
+            m_owner->GetPageTable().UnlockForTransferMemory(m_address, size, *m_page_group);
+        assert(R_SUCCEEDED(unlock_for_transfer_memory_result));
     }
 
     // Close the page group.
@@ -103,7 +104,7 @@ Result KTransferMemory::Unmap(KProcessAddress address, size_t size) {
     R_TRY(GetCurrentProcess(m_kernel).GetPageTable().UnmapPageGroup(address, *m_page_group, state));
 
     // Mark ourselves as unmapped.
-    ASSERT(m_is_mapped);
+    assert(m_is_mapped);
     m_is_mapped = false;
 
     R_SUCCEED();

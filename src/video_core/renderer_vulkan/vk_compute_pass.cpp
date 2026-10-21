@@ -367,7 +367,7 @@ std::pair<VkBuffer, VkDeviceSize> QuadIndexedPass::Assemble(
         case Tegra::Engines::Maxwell3D::Regs::IndexFormat::UnsignedInt:
             return 2;
         }
-        ASSERT(false);
+        assert(false);
         return 2;
     }();
     const u32 input_size = num_vertices << index_shift;
@@ -588,9 +588,9 @@ void ASTCDecoderPass::Assemble(Image& image, const StagingBufferRef& map,
 
         // To unswizzle the ASTC data
         const auto params = MakeBlockLinearSwizzle2DParams(swizzle, image.info);
-        ASSERT(params.origin == (std::array<u32, 3>{0, 0, 0}));
-        ASSERT(params.destination == (std::array<s32, 3>{0, 0, 0}));
-        ASSERT(params.bytes_per_block_log2 == 4);
+        assert(params.origin == (std::array<u32, 3>{0, 0, 0}));
+        assert(params.destination == (std::array<s32, 3>{0, 0, 0}));
+        assert(params.bytes_per_block_log2 == 4);
         scheduler.Record([this, num_dispatches_x, num_dispatches_y, num_dispatches_z, block_dims,
                           params, descriptor_data](vk::CommandBuffer cmdbuf) {
             const AstcPushConstants uniforms{
@@ -680,10 +680,10 @@ void MSAACopyPass::CopyImage(Image& dst_image, Image& src_image,
     const VkPipeline msaa_pipeline = *pipelines[msaa_to_non_msaa ? 1 : 0];
     scheduler.RequestOutsideRenderPassOperationContext();
     for (const VideoCommon::ImageCopy& copy : copies) {
-        ASSERT(copy.src_subresource.base_layer == 0);
-        ASSERT(copy.src_subresource.num_layers == 1);
-        ASSERT(copy.dst_subresource.base_layer == 0);
-        ASSERT(copy.dst_subresource.num_layers == 1);
+        assert(copy.src_subresource.base_layer == 0);
+        assert(copy.src_subresource.num_layers == 1);
+        assert(copy.dst_subresource.base_layer == 0);
+        assert(copy.dst_subresource.num_layers == 1);
 
         compute_pass_descriptor_queue.Acquire();
         compute_pass_descriptor_queue.AddImage(

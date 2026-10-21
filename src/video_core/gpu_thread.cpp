@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <chrono>
 #include <new>
+#include <thread>
 
 #include "common/assert.h"
 #include "common/profiling.h"
@@ -42,7 +44,14 @@ static void RunThread(std::stop_token stop_token, Core::System& system, VideoCor
     };
 
     while (!stop_token.stop_requested()) {
-        state.queue.PopWait(next, stop_token);
+        // A channel stopped at a semaphore acquire waits for a write by the guest CPU or by
+        // another channel. While one is stopped, poll instead of sleeping on the queue.
+        bool have_command = true;
+        if (!failed && scheduler.HasSuspendedChannels()) {
+            have_command = state.queue.TryPop(next);
+        } else {
+            state.queue.PopWait(next, stop_token);
+        }
         if (stop_token.stop_requested()) {
             break;
         }
@@ -51,7 +60,9 @@ static void RunThread(std::stop_token stop_token, Core::System& system, VideoCor
         // Barriers below still wake their callers, allowing frontend shutdown to join the CPUs.
         if (!failed) {
             try {
-                if (auto* submit_list = std::get_if<SubmitListCommand>(&next.data)) {
+                if (!have_command) {
+                    scheduler.RetrySuspended(true);
+                } else if (auto* submit_list = std::get_if<SubmitListCommand>(&next.data)) {
                     scheduler.Push(submit_list->channel, std::move(submit_list->entries));
                 } else if (std::holds_alternative<GPUTickCommand>(next.data)) {
                     system.GPU().TickWork();
@@ -64,7 +75,12 @@ static void RunThread(std::stop_token stop_token, Core::System& system, VideoCor
                     // The command's fence is signaled below after all earlier queue entries are
                     // processed.
                 } else {
-                    ASSERT(false);
+                    assert(false);
+                }
+                if (have_command && scheduler.HasSuspendedChannels()) {
+                    // Also between commands, so a busy queue cannot starve a stopped channel.
+                    // No flush here: that would add a host fence after every command.
+                    scheduler.RetrySuspended(false);
                 }
             } catch (const VideoCommon::InvalidImageSize& exception) {
                 request_failure_shutdown(exception.what());
@@ -77,6 +93,12 @@ static void RunThread(std::stop_token stop_token, Core::System& system, VideoCor
             } catch (const std::bad_alloc& exception) {
                 request_failure_shutdown(exception.what());
             }
+        }
+        if (!have_command) {
+            if (!failed && scheduler.HasSuspendedChannels()) {
+                std::this_thread::sleep_for(std::chrono::microseconds{500});
+            }
+            continue;
         }
         state.signaled_fence.store(next.fence);
         if (next.block) {

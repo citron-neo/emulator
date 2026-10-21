@@ -90,7 +90,9 @@ public:
 
     virtual size_t GetSize() const override {
         BucketTree::Offsets offsets;
-        ASSERT(R_SUCCEEDED(m_table.GetOffsets(std::addressof(offsets))));
+        [[maybe_unused]] const auto get_offsets_result =
+            m_table.GetOffsets(std::addressof(offsets));
+        assert(R_SUCCEEDED(get_offsets_result));
 
         return offsets.end_offset;
     }

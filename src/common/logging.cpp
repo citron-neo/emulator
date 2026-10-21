@@ -9,7 +9,6 @@
 #include <climits>
 #include <cstdlib>
 #include <regex>
-#include <thread>
 #ifdef _WIN32
 #include <windows.h> // For OutputDebugStringW
 #else
@@ -21,18 +20,14 @@
 #endif
 #include <boost/algorithm/string/replace.hpp>
 #include <fmt/ranges.h>
-#include "common/bounded_threadsafe_queue.h"
 #include "common/fs/file.h"
 #include "common/fs/fs.h"
 #include "common/fs/fs_paths.h"
 #include "common/fs/path_util.h"
 #include "common/literals.h"
 #include "common/logging.h"
-#include "common/polyfill_thread.h"
 #include "common/settings.h"
 #include "common/string_util.h"
-#include "common/thread.h"
-
 
 namespace Common::Log {
 /// @brief A log entry. Log entries are store in a structured format to permit more varied output

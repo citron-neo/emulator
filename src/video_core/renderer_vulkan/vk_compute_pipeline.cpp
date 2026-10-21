@@ -124,9 +124,11 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
 
     buffer_cache.SetComputeUniformBufferState(info.constant_buffer_mask, &uniform_buffer_sizes);
     buffer_cache.UnbindComputeStorageBuffers();
+    // Every descriptor below needs a binding slot; a missing slot shifts the descriptor payload.
+    static_assert(Shader::Info::MAX_SSBOS <= VideoCommon::NUM_STORAGE_BUFFERS);
     size_t ssbo_index{};
     for (const auto& desc : info.storage_buffers_descriptors) {
-        ASSERT(desc.count == 1);
+        assert(desc.count == 1);
         buffer_cache.BindComputeStorageBuffer(ssbo_index, desc.cbuf_index, desc.cbuf_offset,
                                               desc.is_written);
         ++ssbo_index;
@@ -144,21 +146,36 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
     const auto& cbufs{qmd.const_buffer_config};
     const bool via_header_index{qmd.linked_tsc != 0};
     const auto read_handle{[&](const auto& desc, u32 index) {
-        ASSERT(((qmd.const_buffer_enable_mask >> desc.cbuf_index) & 1) != 0);
+        assert(((qmd.const_buffer_enable_mask >> desc.cbuf_index) & 1) != 0);
         const u32 index_offset{index << desc.size_shift};
         const u32 offset{desc.cbuf_offset + index_offset};
         const GPUVAddr addr{cbufs[desc.cbuf_index].Address() + offset};
         if constexpr (std::is_same_v<decltype(desc), const Shader::TextureDescriptor&> ||
                       std::is_same_v<decltype(desc), const Shader::TextureBufferDescriptor&>) {
+            u32 word{(gpu_memory.Read<u32>(addr) >> desc.shift_right) & desc.mask};
+            if (desc.indirect) {
+                // The word is an index. The texture number is the 16-bit table entry.
+                const auto& table{cbufs[desc.table_cbuf_index]};
+                const bool enabled{((qmd.const_buffer_enable_mask >> desc.table_cbuf_index) & 1) !=
+                                   0};
+                const u32 entry{(word << desc.table_shift) + desc.table_base};
+                word = enabled && entry + sizeof(u16) <= table.size
+                           ? gpu_memory.Read<u16>(table.Address() + entry)
+                           : 0;
+            }
             if (desc.has_secondary) {
-                ASSERT(((qmd.const_buffer_enable_mask >> desc.secondary_cbuf_index) & 1) != 0);
+                assert(((qmd.const_buffer_enable_mask >> desc.secondary_cbuf_index) & 1) != 0);
                 const u32 secondary_offset{desc.secondary_cbuf_offset + index_offset};
                 const GPUVAddr separate_addr{cbufs[desc.secondary_cbuf_index].Address() +
                                              secondary_offset};
-                const u32 lhs_raw{gpu_memory.Read<u32>(addr) << desc.shift_left};
-                const u32 rhs_raw{gpu_memory.Read<u32>(separate_addr) << desc.secondary_shift_left};
+                const u32 lhs_raw{word << desc.shift_left};
+                const u32 rhs_raw{((gpu_memory.Read<u32>(separate_addr) >>
+                                    desc.secondary_shift_right) &
+                                   desc.secondary_mask)
+                                  << desc.secondary_shift_left};
                 return TexturePair(lhs_raw | rhs_raw, via_header_index);
             }
+            return TexturePair(word, via_header_index);
         }
         return TexturePair(gpu_memory.Read<u32>(addr), via_header_index);
     }};

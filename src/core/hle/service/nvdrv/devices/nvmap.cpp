@@ -131,11 +131,10 @@ NvResult nvmap::IocAlloc(IocAllocParams& params, DeviceFD fd) {
     }
     bool is_out_io{};
     auto process = container.GetSession(sessions[fd])->process;
-    ASSERT(process->GetPageTable()
-               .LockForMapDeviceAddressSpace(&is_out_io, handle_description->address,
-                                             handle_description->size,
-                                             Kernel::KMemoryPermission::None, true, false)
-               .IsSuccess());
+    [[maybe_unused]] const auto lock_result = process->GetPageTable().LockForMapDeviceAddressSpace(
+        &is_out_io, handle_description->address, handle_description->size,
+        Kernel::KMemoryPermission::None, true, false);
+    assert(lock_result.IsSuccess());
     return result;
 }
 
@@ -242,9 +241,10 @@ NvResult nvmap::IocFree(IocFreeParams& params, DeviceFD fd) {
     if (auto freeInfo{file.FreeHandle(params.handle, false)}) {
         auto process = container.GetSession(sessions[fd])->process;
         if (freeInfo->can_unlock) {
-            ASSERT(process->GetPageTable()
-                       .UnlockForDeviceAddressSpace(freeInfo->address, freeInfo->size)
-                       .IsSuccess());
+            [[maybe_unused]] const auto unlock_result =
+                process->GetPageTable().UnlockForDeviceAddressSpace(freeInfo->address,
+                                                                    freeInfo->size);
+            assert(unlock_result.IsSuccess());
         }
         params.address = freeInfo->address;
         params.size = static_cast<u32>(freeInfo->size);

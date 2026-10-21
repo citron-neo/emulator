@@ -107,7 +107,7 @@ public:
 template <typename T>
     requires(std::same_as<T, char> || std::same_as<T, wchar_t>)
 constexpr inline bool IsDosDevicePath(const T* path) {
-    ASSERT(path != nullptr);
+    assert(path != nullptr);
 
     using namespace StringTraits;
 
@@ -120,7 +120,7 @@ template <typename T>
     requires(std::same_as<T, char> || std::same_as<T, wchar_t>)
 constexpr inline bool IsUncPath(const T* path, bool allow_forward_slash = true,
                                 bool allow_back_slash = true) {
-    ASSERT(path != nullptr);
+    assert(path != nullptr);
 
     using namespace StringTraits;
 
@@ -131,7 +131,7 @@ constexpr inline bool IsUncPath(const T* path, bool allow_forward_slash = true,
 }
 
 constexpr inline bool IsWindowsDrive(const char* path) {
-    ASSERT(path != nullptr);
+    assert(path != nullptr);
 
     return (('a' <= path[0] && path[0] <= 'z') || ('A' <= path[0] && path[0] <= 'Z')) &&
            path[1] == StringTraits::DriveSeparator;
@@ -178,8 +178,8 @@ constexpr inline bool IsPathStartWithCurrentDirectory(const char* path) {
 
 constexpr inline bool IsSubPath(const char* lhs, const char* rhs) {
     // Check pre-conditions
-    ASSERT(lhs != nullptr);
-    ASSERT(rhs != nullptr);
+    assert(lhs != nullptr);
+    assert(rhs != nullptr);
 
     // Import StringTraits names for current scope
     using namespace StringTraits;
@@ -215,7 +215,7 @@ constexpr inline bool IsSubPath(const char* lhs, const char* rhs) {
 
 // Path utilities
 constexpr inline void Replace(char* dst, size_t dst_size, char old_char, char new_char) {
-    ASSERT(dst != nullptr);
+    assert(dst != nullptr);
     for (char* cur = dst; cur < dst + dst_size && *cur; ++cur) {
         if (*cur == old_char) {
             *cur = new_char;
@@ -225,7 +225,7 @@ constexpr inline void Replace(char* dst, size_t dst_size, char old_char, char ne
 
 constexpr inline Result CheckUtf8(const char* s) {
     // Check pre-conditions
-    ASSERT(s != nullptr);
+    assert(s != nullptr);
 
     // Iterate, checking for utf8-validity
     while (*s) {
@@ -396,7 +396,7 @@ public:
                 state = Normal;
                 break;
             default:
-                UNREACHABLE();
+                std::unreachable();
                 break;
             }
         }
@@ -417,7 +417,7 @@ public:
             *out = false;
             break;
         default:
-            UNREACHABLE();
+            std::unreachable();
             break;
         }
 
@@ -522,11 +522,11 @@ public:
                 skip_next_sep = true;
             } else if (IsParentDirectory(cur_path + i)) {
                 // We should have just written a separator
-                ASSERT(dst[total_len - 1] == DirectorySeparator);
+                assert(dst[total_len - 1] == DirectorySeparator);
 
                 // We should have started with a separator, for non-windows paths
                 if (!is_windows_path) {
-                    ASSERT(dst[0] == DirectorySeparator);
+                    assert(dst[0] == DirectorySeparator);
                 }
 
                 // Remove the previous component
@@ -546,11 +546,11 @@ public:
 
                 // We should be pointing to a directory separator, for non-windows paths
                 if (!is_windows_path) {
-                    ASSERT(dst[total_len] == DirectorySeparator);
+                    assert(dst[total_len] == DirectorySeparator);
                 }
 
                 // We should remain in bounds
-                ASSERT(total_len < max_out_size);
+                assert(total_len < max_out_size);
             } else {
                 // Copy, possibly truncating
                 if (total_len + dir_len + 1 > max_out_size) {
@@ -596,7 +596,7 @@ public:
                            allow_all_characters));
 
         // Assert that the result path is normalized
-        ASSERT(is_normalized);
+        assert(is_normalized);
 
         // Set the output length
         *out_len = total_len;
@@ -671,10 +671,10 @@ public:
     static constexpr Result ParseMountName(const char** out, size_t* out_len, char* out_mount_name,
                                            size_t out_mount_name_buffer_size, const char* path) {
         // Check pre-conditions
-        ASSERT(path != nullptr);
-        ASSERT(out_len != nullptr);
-        ASSERT(out != nullptr);
-        ASSERT((out_mount_name == nullptr) == (out_mount_name_buffer_size == 0));
+        assert(path != nullptr);
+        assert(out_len != nullptr);
+        assert(out != nullptr);
+        assert((out_mount_name == nullptr) == (out_mount_name_buffer_size == 0));
 
         // Use StringTraits names for remainder of scope
         using namespace StringTraits;
@@ -743,10 +743,10 @@ public:
                                                  size_t out_relative_buffer_size,
                                                  const char* path) {
         // Check pre-conditions
-        ASSERT(path != nullptr);
-        ASSERT(out_len != nullptr);
-        ASSERT(out != nullptr);
-        ASSERT((out_relative == nullptr) == (out_relative_buffer_size == 0));
+        assert(path != nullptr);
+        assert(out_len != nullptr);
+        assert(out != nullptr);
+        assert((out_relative == nullptr) == (out_relative_buffer_size == 0));
 
         // Use StringTraits names for remainder of scope
         using namespace StringTraits;
@@ -802,10 +802,10 @@ public:
                                              size_t out_win_buffer_size, const char* path,
                                              bool has_mount_name) {
         // Check pre-conditions
-        ASSERT(path != nullptr);
-        ASSERT(out_len != nullptr);
-        ASSERT(out != nullptr);
-        ASSERT((out_win == nullptr) == (out_win_buffer_size == 0));
+        assert(path != nullptr);
+        assert(out_len != nullptr);
+        assert(out != nullptr);
+        assert((out_win == nullptr) == (out_win_buffer_size == 0));
 
         // Use StringTraits names for remainder of scope
         using namespace StringTraits;

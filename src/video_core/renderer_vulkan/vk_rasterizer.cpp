@@ -6,6 +6,7 @@
 #include <array>
 #include <bit>
 #include <cstring>
+#include <ctime>
 #include <exception>
 #include <map>
 #include <memory>
@@ -22,6 +23,7 @@
 #include "video_core/arm64_register_guard.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/control/channel_state.h"
+#include "video_core/dirty_flags.h"
 #include "video_core/engines/draw_manager.h"
 #include "video_core/engines/kepler_compute.h"
 #include "video_core/engines/maxwell_3d.h"
@@ -186,6 +188,57 @@ VkRect2D GetScissorState(const Tegra::Engines::Maxwell3D::Regs& regs, size_t ind
         scissor.extent.height = std::numeric_limits<s32>::max();
     }
     return scissor;
+}
+
+// The area CLEAR_SURFACE writes: the render area, cut down by scissor 0, the clear rect and
+// viewport clip 0 when SET_CLEAR_SURFACE_CONTROL USE_SCISSOR0, USE_CLEAR_RECT and
+// USE_VIEWPORT_CLIP0 ask for them (clb197.h). The clear rect max is exclusive (NVK writes
+// offset + extent into it). Window rectangles flip like the scissor for a lower left origin.
+VkRect2D GetClearRect(const Tegra::Engines::Maxwell3D::Regs& regs, VkExtent2D render_area,
+                      u32 up_scale, u32 down_shift) {
+    s64 x0 = 0;
+    s64 y0 = 0;
+    s64 x1 = render_area.width;
+    s64 y1 = render_area.height;
+    const auto cut = [&](s64 min_x, s64 min_y, s64 max_x, s64 max_y) {
+        x0 = std::max(x0, min_x);
+        y0 = std::max(y0, min_y);
+        x1 = std::min(x1, max_x);
+        y1 = std::min(y1, max_y);
+    };
+    const bool lower_left =
+        regs.window_origin.mode != Tegra::Engines::Maxwell3D::Regs::WindowOrigin::Mode::UpperLeft;
+    const s64 clip_height = regs.surface_clip.height;
+    const auto cut_window = [&](s64 min_x, s64 min_y, s64 max_x, s64 max_y) {
+        if (lower_left) {
+            const s64 flipped_min_y = clip_height - max_y;
+            max_y = clip_height - min_y;
+            min_y = flipped_min_y;
+        }
+        const auto scale = [&](s64 value) { return (value * up_scale) >> down_shift; };
+        cut(scale(min_x), scale(min_y), scale(max_x), scale(max_y));
+    };
+    const auto& control = regs.clear_control;
+    if (control.use_scissor) {
+        const VkRect2D scissor = GetScissorState(regs, 0, up_scale, down_shift);
+        cut(scissor.offset.x, scissor.offset.y,
+            static_cast<s64>(scissor.offset.x) + scissor.extent.width,
+            static_cast<s64>(scissor.offset.y) + scissor.extent.height);
+    }
+    if (control.use_clear_rect) {
+        cut_window(regs.clear_rect.x_min, regs.clear_rect.y_min, regs.clear_rect.x_max,
+                   regs.clear_rect.y_max);
+    }
+    if (control.use_viewport_clip0) {
+        const auto& viewport = regs.viewports[0];
+        cut_window(viewport.x, viewport.y, static_cast<s64>(viewport.x) + viewport.width,
+                   static_cast<s64>(viewport.y) + viewport.height);
+    }
+    return VkRect2D{
+        .offset = {.x = static_cast<s32>(x0), .y = static_cast<s32>(y0)},
+        .extent = {.width = static_cast<u32>(std::max<s64>(x1 - x0, 0)),
+                   .height = static_cast<u32>(std::max<s64>(y1 - y0, 0))},
+    };
 }
 
 DrawParams MakeDrawParams(const MaxwellDrawState& draw_state, u32 num_instances, bool is_indexed) {
@@ -601,49 +654,24 @@ void RasterizerVulkan::Clear(u32 layer_count) {
     }
     UpdateViewportsState(regs);
 
-    VkRect2D default_scissor;
-    default_scissor.offset.x = 0;
-    default_scissor.offset.y = 0;
-    default_scissor.extent.width = std::numeric_limits<s32>::max();
-    default_scissor.extent.height = std::numeric_limits<s32>::max();
-
-    VkClearRect clear_rect{
-        .rect = regs.clear_control.use_scissor ? GetScissorState(regs, 0, up_scale, down_shift)
-                                               : default_scissor,
+    const VkClearRect clear_rect{
+        .rect = GetClearRect(regs, render_area, up_scale, down_shift),
         .baseArrayLayer = regs.clear_surface.layer,
         .layerCount = layer_count,
     };
     if (clear_rect.rect.extent.width == 0 || clear_rect.rect.extent.height == 0) {
         return;
     }
-    clear_rect.rect.extent = VkExtent2D{
-        .width = std::min(clear_rect.rect.extent.width, render_area.width),
-        .height = std::min(clear_rect.rect.extent.height, render_area.height),
-    };
 
     const u32 color_attachment = regs.clear_surface.RT;
     if (use_color && framebuffer->HasAspectColorBit(color_attachment)) {
-        const auto format =
-            VideoCore::Surface::PixelFormatFromRenderTargetFormat(regs.rt[color_attachment].format);
-        bool is_integer = IsPixelFormatInteger(format);
-        bool is_signed = IsPixelFormatSignedInteger(format);
-        size_t int_size = PixelComponentSizeBitsInteger(format);
+        // SET_COLOR_CLEAR_VALUE (0x0D80) holds the clear colour as raw 32-bit words in the render
+        // target's type: floats for float and normalized targets, integers for integer targets
+        // (clb197.h; NVK and nouveau pass the words through). VkClearColorValue overlays the
+        // same three types, so the words are copied as they are.
         VkClearValue clear_value{};
-        if (!is_integer) {
-            std::memcpy(clear_value.color.float32, regs.clear_color.data(),
-                        regs.clear_color.size() * sizeof(f32));
-        } else if (!is_signed) {
-            for (size_t i = 0; i < 4; i++) {
-                clear_value.color.uint32[i] = static_cast<u32>(
-                    static_cast<f32>(static_cast<u64>(int_size) << 1U) * regs.clear_color[i]);
-            }
-        } else {
-            for (size_t i = 0; i < 4; i++) {
-                clear_value.color.int32[i] =
-                    static_cast<s32>(static_cast<f32>(static_cast<s64>(int_size - 1) << 1) *
-                                     (regs.clear_color[i] - 0.5f));
-            }
-        }
+        static_assert(sizeof(clear_value.color) == sizeof(regs.clear_color));
+        std::memcpy(&clear_value.color, regs.clear_color.data(), sizeof(clear_value.color));
 
         if (regs.clear_surface.R && regs.clear_surface.G && regs.clear_surface.B &&
             regs.clear_surface.A) {
@@ -664,7 +692,14 @@ void RasterizerVulkan::Clear(u32 layer_count) {
                               static_cast<s32>(clear_rect.rect.extent.width),
                          .y = clear_rect.rect.offset.y +
                               static_cast<s32>(clear_rect.rect.extent.height)}};
-            blit_image.ClearColor(framebuffer, color_mask, regs.clear_color, dst_region);
+            const auto format = VideoCore::Surface::PixelFormatFromRenderTargetFormat(
+                regs.rt[color_attachment].format);
+            const ClearColorType type = !IsPixelFormatInteger(format) ? ClearColorType::Float
+                                        : IsPixelFormatSignedInteger(format)
+                                            ? ClearColorType::Sint
+                                            : ClearColorType::Uint;
+            blit_image.ClearColor(framebuffer, color_attachment, color_mask, type,
+                                  std::bit_cast<std::array<u32, 4>>(regs.clear_color), dst_region);
         }
     }
 
@@ -682,16 +717,26 @@ void RasterizerVulkan::Clear(u32 layer_count) {
         return;
     }
 
-    if (use_stencil && framebuffer->HasAspectStencilBit() && regs.stencil_front_mask != 0xFF &&
-        regs.stencil_front_mask != 0) {
+    // RESPECT_STENCIL_MASK (SET_CLEAR_SURFACE_CONTROL bit 0) applies the stencil write mask to the
+    // clear; without it every stencil bit is cleared (clb197.h).
+    const u8 stencil_mask = regs.clear_control.respect_stencil_mask
+                                ? static_cast<u8>(regs.stencil_front_mask)
+                                : u8{0xFF};
+    if (use_stencil && stencil_mask == 0) {
+        aspect_flags &= ~VK_IMAGE_ASPECT_STENCIL_BIT;
+        if (aspect_flags == 0) {
+            return;
+        }
+    }
+    if ((aspect_flags & VK_IMAGE_ASPECT_STENCIL_BIT) != 0 && stencil_mask != 0xFF) {
         Region2D dst_region = {
             Offset2D{.x = clear_rect.rect.offset.x, .y = clear_rect.rect.offset.y},
             Offset2D{.x = clear_rect.rect.offset.x + static_cast<s32>(clear_rect.rect.extent.width),
                      .y = clear_rect.rect.offset.y +
                           static_cast<s32>(clear_rect.rect.extent.height)}};
-        blit_image.ClearDepthStencil(framebuffer, use_depth, regs.clear_depth,
-                                     static_cast<u8>(regs.stencil_front_mask), regs.clear_stencil,
-                                     regs.stencil_front_func_mask, dst_region);
+        blit_image.ClearDepthStencil(framebuffer, use_depth, regs.clear_depth, stencil_mask,
+                                     regs.clear_stencil, regs.stencil_front_func_mask,
+                                     dst_region);
     } else {
         scheduler.Record([clear_depth = regs.clear_depth, clear_stencil = regs.clear_stencil,
                           clear_rect, aspect_flags](vk::CommandBuffer cmdbuf) {
@@ -1014,9 +1059,47 @@ void RasterizerVulkan::FlushCommands() {
     scheduler.Flush();
 }
 
+void RasterizerVulkan::UpdatePassEndSubmit() {
+#ifdef ANDROID
+    // Submitting finished passes early only pays when somebody is waiting for the host GPU. If
+    // this thread is itself what the frame waits for, the extra submissions are pure cost: Red
+    // Dead Redemption, 4,700 draws a frame, lost 6% with them. So the share of time this thread
+    // spends running decides: on while it has idle time to win back, off once it is saturated.
+    static constexpr s64 BUSY_TO_TURN_ON = 819;  // 80% of 1024
+    static constexpr s64 BUSY_TO_TURN_OFF = 922; // 90% of 1024
+    static constexpr u32 FRAMES_TO_FORGET = 600;
+    timespec wall{};
+    timespec cpu{};
+    clock_gettime(CLOCK_MONOTONIC, &wall);
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cpu);
+    const s64 wall_ns = static_cast<s64>(wall.tv_sec) * 1'000'000'000 + wall.tv_nsec;
+    const s64 cpu_ns = static_cast<s64>(cpu.tv_sec) * 1'000'000'000 + cpu.tv_nsec;
+    if (last_frame_wall_ns != 0 && wall_ns > last_frame_wall_ns) {
+        const s64 share = std::clamp<s64>(
+            (cpu_ns - last_frame_cpu_ns) * 1024 / (wall_ns - last_frame_wall_ns), 0, 1024);
+        gpu_thread_busy = (gpu_thread_busy * 15 + share) / 16;
+        if (submit_at_pass_end && gpu_thread_busy > BUSY_TO_TURN_OFF) {
+            submit_at_pass_end = false;
+            frames_off = 0;
+            // Being on may be what saturated the thread. Ask for clearly more idle time before
+            // trying again, so a game near the line settles instead of swinging.
+            busy_to_turn_on = busy_to_turn_on * 2 / 3;
+        } else if (!submit_at_pass_end && gpu_thread_busy < busy_to_turn_on) {
+            submit_at_pass_end = true;
+        } else if (!submit_at_pass_end && ++frames_off == FRAMES_TO_FORGET) {
+            // A saturated loading screen must not decide for the rest of the session.
+            busy_to_turn_on = BUSY_TO_TURN_ON;
+        }
+    }
+    last_frame_wall_ns = wall_ns;
+    last_frame_cpu_ns = cpu_ns;
+#endif
+}
+
 void RasterizerVulkan::TickFrame() {
     memory_allocator.TickFrame();
     draw_counter = 0;
+    UpdatePassEndSubmit();
     guest_descriptor_queue.TickFrame();
     compute_pass_descriptor_queue.TickFrame();
     fence_manager.TickFrame();
@@ -1166,13 +1249,43 @@ void RasterizerVulkan::LoadDiskResources(u64 title_id, std::stop_token stop_load
 void RasterizerVulkan::FlushWork() {
 #ifdef ANDROID
     static constexpr u32 DRAWS_TO_DISPATCH = 1024;
+    // Handing work over wakes the worker thread, and the worker is asleep most of the time. A full
+    // chunk is handed over on its own, so this only has to cover runs of small draws.
+    static constexpr u32 DRAWS_TO_HAND_OVER = 64;
+    // A render pass the guest has left is submitted once this many draws have been recorded
+    // since the last submission. 32 draws and a 0.4 ms or 1 ms timer measured the same.
+    static constexpr u32 DRAWS_TO_SUBMIT_AT_PASS_END = 96;
 #else
     static constexpr u32 DRAWS_TO_DISPATCH = 4096;
+    static constexpr u32 DRAWS_TO_HAND_OVER = 8;
+    // Only measured on Android so far. 0 turns the pass-end submission off.
+    static constexpr u32 DRAWS_TO_SUBMIT_AT_PASS_END = 0;
 #endif // ANDROID
 
-    // Only check multiples of 8 draws
-    static_assert(DRAWS_TO_DISPATCH % 8 == 0);
-    if ((++draw_counter & 7) != 7) {
+    // The host GPU only starts on what has been submitted to it, and a frame used to be
+    // submitted when the guest asked for a fence, every DRAWS_TO_DISPATCH draws, or at its end.
+    // A game that waits for the GPU before it presents then sits idle while the GPU renders
+    // most of the frame after the game's own work is done. When the guest moves to another
+    // render target the pass it leaves is complete: submit it, so the GPU renders it while the
+    // guest builds the rest of the frame. Only at a pass boundary, never inside a pass:
+    // splitting a pass costs a tile-based GPU a store and a reload of every attachment.
+    if (DRAWS_TO_SUBMIT_AT_PASS_END != 0 && submit_at_pass_end) {
+        if (const u64 tick = scheduler.CurrentTick(); tick != last_submit_tick) {
+            last_submit_tick = tick;
+            draws_since_submit = 0;
+        }
+        if (++draws_since_submit > DRAWS_TO_SUBMIT_AT_PASS_END &&
+            maxwell3d->dirty.flags[VideoCommon::Dirty::RenderTargets]) {
+            scheduler.Flush();
+            draw_counter = 0;
+            return;
+        }
+    }
+
+    // Only check every few draws
+    static_assert(DRAWS_TO_DISPATCH % DRAWS_TO_HAND_OVER == 0);
+    static_assert((DRAWS_TO_HAND_OVER & (DRAWS_TO_HAND_OVER - 1)) == 0);
+    if ((++draw_counter & (DRAWS_TO_HAND_OVER - 1)) != DRAWS_TO_HAND_OVER - 1) {
         return;
     }
     if (draw_counter < DRAWS_TO_DISPATCH) {
