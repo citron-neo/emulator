@@ -14,6 +14,8 @@
 #include "video_core/renderer_null/renderer_null.h"
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 #include "video_core/video_core.h"
+#include "video_core/vulkan_common/vulkan_guest_memory.h"
+#include "video_core/vulkan_common/vulkan_library.h"
 
 namespace {
 
@@ -51,6 +53,23 @@ std::unique_ptr<Tegra::GPU> CreateGPU(Core::Frontend::EmuWindow& emu_window, Cor
         LOG_ERROR(HW_GPU, "Failed to initialize GPU: {}", exception.what());
         return nullptr;
     }
+}
+
+GuestMemoryExport ExportGuestMemory([[maybe_unused]] Core::Frontend::EmuWindow& emu_window,
+                                    [[maybe_unused]] u64 total_size,
+                                    [[maybe_unused]] u64 chunk_size) {
+#ifdef __ANDROID__
+    if (Settings::values.renderer_backend.GetValue() == Settings::RendererBackend::Vulkan) {
+        const auto context = emu_window.CreateSharedContext();
+        if (const auto library = Vulkan::OpenLibrary(context.get())) {
+            return Vulkan::ExportGuestMemory(*library, total_size, chunk_size);
+        }
+    }
+    // No driver yet, or another backend: both can change before the next game starts
+    return {};
+#else
+    return {.fds = {}, .retry = false};
+#endif
 }
 
 } // namespace VideoCore

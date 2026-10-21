@@ -4,7 +4,6 @@
 #include <algorithm>
 
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
-#include "video_core/renderer_vulkan/vk_zbc_clear.h"
 
 #include "common/settings.h"
 #include "video_core/host_shaders/blit_color_float_frag_spv.h"
@@ -598,10 +597,6 @@ void BlitImageHelper::ConvertS8D24ToABGR8(const Framebuffer* dst_framebuffer,
 void BlitImageHelper::ClearColor(const Framebuffer* dst_framebuffer, u8 color_mask,
                                  const std::array<f32, 4>& clear_color,
                                  const Region2D& dst_region) {
-    // Try to use ZBC (Zero Bandwidth Clear) for efficient clearing
-    // Note: We need the format and type from the context, but for now we'll use fallback
-    // TODO: Integrate with proper format/type detection from the rendering context
-
     const BlitImagePipelineKey key{
         .renderpass = dst_framebuffer->RenderPass(),
         .operation = Tegra::Engines::Fermi2D::Operation::BlendPremult,
