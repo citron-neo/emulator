@@ -1240,12 +1240,20 @@ void ExternalContentProvider::ClearDirectories() {
     Refresh();
 }
 
+void ExternalContentProvider::SetFiles(std::vector<VirtualFile> files) {
+    load_files = std::move(files);
+    Refresh();
+}
+
 void ExternalContentProvider::Refresh() {
     entries.clear();
     versions.clear();
     multi_version_entries.clear();
     for (const auto& dir : load_dirs) {
         ScanDirectory(dir);
+    }
+    for (const auto& file : load_files) {
+        ProcessNSP(file);
     }
 }
 
