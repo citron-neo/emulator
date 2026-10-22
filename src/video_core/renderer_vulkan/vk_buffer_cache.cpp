@@ -10,6 +10,7 @@
 #include "common/alignment.h"
 #include "common/common_types.h"
 #include "common/literals.h"
+#include "common/logging.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 
 
@@ -341,6 +342,14 @@ BufferCacheRuntime::BufferCacheRuntime(const Device& device_, MemoryAllocator& m
       staging_pool{staging_pool_}, guest_descriptor_queue{guest_descriptor_queue_},
       quad_index_pass(device, scheduler, descriptor_pool, staging_pool,
                       compute_pass_descriptor_queue) {
+    if (!device.HasRobustBufferAccess2()) {
+        LOG_WARNING(Render_Vulkan, "Device lacks robustBufferAccess2, constant buffers will be "
+                                   "zero padded on every bind");
+    } else if (device.GetRobustUniformBufferAccessSizeAlignment() > 1) {
+        LOG_WARNING(Render_Vulkan,
+                    "Constant buffers whose size is not a multiple of {} bytes will be zero padded",
+                    device.GetRobustUniformBufferAccessSizeAlignment());
+    }
     if (device.GetDriverID() != VK_DRIVER_ID_QUALCOMM_PROPRIETARY) {
         // TODO: FixMe: Uint8Pass compute shader does not build on some Qualcomm drivers.
         uint8_pass = std::make_unique<Uint8Pass>(device, scheduler, descriptor_pool, staging_pool,
