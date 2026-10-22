@@ -125,12 +125,13 @@ public:
         if (index < DomainHandlerCount()) {
             domain_handlers[index] = nullptr;
         } else {
-            ASSERT_MSG(false, "Unexpected handler index {}", index);
+            assert(false && "Unexpected handler index {}" && (void(index), true));
         }
     }
 
     SessionRequestHandlerWeakPtr DomainHandler(std::size_t index) const {
-        ASSERT_MSG(index < DomainHandlerCount(), "Unexpected handler index {}", index);
+        assert(index < DomainHandlerCount() && "Unexpected handler index {}" &&
+               (void(index), true));
         return domain_handlers.at(index);
     }
 

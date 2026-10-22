@@ -100,12 +100,12 @@ void WindowSystem::TrackApplet(std::shared_ptr<Applet> applet, bool is_applicati
     std::scoped_lock lk{m_lock};
 
     if (applet->applet_id == AppletId::QLaunch) {
-        ASSERT(m_home_menu == nullptr);
+        assert(m_home_menu == nullptr);
         m_home_menu = applet.get();
     } else if (applet->applet_id == AppletId::OverlayDisplay) {
         m_overlay = applet.get();
     } else if (is_application) {
-        ASSERT(m_application == nullptr);
+        assert(m_application == nullptr);
         m_application = applet.get();
     }
 

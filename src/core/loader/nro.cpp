@@ -215,7 +215,7 @@ static bool LoadNroImpl(Core::System& system, Kernel::KProcess& process,
         patch.PatchText(program_image, code);
 
         // We only support PostData patching for NROs.
-        ASSERT(patch.GetPatchMode() == Core::NCE::PatchMode::PostData);
+        assert(patch.GetPatchMode() == Core::NCE::PatchMode::PostData);
 
         // Update patch section.
         auto& patch_segment = codeset.PatchSegment();

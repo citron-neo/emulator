@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstring>
 #include <vector>
 
 #include "common/scratch_buffer.h"
@@ -127,10 +129,68 @@ void ProcessPitchLinear(std::span<const u8> input, std::span<u8> output, size_t 
 
 } // namespace
 
+// The formulas are the ones deko3d documents for SET_OPERATION (source/maxwell/engine_2d.def):
+//   SRCCOPY_AND      if (SRC.A) DST = SRC
+//   BLEND            DST = (1 - SRC.A * BETA1) * DST + SRC * SRC.A * BETA1
+//   SRCCOPY_PREMULT  DST = SRC * BETA4
+//   BLEND_PREMULT    DST = (1 - SRC.A * BETA4.A) * DST + SRC * BETA4
+// BETA1 uses bits 30:23 (engine_2d.def; negative is 0) as a fraction of 255: 0xFF blends fully on
+// a Switch, not 255/256 as its "1.31 fixed point" would give. BETA4 has one byte per channel, B in
+// bits 7:0, G 15:8, R 23:16 and A 31:24, as NVIDIA's cl902d.h defines NV902D_SET_BETA4
+// (engine_2d.def names the bytes the other way round). Checked on a Switch through deko3d
+// (blit2d-dk4: SRCCOPY_AND, BLEND with BETA1 0x7F800000, both premultiplied modes with BETA4
+// FFFFFFFF and 80408020).
+void ApplyOperation(Fermi2D::Operation operation, u32 beta1, u32 beta4, std::span<const f32> src,
+                    std::span<f32> dst) {
+    const f32 alpha_factor =
+        static_cast<s32>(beta1) < 0 ? 0.0f : static_cast<f32>((beta1 >> 23) & 0xFF) / 255.0f;
+    const std::array<f32, ir_components> premult{
+        static_cast<f32>((beta4 >> 16) & 0xFF) / 255.0f,
+        static_cast<f32>((beta4 >> 8) & 0xFF) / 255.0f,
+        static_cast<f32>(beta4 & 0xFF) / 255.0f,
+        static_cast<f32>(beta4 >> 24) / 255.0f,
+    };
+    const size_t num_pixels = std::min(src.size(), dst.size()) / ir_components;
+    for (size_t pixel = 0; pixel < num_pixels; ++pixel) {
+        const f32* const s = &src[pixel * ir_components];
+        f32* const d = &dst[pixel * ir_components];
+        switch (operation) {
+        case Fermi2D::Operation::SrcCopyAnd:
+            if (s[3] != 0.0f) {
+                std::copy_n(s, ir_components, d);
+            }
+            break;
+        case Fermi2D::Operation::Blend: {
+            const f32 a = s[3] * alpha_factor;
+            for (size_t i = 0; i < ir_components; ++i) {
+                d[i] = (1.0f - a) * d[i] + s[i] * a;
+            }
+            break;
+        }
+        case Fermi2D::Operation::SrcCopyPremult:
+            for (size_t i = 0; i < ir_components; ++i) {
+                d[i] = s[i] * premult[i];
+            }
+            break;
+        case Fermi2D::Operation::BlendPremult: {
+            const f32 a = s[3] * premult[3];
+            for (size_t i = 0; i < ir_components; ++i) {
+                d[i] = (1.0f - a) * d[i] + s[i] * premult[i];
+            }
+            break;
+        }
+        default:
+            std::copy_n(s, ir_components, d);
+            break;
+        }
+    }
+}
+
 struct SoftwareBlitEngine::BlitEngineImpl {
     Common::ScratchBuffer<u8> tmp_buffer;
     Common::ScratchBuffer<u8> src_buffer;
     Common::ScratchBuffer<u8> dst_buffer;
+    Common::ScratchBuffer<u8> old_dst_buffer;
     Common::ScratchBuffer<f32> intermediate_src;
     Common::ScratchBuffer<f32> intermediate_dst;
     ConverterFactory converter_factory;
@@ -224,6 +284,50 @@ bool SoftwareBlitEngine::Blit(Fermi2D::Surface& src, Fermi2D::Surface& dst,
     const size_t dst_size = get_surface_size(dst, dst_bytes_per_pixel);
     Tegra::Memory::GpuGuestMemoryScoped<u8, Tegra::Memory::GuestMemoryFlags::SafeReadWrite>
         tmp_buffer2(memory_manager, dst.Address(), dst_size, &impl->tmp_buffer);
+
+    // Operations other than SRCCOPY combine with what the destination holds, and a clip keeps the
+    // destination outside the clip rect: both need the destination region as it is now.
+    const bool combine = config.operation != Fermi2D::Operation::SrcCopy;
+    if (combine || config.clip) {
+        impl->old_dst_buffer.resize_destructive(dst_copy_size);
+        if (dst.linear == Fermi2D::MemoryLayout::BlockLinear) {
+            UnswizzleSubrect(impl->old_dst_buffer, tmp_buffer2, dst_bytes_per_pixel, dst.width,
+                             dst.height, dst.depth, config.dst_x0, config.dst_y0, dst_extent_x,
+                             dst_extent_y, dst.block_height, dst.block_depth,
+                             dst_extent_x * dst_bytes_per_pixel);
+        } else {
+            ProcessPitchLinear<false>(tmp_buffer2, impl->old_dst_buffer, dst_extent_x, dst_extent_y,
+                                      dst.pitch, config.dst_x0, config.dst_y0,
+                                      static_cast<size_t>(dst_bytes_per_pixel));
+        }
+    }
+    if (combine) {
+        auto* const converter = impl->converter_factory.GetFormatConverter(dst.format);
+        const size_t num_floats = (dst_copy_size / dst_bytes_per_pixel) * ir_components;
+        impl->intermediate_src.resize_destructive(num_floats);
+        impl->intermediate_dst.resize_destructive(num_floats);
+        converter->ConvertTo(impl->dst_buffer, impl->intermediate_src);
+        converter->ConvertTo(impl->old_dst_buffer, impl->intermediate_dst);
+        ApplyOperation(config.operation, config.beta1, config.beta4, impl->intermediate_src,
+                       impl->intermediate_dst);
+        converter->ConvertFrom(impl->intermediate_dst, impl->dst_buffer);
+    }
+    if (config.clip) {
+        for (u32 y = 0; y < dst_extent_y; ++y) {
+            const s32 dst_y = config.dst_y0 + static_cast<s32>(y);
+            for (u32 x = 0; x < dst_extent_x; ++x) {
+                const s32 dst_x = config.dst_x0 + static_cast<s32>(x);
+                if (dst_x >= config.clip_x0 && dst_x < config.clip_x1 &&
+                    dst_y >= config.clip_y0 && dst_y < config.clip_y1) {
+                    continue;
+                }
+                const size_t offset = (static_cast<size_t>(y) * dst_extent_x + x) *
+                                      static_cast<size_t>(dst_bytes_per_pixel);
+                std::memcpy(&impl->dst_buffer[offset], &impl->old_dst_buffer[offset],
+                            dst_bytes_per_pixel);
+            }
+        }
+    }
 
     if (dst.linear == Fermi2D::MemoryLayout::BlockLinear) {
         SwizzleSubrect(tmp_buffer2, impl->dst_buffer, dst_bytes_per_pixel, dst.width, dst.height,

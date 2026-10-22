@@ -99,7 +99,7 @@ private:
 
     void DrawEnd(u32 instance_count = 1, bool force_draw = false);
 
-    void DrawIndexSmall(u32 argument);
+    void DrawIndexSmall(u32 argument, Maxwell3D::Regs::IndexFormat format, bool subsequent);
 
     void DrawTexture();
 

@@ -48,8 +48,25 @@ VkShaderStageFlagBits ShaderStage(Shader::Stage stage);
 
 VkPrimitiveTopology PrimitiveTopology(const Device& device, Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology topology);
 
+/// The Vulkan format that matches a Maxwell vertex attribute's type and size, before any device
+/// fallback (the scaled types are mapped to their integer ones when the device has to emulate
+/// them).
+VkFormat NativeVertexFormat(const Device& device,
+                            Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type type,
+                            Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size size);
+
+/// NativeVertexFormat, or the closest format the device supports as a vertex buffer.
 VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type type,
                       Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size size);
+
+/// VertexFormat for an attribute that has bytes_available before its binding's stride ends.
+/// Maxwell fetches each attribute by itself, so a game may declare one that runs past the stride
+/// (TotK: 16-bit float x4 in a 6-byte stride); Vulkan needs it to fit
+/// (VUID-vkCmdBindVertexBuffers2-pStrides-06209), so the same components are taken one fewer at
+/// a time until it does, and the shader reads the dropped ones as 0, 0, 1.
+VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type type,
+                      Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size size,
+                      u32 bytes_available);
 
 VkCompareOp ComparisonOp(Tegra::Engines::Maxwell3D::Regs::ComparisonOp comparison);
 

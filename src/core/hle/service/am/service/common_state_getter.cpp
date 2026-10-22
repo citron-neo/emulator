@@ -247,7 +247,7 @@ void ICommonStateGetter::SetCpuBoostMode(HLERequestContext& ctx) {
 
     const auto& sm = system.ServiceManager();
     const auto apm_sys = sm.GetService<APM::APM_Sys>("apm:sys");
-    ASSERT(apm_sys != nullptr);
+    assert(apm_sys != nullptr);
 
     apm_sys->SetCpuBoostMode(ctx);
 }

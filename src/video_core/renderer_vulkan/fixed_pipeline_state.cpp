@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <bit>
 #include <cstring>
 
-#include "common/bit_cast.h"
 #include "common/cityhash.h"
 #include "common/common_types.h"
 #include <ranges>
@@ -69,8 +69,8 @@ void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFe
     for (size_t i = 0; i < regs.rt.size(); ++i) {
         color_formats[i] = static_cast<u8>(regs.rt[i].format);
     }
-    alpha_test_ref = Common::BitCast<u32>(regs.alpha_test_ref);
-    point_size = Common::BitCast<u32>(regs.point_size);
+    alpha_test_ref = std::bit_cast<u32>(regs.alpha_test_ref);
+    point_size = std::bit_cast<u32>(regs.point_size);
 
     if (maxwell3d.dirty.flags[Dirty::VertexInput]) {
         if (features.has_dynamic_vertex_input) {
@@ -476,7 +476,7 @@ Tegra::Engines::Maxwell3D::Regs::Blend::Factor FixedPipelineState::UnpackBlendFa
         Tegra::Engines::Maxwell3D::Regs::Blend::Factor::BothSourceAlpha_D3D,
         Tegra::Engines::Maxwell3D::Regs::Blend::Factor::OneMinusBothSourceAlpha_D3D,
     };
-    ASSERT(packed < LUT.size());
+    assert(packed < LUT.size());
     return LUT[packed];
 }
 

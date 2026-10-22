@@ -22,9 +22,9 @@ ImageViewBase::ImageViewBase(const ImageViewInfo& info, const ImageInfo& image_i
           .height = std::max(image_info.size.height >> range.base.level, 1u),
           .depth = std::max(image_info.size.depth >> range.base.level, 1u),
       } {
-    ASSERT_MSG(VideoCore::Surface::IsViewCompatible(image_info.format, info.format, false, true),
-               "Image view format {} is incompatible with image format {}", info.format,
-               image_info.format);
+    assert(VideoCore::Surface::IsViewCompatible(image_info.format, info.format, false, true) &&
+           "Image view format {} is incompatible with image format {}" &&
+           (void(info.format), void(image_info.format), true));
     if (image_info.forced_flushed) {
         flags |= ImageViewFlagBits::PreemtiveDownload;
     }
@@ -40,7 +40,7 @@ ImageViewBase::ImageViewBase(const ImageInfo& info, const ImageViewInfo& view_in
           .height = 1,
           .depth = 1,
       } {
-    ASSERT_MSG(view_info.type == ImageViewType::Buffer, "Expected texture buffer");
+    assert(view_info.type == ImageViewType::Buffer && "Expected texture buffer");
 }
 
 ImageViewBase::ImageViewBase(const NullImageViewParams&) : image_id{NULL_IMAGE_ID} {}

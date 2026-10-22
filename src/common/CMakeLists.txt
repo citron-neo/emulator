@@ -22,11 +22,8 @@ add_library(common STATIC
     algorithm.h
     alignment.h
     announce_multiplayer_room.h
-    assert.cpp
     assert.h
-    atomic_helpers.h
     atomic_ops.h
-    bit_cast.h
     bit_field.h
     bit_set.h
     bit_util.h
@@ -75,12 +72,9 @@ add_library(common STATIC
     logging.h
     lz4_compression.cpp
     lz4_compression.h
-    make_unique_for_overwrite.h
     math_util.h
     memory_detect.cpp
     memory_detect.h
-    multi_level_page_table.cpp
-    multi_level_page_table.h
     nvidia_flags.cpp
     nvidia_flags.h
     overflow.h
@@ -124,7 +118,6 @@ add_library(common STATIC
     swap.h
     thread.cpp
     thread.h
-    thread_queue_list.h
     thread_worker.h
     threadsafe_queue.h
     time_zone.cpp

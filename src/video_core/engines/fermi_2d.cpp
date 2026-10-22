@@ -35,8 +35,8 @@ void Fermi2D::BindRasterizer(VideoCore::RasterizerInterface* rasterizer_) {
 }
 
 void Fermi2D::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
-    ASSERT_MSG(method < Regs::NUM_REGS,
-               "Invalid Fermi2D register, increase the size of the Regs structure");
+    assert(method < Regs::NUM_REGS &&
+           "Invalid Fermi2D register, increase the size of the Regs structure");
     regs.reg_array[method] = method_argument;
 
     if (method == FERMI2D_REG_INDEX(pixels_from_memory.src_y0) + 1) {
@@ -61,9 +61,17 @@ void Fermi2D::Blit() {
     LOG_DEBUG(HW_GPU, "called. source address=0x{:x}, destination address=0x{:x}",
               regs.src.Address(), regs.dst.Address());
 
-    if (regs.operation != Operation::SrcCopy) {
-        LOG_WARNING(HW_GPU, "Operation is not SrcCopy ({}), skipping blit", static_cast<u32>(regs.operation));
-        return;
+    // ROP and ROP_AND need the raster op and the pattern, which are not translated: those blits are
+    // done as SRCCOPY instead of being dropped. deko3d's blit modes only use the other five
+    // operations.
+    Operation operation = regs.operation;
+    if (operation == Operation::ROP || operation == Operation::ROPAnd) {
+        if (!rop_reported) {
+            rop_reported = true;
+            LOG_WARNING(HW_GPU, "2D blit with ROP operation {} (rop {:#x}) done as SRCCOPY",
+                        static_cast<u32>(operation), regs.rop.Value());
+        }
+        operation = Operation::SrcCopy;
     }
     if (regs.src.layer != 0) {
         LOG_DEBUG(HW_GPU, "Source layer is {}, expected 0 - using layer 0", regs.src.layer);
@@ -73,9 +81,6 @@ void Fermi2D::Blit() {
     }
     if (regs.src.depth != 1) {
         LOG_DEBUG(HW_GPU, "Source depth is {}, expected 1 - using first layer", regs.src.depth);
-    }
-    if (regs.clip_enable != 0) {
-        LOG_DEBUG(HW_GPU, "Clipped blit enabled - ignoring clip");
     }
 
     const auto& args = regs.pixels_from_memory;
@@ -93,7 +98,7 @@ void Fermi2D::Blit() {
     }
 
     Config config{
-        .operation = regs.operation,
+        .operation = operation,
         .filter = args.sample_mode.filter,
         .must_accelerate =
             args.du_dx != null_derivative || args.dv_dy != null_derivative || delegate_to_gpu,
@@ -120,8 +125,21 @@ void Fermi2D::Blit() {
         config.src_x0 = 0;
     }
 
+    config.beta1 = regs.beta1;
+    config.beta4 = regs.beta4.raw;
+    if (regs.clip_enable != 0) {
+        config.clip_x0 = static_cast<s32>(regs.clip_x0);
+        config.clip_y0 = static_cast<s32>(regs.clip_y0);
+        config.clip_x1 = static_cast<s32>(regs.clip_x0 + regs.clip_width);
+        config.clip_y1 = static_cast<s32>(regs.clip_y0 + regs.clip_height);
+        config.clip = config.dst_x0 < config.clip_x0 || config.dst_y0 < config.clip_y0 ||
+                      config.dst_x1 > config.clip_x1 || config.dst_y1 > config.clip_y1;
+    }
+
     memory_manager.FlushCaching();
-    if (!rasterizer->AccelerateSurfaceCopy(src, regs.dst, config)) {
+    // The GPU path only copies: blends and clips go to the software blitter.
+    const bool gpu_can_do_it = config.operation == Operation::SrcCopy && !config.clip;
+    if (!gpu_can_do_it || !rasterizer->AccelerateSurfaceCopy(src, regs.dst, config)) {
         sw_blitter->Blit(src, regs.dst, config);
     }
 }

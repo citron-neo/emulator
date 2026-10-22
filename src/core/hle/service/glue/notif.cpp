@@ -32,8 +32,8 @@ Result NotificationServiceImpl::RegisterAlarmSetting(AlarmSettingId* out_alarm_s
         R_THROW(ResultUnknown);
     }
 
-    ASSERT_MSG(application_parameter.size() <= sizeof(ApplicationParameter),
-               "application_parameter_size is bigger than 0x400 bytes");
+    assert(application_parameter.size() <= sizeof(ApplicationParameter) &&
+           "application_parameter_size is bigger than 0x400 bytes");
 
     AlarmSetting new_alarm = alarm_setting;
     new_alarm.alarm_setting_id = last_alarm_setting_id++;
@@ -52,8 +52,8 @@ Result NotificationServiceImpl::RegisterAlarmSetting(AlarmSettingId* out_alarm_s
 
 Result NotificationServiceImpl::UpdateAlarmSetting(const AlarmSetting& alarm_setting,
                                                    std::span<const u8> application_parameter) {
-    ASSERT_MSG(application_parameter.size() <= sizeof(ApplicationParameter),
-               "application_parameter_size is bigger than 0x400 bytes");
+    assert(application_parameter.size() <= sizeof(ApplicationParameter) &&
+           "application_parameter_size is bigger than 0x400 bytes");
 
     const auto alarm_it = GetAlarmFromId(alarm_setting.alarm_setting_id);
     if (alarm_it != alarms.end()) {

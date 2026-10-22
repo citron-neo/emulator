@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "common/bit_cast.h"
 #include "common/common_types.h"
 
 namespace FSR {

@@ -51,7 +51,7 @@ public:
     /// Set a successful reservation to a smaller retained value, immediately releasing the
     /// difference.
     void Shrink(s64 value) {
-        ASSERT(value >= 0 && value <= m_value);
+        assert(value >= 0 && value <= m_value);
         if (m_limit && m_succeeded && value < m_value) {
             m_limit->Release(m_resource, m_value - value);
         }

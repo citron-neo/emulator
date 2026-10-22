@@ -2730,7 +2730,7 @@ void GMainWindow::OnGameListOpenFolder(u64 program_id, GameListOpenTarget target
         const bool has_user_save{user_save_size > 0};
         [[maybe_unused]] const bool has_device_save{device_save_size > 0};
 
-        ASSERT(has_user_save != has_device_save && "Game uses both user and device savedata?");
+        assert(has_user_save != has_device_save && "Game uses both user and device savedata?");
 
         if (has_user_save) {
             // User save data
@@ -2760,7 +2760,7 @@ void GMainWindow::OnGameListOpenFolder(u64 program_id, GameListOpenTarget target
 
             const auto user_id =
                 system->GetProfileManager().GetUser(static_cast<std::size_t>(index));
-            ASSERT(user_id);
+            assert(user_id);
 
             const auto user_save_data_path = FileSys::SaveDataFactory::GetFullPath(
                 {}, vfs_nand_dir, FileSys::SaveDataSpaceId::User, FileSys::SaveDataType::Account,

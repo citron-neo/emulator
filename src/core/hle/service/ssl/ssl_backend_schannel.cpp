@@ -151,7 +151,7 @@ public:
         const auto [actual, err] = socket->Recv(0, read_span);
         switch (err) {
         case Network::Errno::SUCCESS:
-            ASSERT(static_cast<size_t>(actual) <= fill_size);
+            assert(static_cast<size_t>(actual) <= fill_size);
             ciphertext_read_buf.resize(offset + actual);
             return ResultSuccess;
         case Network::Errno::AGAIN:
@@ -170,7 +170,7 @@ public:
             const auto [actual, err] = socket->Send(ciphertext_write_buf, 0);
             switch (err) {
             case Network::Errno::SUCCESS:
-                ASSERT(static_cast<size_t>(actual) <= ciphertext_write_buf.size());
+                assert(static_cast<size_t>(actual) <= ciphertext_write_buf.size());
                 ciphertext_write_buf.erase(ciphertext_write_buf.begin(),
                                            ciphertext_write_buf.begin() + actual);
                 break;
@@ -276,18 +276,18 @@ public:
             LOG_DEBUG(Service_SSL, "InitializeSecurityContext => SEC_I_CONTINUE_NEEDED");
             if (input_buffers[1].BufferType == SECBUFFER_EXTRA) {
                 LOG_DEBUG(Service_SSL, "EXTRA of size {}", input_buffers[1].cbBuffer);
-                ASSERT(input_buffers[1].cbBuffer <= ciphertext_read_buf.size());
+                assert(input_buffers[1].cbBuffer <= ciphertext_read_buf.size());
                 ciphertext_read_buf.erase(ciphertext_read_buf.begin(),
                                           ciphertext_read_buf.end() - input_buffers[1].cbBuffer);
             } else {
-                ASSERT(input_buffers[1].BufferType == SECBUFFER_EMPTY);
+                assert(input_buffers[1].BufferType == SECBUFFER_EMPTY);
                 ciphertext_read_buf.clear();
             }
             handshake_state = HandshakeState::ContinueNeeded;
             return ResultSuccess;
         case SEC_E_INCOMPLETE_MESSAGE:
             LOG_DEBUG(Service_SSL, "InitializeSecurityContext => SEC_E_INCOMPLETE_MESSAGE");
-            ASSERT(input_buffers[1].BufferType == SECBUFFER_MISSING);
+            assert(input_buffers[1].BufferType == SECBUFFER_MISSING);
             read_buf_fill_size = input_buffers[1].cbBuffer;
             handshake_state = HandshakeState::IncompleteMessage;
             return ResultSuccess;
@@ -372,11 +372,11 @@ public:
                                               static_cast<u8*>(buffers[1].pvBuffer) +
                                                   buffers[1].cbBuffer);
                     if (buffers[3].BufferType == SECBUFFER_EXTRA) {
-                        ASSERT(buffers[3].cbBuffer <= ciphertext_read_buf.size());
+                        assert(buffers[3].cbBuffer <= ciphertext_read_buf.size());
                         ciphertext_read_buf.erase(ciphertext_read_buf.begin(),
                                                   ciphertext_read_buf.end() - buffers[3].cbBuffer);
                     } else {
-                        ASSERT(buffers[3].BufferType == SECBUFFER_EMPTY);
+                        assert(buffers[3].BufferType == SECBUFFER_EMPTY);
                         ciphertext_read_buf.clear();
                     }
                     continue;

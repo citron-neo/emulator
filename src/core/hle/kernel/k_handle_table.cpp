@@ -86,10 +86,10 @@ Result KHandleTable::Add(Handle* out_handle, KAutoObject* obj) {
 KScopedAutoObject<KAutoObject> KHandleTable::GetObjectForIpc(Handle handle,
                                                              KThread* cur_thread) const {
     // Handle pseudo-handles.
-    ASSERT(cur_thread != nullptr);
+    assert(cur_thread != nullptr);
     if (handle == Svc::PseudoHandle::CurrentProcess) {
         auto* const cur_process = cur_thread->GetOwnerProcess();
-        ASSERT(cur_process != nullptr);
+        assert(cur_process != nullptr);
         return cur_process;
     }
     if (handle == Svc::PseudoHandle::CurrentThread) {
@@ -117,14 +117,14 @@ void KHandleTable::Unreserve(Handle handle) {
     // Unpack the handle.
     const auto handle_pack = HandlePack(handle);
     const auto index = handle_pack.index;
-    const auto linear_id = handle_pack.linear_id;
-    const auto reserved = handle_pack.reserved;
-    ASSERT(reserved == 0);
-    ASSERT(linear_id != 0);
+    [[maybe_unused]] const auto linear_id = handle_pack.linear_id;
+    [[maybe_unused]] const auto reserved = handle_pack.reserved;
+    assert(reserved == 0);
+    assert(linear_id != 0);
 
     if (index < m_table_size) [[likely]] {
         // NOTE: This code does not check the linear id.
-        ASSERT(m_objects[index] == nullptr);
+        assert(m_objects[index] == nullptr);
         this->FreeEntry(index);
     }
 }
@@ -137,13 +137,13 @@ void KHandleTable::Register(Handle handle, KAutoObject* obj) {
     const auto handle_pack = HandlePack(handle);
     const auto index = handle_pack.index;
     const auto linear_id = handle_pack.linear_id;
-    const auto reserved = handle_pack.reserved;
-    ASSERT(reserved == 0);
-    ASSERT(linear_id != 0);
+    [[maybe_unused]] const auto reserved = handle_pack.reserved;
+    assert(reserved == 0);
+    assert(linear_id != 0);
 
     if (index < m_table_size) [[likely]] {
         // Set the entry.
-        ASSERT(m_objects[index] == nullptr);
+        assert(m_objects[index] == nullptr);
 
         m_entry_infos[index].linear_id = static_cast<u16>(linear_id);
         m_objects[index] = obj;

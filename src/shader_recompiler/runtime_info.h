@@ -83,10 +83,26 @@ struct TransformFeedbackVarying {
     u32 components{};
 };
 
+[[nodiscard]] constexpr std::array<u8, 32> IdentityGenericLocations() {
+    std::array<u8, 32> locations{};
+    for (size_t index = 0; index < locations.size(); ++index) {
+        locations[index] = static_cast<u8>(index);
+    }
+    return locations;
+}
+static_assert(IdentityGenericLocations()[0] == 0 && IdentityGenericLocations()[31] == 31);
+
 struct RuntimeInfo {
     std::array<AttributeType, 32> generic_input_types{};
     VaryingState previous_stage_stores;
     std::map<IR::Attribute, IR::Attribute> previous_stage_legacy_stores_mapping;
+
+    /// Host location of each generic this stage reads from the previous stage and writes for
+    /// the next one. Identity unless a geometry shader follows and the host allows fewer
+    /// geometry input locations than the 32 Maxwell generics; the stage before the geometry
+    /// shader then gets the same table as the geometry shader's inputs.
+    std::array<u8, 32> input_generic_locations{IdentityGenericLocations()};
+    std::array<u8, 32> output_generic_locations{IdentityGenericLocations()};
 
     bool convert_depth_mode{};
     bool force_early_z{};

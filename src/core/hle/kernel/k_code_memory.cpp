@@ -122,7 +122,7 @@ Result KCodeMemory::MapToOwner(KProcessAddress address, size_t size, Svc::Memory
         break;
     default:
         // Already validated by ControlCodeMemory svc
-        UNREACHABLE();
+        std::unreachable();
     }
 
     // Map the memory.

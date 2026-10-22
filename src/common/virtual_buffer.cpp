@@ -23,7 +23,7 @@ void* AllocateMemoryPages(std::size_t size) noexcept {
     }
 #endif
 
-    ASSERT(base);
+    assert(base);
 
     return base;
 }
@@ -33,9 +33,11 @@ void FreeMemoryPages(void* base, [[maybe_unused]] std::size_t size) noexcept {
         return;
     }
 #ifdef _WIN32
-    ASSERT(VirtualFree(base, 0, MEM_RELEASE));
+    [[maybe_unused]] const auto freed = VirtualFree(base, 0, MEM_RELEASE);
+    assert(freed);
 #else
-    ASSERT(munmap(base, size) == 0);
+    [[maybe_unused]] const auto unmap_result = munmap(base, size);
+    assert(unmap_result == 0);
 #endif
 }
 

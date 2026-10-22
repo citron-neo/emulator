@@ -747,7 +747,7 @@ void QtControllerSelectorDialog::DisableUnsupportedPlayers() {
     switch (max_supported_players) {
     case 0:
     default:
-        ASSERT(false);
+        assert(false);
         return;
     case 1:
         ui->widgetSpacer->hide();

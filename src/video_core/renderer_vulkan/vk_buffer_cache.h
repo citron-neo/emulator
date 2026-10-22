@@ -34,11 +34,23 @@ public:
         return *buffer;
     }
 
-    [[nodiscard]] bool IsRegionUsed(u64 offset, u64 size) const noexcept {
-        return tracker.IsUsed(offset, size);
+    /// Host mapping of a unified memory buffer, empty for staged buffers.
+    [[nodiscard]] std::span<u8> Mapped() noexcept {
+        return buffer.Mapped();
     }
 
-    void MarkUsage(u64 offset, u64 size) noexcept {
+    /// Whether work recorded for the submission `tick` uses the range. Work of earlier
+    /// submissions is ahead of anything recorded now in queue order, so it does not count.
+    [[nodiscard]] bool IsRegionUsed(u64 offset, u64 size, u64 tick) const noexcept {
+        return tick == usage_tick && tracker.IsUsed(offset, size);
+    }
+
+    /// Records that work of the submission `tick` uses the range.
+    void MarkUsage(u64 offset, u64 size, u64 tick) noexcept {
+        if (tick != usage_tick) {
+            tracker.Reset();
+            usage_tick = tick;
+        }
         tracker.Track(offset, size);
     }
 
@@ -62,6 +74,8 @@ private:
     vk::Buffer buffer;
     std::vector<BufferView> views;
     VideoCommon::UsageTracker tracker;
+    /// Submission the usage in tracker belongs to.
+    u64 usage_tick{};
     bool is_null{};
 };
 
@@ -83,6 +97,13 @@ public:
 
     void TickFrame(Common::SlotVector<Buffer>& slot_buffers) noexcept;
 
+    /// Tick of the command buffer being recorded; work recorded now completes at this tick.
+    [[nodiscard]] u64 CurrentTick() const noexcept;
+
+    /// Last tick the GPU is known to have completed (MasterSemaphore::KnownGpuTick, a cached
+    /// value that can lag behind the GPU, never run ahead of it).
+    [[nodiscard]] u64 KnownGpuTick() const noexcept;
+
     void Finish();
 
     u64 GetDeviceLocalMemory() const;
@@ -102,6 +123,9 @@ public:
     [[nodiscard]] StagingBufferRef DownloadStagingBuffer(size_t size, bool deferred = false);
 
     bool CanReorderUpload(const Buffer& buffer, std::span<const VideoCommon::BufferCopy> copies);
+
+    /// An upload copy that cannot be reordered would end the render pass that is open now.
+    [[nodiscard]] bool IsRenderPassActive() const noexcept;
 
     void FreeDeferredStagingBuffer(StagingBufferRef& ref);
 
@@ -137,6 +161,17 @@ public:
 
     bool NeedsPaddedVertexBuffers() const {
         return device.GetDriverID() == VK_DRIVER_ID_MOLTENVK;
+    }
+
+    /// A shader may read a constant buffer past the size the guest bound; hardware returns zero
+    /// there. With robustBufferAccess2 the device does the same for reads past the descriptor
+    /// range, so the buffer can be bound at its real size. Without it the cache has to copy the
+    /// data into a zero padded staging buffer on every bind. The device checks the range in
+    /// steps of robustUniformBufferAccessSizeAlignment, so a size that is not a multiple of that
+    /// step is still padded.
+    bool NeedsPaddedUniformBuffer(u32 bound_size) const {
+        return !device.HasRobustBufferAccess2() ||
+               bound_size % device.GetRobustUniformBufferAccessSizeAlignment() != 0;
     }
 
     std::span<u8> BindMappedVertexBuffer(u32 index, u32 size, u32 stride) {

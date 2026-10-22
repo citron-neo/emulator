@@ -21,8 +21,9 @@ ServiceContext::ServiceContext(Core::System& system_, std::string name_)
 
     // Create the process.
     process = Kernel::KProcess::Create(kernel);
-    ASSERT(R_SUCCEEDED(process->Initialize(Kernel::Svc::CreateProcessParameter{},
-                                           kernel.GetSystemResourceLimit(), false)));
+    [[maybe_unused]] const auto initialize_result = process->Initialize(
+        Kernel::Svc::CreateProcessParameter{}, kernel.GetSystemResourceLimit(), false);
+    assert(R_SUCCEEDED(initialize_result));
 
     // Register the process.
     Kernel::KProcess::Register(kernel, process);

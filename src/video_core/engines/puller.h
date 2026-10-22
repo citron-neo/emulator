@@ -4,7 +4,9 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstddef>
+#include <optional>
 #include <vector>
 #include "common/bit_field.h"
 #include "common/common_funcs.h"
@@ -84,6 +86,21 @@ public:
     void CallEngineMultiMethod(u32 method, u32 subchannel, const u32* base_start, u32 amount,
                                u32 methods_pending);
 
+    /// True while the channel is stopped at a SEMAPHORED acquire that has not passed yet. The
+    /// pusher must not send this channel any further method until RetryPendingAcquire passes.
+    [[nodiscard]] bool HasPendingAcquire() const {
+        return pending_acquire.has_value();
+    }
+
+    /// Reads the semaphore of the pending acquire again. With flush, writes still held back for a
+    /// host fence are made first. Returns true once the channel may continue.
+    [[nodiscard]] bool RetryPendingAcquire(bool flush);
+
+    /// A semaphore acquire made by an engine method (the 3D engine's report semaphore): stops
+    /// the channel like the host's own acquire until the word at address equals the payload, or
+    /// with greater_or_equal is at least the payload.
+    void AcquireSemaphore(GPUVAddr address, u32 payload, bool greater_or_equal);
+
 private:
     Tegra::GPU& gpu;
 
@@ -151,6 +168,22 @@ private:
         AcquireGequal = 0x4,
         AcquireMask = 0x8,
     };
+
+    struct PendingAcquire {
+        GPUVAddr address;
+        u32 payload;
+        GpuSemaphoreOperation op;
+        std::chrono::steady_clock::time_point since;
+    };
+
+    /// The acquire this channel is stopped at, if any.
+    std::optional<PendingAcquire> pending_acquire;
+
+    [[nodiscard]] static constexpr bool AcquirePasses(GpuSemaphoreOperation op, u32 word,
+                                                      u32 payload);
+
+    /// Passes the acquire now or stops the channel at it (pending_acquire).
+    void StartAcquire(GPUVAddr address, u32 payload, GpuSemaphoreOperation op);
 
 #define ASSERT_REG_POSITION(field_name, position)                                                  \
     static_assert(offsetof(Regs, field_name) == position * 4,                                      \
