@@ -1166,13 +1166,18 @@ void RasterizerVulkan::LoadDiskResources(u64 title_id, std::stop_token stop_load
 void RasterizerVulkan::FlushWork() {
 #ifdef ANDROID
     static constexpr u32 DRAWS_TO_DISPATCH = 1024;
+    // Handing work over wakes the worker thread, and the worker is asleep most of the time. A full
+    // chunk is handed over on its own, so this only has to cover runs of small draws.
+    static constexpr u32 DRAWS_TO_HAND_OVER = 64;
 #else
     static constexpr u32 DRAWS_TO_DISPATCH = 4096;
+    static constexpr u32 DRAWS_TO_HAND_OVER = 8;
 #endif // ANDROID
 
-    // Only check multiples of 8 draws
-    static_assert(DRAWS_TO_DISPATCH % 8 == 0);
-    if ((++draw_counter & 7) != 7) {
+    // Only check every few draws
+    static_assert(DRAWS_TO_DISPATCH % DRAWS_TO_HAND_OVER == 0);
+    static_assert((DRAWS_TO_HAND_OVER & (DRAWS_TO_HAND_OVER - 1)) == 0);
+    if ((++draw_counter & (DRAWS_TO_HAND_OVER - 1)) != DRAWS_TO_HAND_OVER - 1) {
         return;
     }
     if (draw_counter < DRAWS_TO_DISPATCH) {
