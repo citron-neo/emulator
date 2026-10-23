@@ -133,7 +133,7 @@ Result IRS::RunImageTransferProcessor(
     const Core::IrSensor::PackedImageTransferProcessorConfig& processor_config,
     u64 transfer_memory_size, InCopyHandle<Kernel::KTransferMemory> t_mem) {
 
-    ASSERT_MSG(t_mem->GetSize() == transfer_memory_size, "t_mem has incorrect size");
+    assert(t_mem->GetSize() == transfer_memory_size && "t_mem has incorrect size");
 
     LOG_INFO(Service_IRS,
              "called, npad_type={}, npad_id={}, transfer_memory_size={}, transfer_memory_size={}, "
@@ -282,7 +282,7 @@ Result IRS::RunImageTransferExProcessor(
     const Core::IrSensor::PackedImageTransferProcessorExConfig& processor_config,
     u64 transfer_memory_size, InCopyHandle<Kernel::KTransferMemory> t_mem) {
 
-    ASSERT_MSG(t_mem->GetSize() == transfer_memory_size, "t_mem has incorrect size");
+    assert(t_mem->GetSize() == transfer_memory_size && "t_mem has incorrect size");
 
     LOG_INFO(Service_IRS,
              "called, npad_type={}, npad_id={}, transfer_memory_size={}, "
@@ -359,8 +359,8 @@ Result IRS::IsIrCameraHandleValid(const Core::IrSensor::IrCameraHandle& camera_h
 
 Core::IrSensor::DeviceFormat& IRS::GetIrCameraSharedMemoryDeviceEntry(
     const Core::IrSensor::IrCameraHandle& camera_handle) {
-    const auto npad_id_max_index = static_cast<u8>(sizeof(StatusManager::device));
-    ASSERT_MSG(camera_handle.npad_id < npad_id_max_index, "invalid npad_id");
+    [[maybe_unused]] const auto npad_id_max_index = static_cast<u8>(sizeof(StatusManager::device));
+    assert(camera_handle.npad_id < npad_id_max_index && "invalid npad_id");
     return shared_memory->device[camera_handle.npad_id];
 }
 

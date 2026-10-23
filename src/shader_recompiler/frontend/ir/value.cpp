@@ -5,8 +5,6 @@
 
 namespace Shader::IR {
 
-Value::Value(IR::Inst* value) noexcept : type{Type::Opaque}, inst{value} {}
-
 Value::Value(IR::Reg value) noexcept : type{Type::Reg}, reg{value} {}
 
 Value::Value(IR::Pred value) noexcept : type{Type::Pred}, pred{value} {}
@@ -29,29 +27,19 @@ Value::Value(u64 value) noexcept : type{Type::U64}, imm_u64{value} {}
 
 Value::Value(f64 value) noexcept : type{Type::F64}, imm_f64{value} {}
 
-IR::Type Value::Type() const noexcept {
-    if (IsPhi()) {
-        // The type of a phi node is stored in its flags
-        return inst->Flags<IR::Type>();
-    }
-    if (IsIdentity()) {
-        return inst->Arg(0).Type();
-    }
-    if (type == Type::Opaque) {
-        return inst->Type();
-    }
-    return type;
-}
-
 bool Value::operator==(const Value& other) const {
+    if (is_inst != other.is_inst) {
+        return false;
+    }
+    if (is_inst) {
+        return inst_index == other.inst_index;
+    }
     if (type != other.type) {
         return false;
     }
     switch (type) {
     case Type::Void:
         return true;
-    case Type::Opaque:
-        return inst == other.inst;
     case Type::Reg:
         return reg == other.reg;
     case Type::Pred:
@@ -73,6 +61,7 @@ bool Value::operator==(const Value& other) const {
     case Type::U64:
     case Type::F64:
         return imm_u64 == other.imm_u64;
+    case Type::Opaque:
     case Type::U32x2:
     case Type::U32x3:
     case Type::U32x4:

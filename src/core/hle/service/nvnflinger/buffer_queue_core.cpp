@@ -80,7 +80,7 @@ s32 BufferQueueCore::GetMaxBufferCountLocked(bool async) const {
     auto max_buffer_count = std::max(default_max_buffer_count, min_buffer_count);
 
     if (override_max_buffer_count != 0) {
-        ASSERT(override_max_buffer_count >= min_buffer_count);
+        assert(override_max_buffer_count >= min_buffer_count);
         max_buffer_count = override_max_buffer_count;
     }
 

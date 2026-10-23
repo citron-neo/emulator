@@ -207,6 +207,16 @@ struct TextureBufferDescriptor {
     u32 secondary_shift_left;
     u32 count;
     u32 size_shift;
+    // The handle is ((word >> shift_right) & mask) << shift_left.
+    u32 shift_right{0};
+    u32 mask{0xFFFFFFFF};
+    u32 secondary_shift_right{0};
+    u32 secondary_mask{0xFFFFFFFF};
+    // The number is a 16-bit entry of a table in another constant buffer, see texture_pass.cpp.
+    bool indirect{false};
+    u32 table_cbuf_index{0};
+    u32 table_scale{1};
+    u32 table_base{0};
 
     auto operator<=>(const TextureBufferDescriptor&) const = default;
 };
@@ -241,6 +251,16 @@ struct TextureDescriptor {
     u32 secondary_shift_left;
     u32 count;
     u32 size_shift;
+    // The handle is ((word >> shift_right) & mask) << shift_left.
+    u32 shift_right{0};
+    u32 mask{0xFFFFFFFF};
+    u32 secondary_shift_right{0};
+    u32 secondary_mask{0xFFFFFFFF};
+    // The number is a 16-bit entry of a table in another constant buffer, see texture_pass.cpp.
+    bool indirect{false};
+    u32 table_cbuf_index{0};
+    u32 table_scale{1};
+    u32 table_base{0};
 
     auto operator<=>(const TextureDescriptor&) const = default;
 };

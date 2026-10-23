@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <bit>
 #include <fstream>
 #include <sstream>
 #include <vector>
 
-#include "common/bit_cast.h"
 #include "common/common_types.h"
 #include "common/logging.h"
 #include <ranges>
@@ -63,7 +63,7 @@ std::vector<NetworkInterface> GetAvailableNetworkInterfaces() {
             continue;
         }
 
-        const auto ip_addr = Common::BitCast<struct sockaddr_in>(
+        const auto ip_addr = std::bit_cast<struct sockaddr_in>(
                                  *current_address->FirstUnicastAddress->Address.lpSockaddr)
                                  .sin_addr;
 
@@ -77,7 +77,7 @@ std::vector<NetworkInterface> GetAvailableNetworkInterfaces() {
         struct in_addr gateway = {.S_un{.S_addr{0}}};
         if (current_address->FirstGatewayAddress != nullptr &&
             current_address->FirstGatewayAddress->Address.lpSockaddr != nullptr) {
-            gateway = Common::BitCast<struct sockaddr_in>(
+            gateway = std::bit_cast<struct sockaddr_in>(
                           *current_address->FirstGatewayAddress->Address.lpSockaddr)
                           .sin_addr;
         }
@@ -126,8 +126,8 @@ std::vector<NetworkInterface> GetAvailableNetworkInterfaces() {
 
             result.emplace_back(NetworkInterface{
                 .name{ifa->ifa_name},
-                .ip_address{Common::BitCast<struct sockaddr_in>(*ifa->ifa_addr).sin_addr},
-                .subnet_mask{Common::BitCast<struct sockaddr_in>(*ifa->ifa_netmask).sin_addr},
+                .ip_address{std::bit_cast<struct sockaddr_in>(*ifa->ifa_addr).sin_addr},
+                .subnet_mask{std::bit_cast<struct sockaddr_in>(*ifa->ifa_netmask).sin_addr},
                 .gateway{in_addr{.s_addr = gateway}}});
             continue;
         }
@@ -175,8 +175,8 @@ std::vector<NetworkInterface> GetAvailableNetworkInterfaces() {
 
         result.emplace_back(NetworkInterface{
             .name{ifa->ifa_name},
-            .ip_address{Common::BitCast<struct sockaddr_in>(*ifa->ifa_addr).sin_addr},
-            .subnet_mask{Common::BitCast<struct sockaddr_in>(*ifa->ifa_netmask).sin_addr},
+            .ip_address{std::bit_cast<struct sockaddr_in>(*ifa->ifa_addr).sin_addr},
+            .subnet_mask{std::bit_cast<struct sockaddr_in>(*ifa->ifa_netmask).sin_addr},
             .gateway{in_addr{.s_addr = gateway}}});
     }
 

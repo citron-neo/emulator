@@ -13,7 +13,7 @@ using namespace Service::Audio;
 
 static constexpr Result ResultCodeFromLibOpusErrorCode(u64 error_code) {
     s32 error{static_cast<s32>(error_code)};
-    ASSERT(error <= OPUS_OK);
+    assert(error <= OPUS_OK);
     switch (error) {
     case OPUS_ALLOC_FAIL:
         R_THROW(ResultLibOpusAllocFail);
@@ -32,7 +32,7 @@ static constexpr Result ResultCodeFromLibOpusErrorCode(u64 error_code) {
     case OPUS_OK:
         R_RETURN(ResultSuccess);
     }
-    UNREACHABLE();
+    std::unreachable();
 }
 
 } // namespace
@@ -105,7 +105,7 @@ Result HardwareOpus::InitializeMultiStreamDecodeObject(u32 sample_rate, u32 chan
     shared_memory.host_send_data[4] = total_stream_count;
     shared_memory.host_send_data[5] = stereo_stream_count;
 
-    ASSERT(channel_count <= MaxChannels);
+    assert(channel_count <= MaxChannels);
     std::memcpy(shared_memory.channel_mapping.data(), mappings, channel_count * sizeof(u8));
 
     opus_decoder.Send(ADSP::Direction::DSP,
@@ -126,10 +126,10 @@ Result HardwareOpus::ShutdownDecodeObject(void* buffer, u64 buffer_size) {
     shared_memory.host_send_data[1] = buffer_size;
 
     opus_decoder.Send(ADSP::Direction::DSP, ADSP::OpusDecoder::Message::ShutdownDecodeObject);
-    auto msg = opus_decoder.Receive(ADSP::Direction::Host);
-    ASSERT_MSG(msg == ADSP::OpusDecoder::Message::ShutdownDecodeObjectOK,
-               "Expected Opus shutdown code {}, got {}",
-               ADSP::OpusDecoder::Message::ShutdownDecodeObjectOK, msg);
+    [[maybe_unused]] auto msg = opus_decoder.Receive(ADSP::Direction::Host);
+    assert(msg == ADSP::OpusDecoder::Message::ShutdownDecodeObjectOK &&
+           "Expected Opus shutdown code {}, got {}" &&
+           (void(ADSP::OpusDecoder::Message::ShutdownDecodeObjectOK), void(msg), true));
 
     R_RETURN(ResultCodeFromLibOpusErrorCode(shared_memory.dsp_return_data[0]));
 }
@@ -141,10 +141,10 @@ Result HardwareOpus::ShutdownMultiStreamDecodeObject(void* buffer, u64 buffer_si
 
     opus_decoder.Send(ADSP::Direction::DSP,
                       ADSP::OpusDecoder::Message::ShutdownMultiStreamDecodeObject);
-    auto msg = opus_decoder.Receive(ADSP::Direction::Host);
-    ASSERT_MSG(msg == ADSP::OpusDecoder::Message::ShutdownMultiStreamDecodeObjectOK,
-               "Expected Opus shutdown code {}, got {}",
-               ADSP::OpusDecoder::Message::ShutdownMultiStreamDecodeObjectOK, msg);
+    [[maybe_unused]] auto msg = opus_decoder.Receive(ADSP::Direction::Host);
+    assert(msg == ADSP::OpusDecoder::Message::ShutdownMultiStreamDecodeObjectOK &&
+           "Expected Opus shutdown code {}, got {}" &&
+           (void(ADSP::OpusDecoder::Message::ShutdownMultiStreamDecodeObjectOK), void(msg), true));
 
     R_RETURN(ResultCodeFromLibOpusErrorCode(shared_memory.dsp_return_data[0]));
 }

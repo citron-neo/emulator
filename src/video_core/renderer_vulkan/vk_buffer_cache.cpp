@@ -10,6 +10,7 @@
 #include "common/alignment.h"
 #include "common/common_types.h"
 #include "common/literals.h"
+#include "common/logging.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 
 
@@ -52,7 +53,7 @@ size_t BytesPerIndex(VkIndexType index_type) {
     case VK_INDEX_TYPE_UINT32:
         return 4;
     default:
-        ASSERT_MSG(false, "Invalid index type={}", index_type);
+        assert(false && "Invalid index type={}" && (void(index_type), true));
         return 1;
     }
 }
@@ -81,6 +82,11 @@ vk::Buffer CreateBuffer(const Device& device, const MemoryAllocator& memory_allo
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr,
     };
+    // On unified memory the cache writes guest data straight into the buffer when the GPU is
+    // done with it (BufferCache::MappedUploadMemory); otherwise uploads go through staging.
+    if (vk::Buffer unified = memory_allocator.CreateUnifiedBuffer(buffer_ci)) {
+        return unified;
+    }
     return memory_allocator.CreateBuffer(buffer_ci, MemoryUsage::DeviceLocal);
 }
 
@@ -286,7 +292,7 @@ private:
             std::memcpy(staging_data, MakeIndices<u32>(quad, first).data(), quad_size);
             break;
         default:
-            ASSERT(false);
+            assert(false);
             break;
         }
     }
@@ -326,7 +332,7 @@ private:
             std::memcpy(staging_data, MakeIndices<u32>(quad, first).data(), quad_size);
             break;
         default:
-            ASSERT(false);
+            assert(false);
             break;
         }
     }
@@ -341,11 +347,18 @@ BufferCacheRuntime::BufferCacheRuntime(const Device& device_, MemoryAllocator& m
       staging_pool{staging_pool_}, guest_descriptor_queue{guest_descriptor_queue_},
       quad_index_pass(device, scheduler, descriptor_pool, staging_pool,
                       compute_pass_descriptor_queue) {
-    if (device.GetDriverID() != VK_DRIVER_ID_QUALCOMM_PROPRIETARY) {
-        // TODO: FixMe: Uint8Pass compute shader does not build on some Qualcomm drivers.
-        uint8_pass = std::make_unique<Uint8Pass>(device, scheduler, descriptor_pool, staging_pool,
-                                                 compute_pass_descriptor_queue);
+    if (!device.HasRobustBufferAccess2()) {
+        LOG_WARNING(Render_Vulkan, "Device lacks robustBufferAccess2, constant buffers will be "
+                                   "zero padded on every bind");
+    } else if (device.GetRobustUniformBufferAccessSizeAlignment() > 1) {
+        LOG_WARNING(Render_Vulkan,
+                    "Constant buffers whose size is not a multiple of {} bytes will be zero padded",
+                    device.GetRobustUniformBufferAccessSizeAlignment());
     }
+    // Built on every driver: vulkan_uint8.comp needs no 8-bit or 16-bit storage feature, and a
+    // device without VK_EXT_index_type_uint8 has to go through it.
+    uint8_pass = std::make_unique<Uint8Pass>(device, scheduler, descriptor_pool, staging_pool,
+                                             compute_pass_descriptor_queue);
     quad_array_index_buffer = std::make_shared<QuadArrayIndexBuffer>(device_, memory_allocator_,
                                                                      scheduler_, staging_pool_);
     quad_strip_index_buffer = std::make_shared<QuadStripIndexBuffer>(device_, memory_allocator_,
@@ -384,10 +397,18 @@ u32 BufferCacheRuntime::GetStorageBufferAlignment() const {
     return static_cast<u32>(device.GetStorageBufferAlignment());
 }
 
-void BufferCacheRuntime::TickFrame(Common::SlotVector<Buffer>& slot_buffers) noexcept {
-    for (auto it = slot_buffers.begin(); it != slot_buffers.end(); it++) {
-        it->ResetUsageTracking();
-    }
+u64 BufferCacheRuntime::CurrentTick() const noexcept {
+    return scheduler.CurrentTick();
+}
+
+u64 BufferCacheRuntime::KnownGpuTick() const noexcept {
+    return scheduler.GetMasterSemaphore().KnownGpuTick();
+}
+
+void BufferCacheRuntime::TickFrame([[maybe_unused]] Common::SlotVector<Buffer>& slot_buffers) noexcept {
+    // Usage tracking belongs to a submission (Buffer::MarkUsage) and starts over on its own.
+    // Clearing it here, between submissions, forgot draws already recorded in the open command
+    // buffer, and an upload could then be moved ahead of them.
 }
 
 void BufferCacheRuntime::Finish() {
@@ -401,9 +422,13 @@ bool BufferCacheRuntime::CanReorderUpload(const Buffer& buffer,
     }
     const bool can_use_upload_cmdbuf =
         std::ranges::all_of(copies, [&](const VideoCommon::BufferCopy& copy) {
-            return !buffer.IsRegionUsed(copy.dst_offset, copy.size);
+            return !buffer.IsRegionUsed(copy.dst_offset, copy.size, scheduler.CurrentTick());
         });
     return can_use_upload_cmdbuf;
+}
+
+bool BufferCacheRuntime::IsRenderPassActive() const noexcept {
+    return scheduler.IsRenderPassActive();
 }
 
 void BufferCacheRuntime::CopyBuffer(VkBuffer dst_buffer, VkBuffer src_buffer,
@@ -431,12 +456,29 @@ void BufferCacheRuntime::CopyBuffer(VkBuffer dst_buffer, VkBuffer src_buffer,
     if (src_buffer == staging_pool.StreamBuf() && can_reorder_upload) {
         scheduler.RecordWithUploadBuffer([src_buffer, dst_buffer, vk_copies](
                                              vk::CommandBuffer, vk::CommandBuffer upload_cmdbuf) {
+            // CanReorderUpload only rules out use by work recorded for this submission, which runs
+            // after this command buffer. Work of earlier submissions may still read or write the
+            // buffer on the GPU, so the copy waits for it: the barrier's first scope is everything
+            // earlier in submission order on this queue.
+            static constexpr VkMemoryBarrier PRIOR_WORK_BARRIER{
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            };
+            upload_cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                          VK_PIPELINE_STAGE_TRANSFER_BIT, 0, PRIOR_WORK_BARRIER);
             upload_cmdbuf.CopyBuffer(src_buffer, dst_buffer, vk_copies);
         });
         return;
     }
 
-    scheduler.RequestOutsideRenderPassOperationContext();
+    if (barrier) {
+        // The barriers below order the copy after earlier work and make it visible to later work
+        scheduler.RequestOutsideRenderPassSyncedOperationContext();
+    } else {
+        scheduler.RequestOutsideRenderPassOperationContext();
+    }
     scheduler.Record([src_buffer, dst_buffer, vk_copies, barrier](vk::CommandBuffer cmdbuf) {
         if (barrier) {
             cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
@@ -444,8 +486,10 @@ void BufferCacheRuntime::CopyBuffer(VkBuffer dst_buffer, VkBuffer src_buffer,
         }
         cmdbuf.CopyBuffer(src_buffer, dst_buffer, vk_copies);
         if (barrier) {
+            // HOST too: downloads go through here and the CPU reads them after the fence.
             cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WRITE_BARRIER);
+                                   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_HOST_BIT,
+                                   0, WRITE_BARRIER);
         }
     });
 }
@@ -495,7 +539,7 @@ void BufferCacheRuntime::ClearBuffer(VkBuffer dest_buffer, u32 offset, size_t si
         .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
     };
 
-    scheduler.RequestOutsideRenderPassOperationContext();
+    scheduler.RequestOutsideRenderPassSyncedOperationContext();
     scheduler.Record([dest_buffer, offset, size, value](vk::CommandBuffer cmdbuf) {
         cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                                0, READ_BARRIER);
@@ -518,9 +562,7 @@ void BufferCacheRuntime::BindIndexBuffer(PrimitiveTopology topology, IndexFormat
                                      topology == PrimitiveTopology::QuadStrip);
     } else if (vk_index_type == VK_INDEX_TYPE_UINT8_EXT && !device.IsExtIndexTypeUint8Supported()) {
         vk_index_type = VK_INDEX_TYPE_UINT16;
-        if (uint8_pass) {
-            std::tie(vk_buffer, vk_offset) = uint8_pass->Assemble(num_indices, buffer, offset);
-        }
+        std::tie(vk_buffer, vk_offset) = uint8_pass->Assemble(num_indices, buffer, offset);
     }
     if (vk_buffer == VK_NULL_HANDLE) {
         // Vulkan doesn't support null index buffers. Replace it with our own null buffer.

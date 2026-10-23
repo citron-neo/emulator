@@ -67,10 +67,12 @@ struct Memory::Impl {
     void MapMemoryRegion(Common::PageTable& page_table, Common::ProcessAddress base, u64 size,
                          Common::PhysicalAddress target, Common::MemoryPermission perms,
                          bool separate_heap) {
-        ASSERT_MSG((size & CITRON_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
-        ASSERT_MSG((base & CITRON_PAGEMASK) == 0, "non-page aligned base: {:016X}", GetInteger(base));
-        ASSERT_MSG(target >= DramMemoryMap::Base, "Out of bounds target: {:016X}",
-                   GetInteger(target));
+        assert((size & CITRON_PAGEMASK) == 0 && "non-page aligned size: {:016X}" &&
+               (void(size), true));
+        assert((base & CITRON_PAGEMASK) == 0 && "non-page aligned base: {:016X}" &&
+               (void(GetInteger(base)), true));
+        assert(target >= DramMemoryMap::Base && "Out of bounds target: {:016X}" &&
+               (void(GetInteger(target)), true));
         MapPages(page_table, base / CITRON_PAGESIZE, size / CITRON_PAGESIZE, target,
                  Common::PageType::Memory);
 
@@ -82,8 +84,10 @@ struct Memory::Impl {
 
     void UnmapRegion(Common::PageTable& page_table, Common::ProcessAddress base, u64 size,
                      bool separate_heap) {
-        ASSERT_MSG((size & CITRON_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
-        ASSERT_MSG((base & CITRON_PAGEMASK) == 0, "non-page aligned base: {:016X}", GetInteger(base));
+        assert((size & CITRON_PAGEMASK) == 0 && "non-page aligned size: {:016X}" &&
+               (void(size), true));
+        assert((base & CITRON_PAGEMASK) == 0 && "non-page aligned base: {:016X}" &&
+               (void(GetInteger(base)), true));
         MapPages(page_table, base / CITRON_PAGESIZE, size / CITRON_PAGESIZE, 0,
                  Common::PageType::Unmapped);
 
@@ -94,8 +98,10 @@ struct Memory::Impl {
 
     void ProtectRegion(Common::PageTable& page_table, VAddr vaddr, u64 size,
                        Common::MemoryPermission perms) {
-        ASSERT_MSG((size & CITRON_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
-        ASSERT_MSG((vaddr & CITRON_PAGEMASK) == 0, "non-page aligned base: {:016X}", vaddr);
+        assert((size & CITRON_PAGEMASK) == 0 && "non-page aligned size: {:016X}" &&
+               (void(size), true));
+        assert((vaddr & CITRON_PAGEMASK) == 0 && "non-page aligned base: {:016X}" &&
+               (void(vaddr), true));
 
         if (!current_page_table->fastmem_arena) {
             return;
@@ -207,7 +213,7 @@ struct Memory::Impl {
                 break;
             }
             default:
-                UNREACHABLE();
+                std::unreachable();
             }
 
             page_index++;
@@ -432,7 +438,7 @@ struct Memory::Impl {
                 // Switch page type to debug if now debug
                 switch (page_type) {
                 case Common::PageType::Unmapped:
-                    UNREACHABLE_MSG("Attempted to mark unmapped pages as debug");
+                    std::unreachable(); // Attempted to mark unmapped pages as debug
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                 case Common::PageType::DebugMemory:
@@ -442,13 +448,13 @@ struct Memory::Impl {
                     current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(0, Common::PageType::DebugMemory);
                     break;
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             } else {
                 // Switch page type to non-debug if now non-debug
                 switch (page_type) {
                 case Common::PageType::Unmapped:
-                    UNREACHABLE_MSG("Attempted to mark unmapped pages as non-debug");
+                    std::unreachable(); // Attempted to mark unmapped pages as non-debug
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                 case Common::PageType::Memory:
@@ -460,7 +466,7 @@ struct Memory::Impl {
                     break;
                 }
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             }
         }
@@ -517,7 +523,7 @@ struct Memory::Impl {
                     // that this area is already marked as cached.
                     break;
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             } else {
                 // Switch page type to uncached if now uncached
@@ -543,7 +549,7 @@ struct Memory::Impl {
                     break;
                 }
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             }
         }
@@ -566,11 +572,13 @@ struct Memory::Impl {
                   base * CITRON_PAGESIZE, (base + size) * CITRON_PAGESIZE);
 
         const auto end = base + size;
-        ASSERT_MSG(end <= page_table.entries.size(), "out of range mapping at {:016X}", base + page_table.entries.size());
+        assert(end <= page_table.entries.size() && "out of range mapping at {:016X}" &&
+               (void(base + page_table.entries.size()), true));
 
         if (!target) {
-            ASSERT_MSG(type != Common::PageType::Memory,
-                       "Mapping memory page without a pointer @ {:016x}", base * CITRON_PAGESIZE);
+            assert(type != Common::PageType::Memory &&
+                   "Mapping memory page without a pointer @ {:016x}" &&
+                   (void(base * CITRON_PAGESIZE), true));
 
             while (base != end) {
                 page_table.entries[base].pointer.Store(0, type);
@@ -586,7 +594,7 @@ struct Memory::Impl {
                 page_table.entries[base].pointer.Store(host_ptr, type);
                 page_table.entries[base].backing_addr = backing;
                 page_table.entries[base].block = orig_base << CITRON_PAGEBITS;
-                ASSERT(page_table.entries[base].pointer.Pointer() && "memory mapping base yield a nullptr within the table");
+                assert(page_table.entries[base].pointer.Pointer() && "memory mapping base yield a nullptr within the table");
                 base += 1;
                 target += CITRON_PAGESIZE;
             }
@@ -605,7 +613,8 @@ struct Memory::Impl {
             } else {
                 switch (Common::PageTable::PageInfo::ExtractType(raw_pointer)) {
                 case Common::PageType::Memory:
-                    ASSERT_MSG(false, "Mapped memory page without a pointer @ 0x{:016X}", vaddr);
+                    assert(false && "Mapped memory page without a pointer @ 0x{:016X}" &&
+                           (void(vaddr), true));
                     return nullptr;
                 case Common::PageType::DebugMemory:
                     return GetPointerFromDebugMemory(vaddr);
@@ -619,7 +628,7 @@ struct Memory::Impl {
                     return nullptr;
                 }
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
                 return nullptr;
             }
@@ -938,6 +947,37 @@ u8* Memory::GetPointer(Common::ProcessAddress vaddr) {
 
 u8* Memory::GetPointerSilent(Common::ProcessAddress vaddr) {
     return impl->GetPointerSilent(vaddr);
+}
+
+// On the AYN Thor CTR_EL0 reads DIC = 0, IDC = 1, L1Ip = PIPT (read on its Cortex-A510 cores):
+// the instruction cache must be invalidated after code is written. The Linux kernel does it
+// implicitly only when it maps an executable page whose entry is not special (arm64 set_pte_at),
+// and guest memory on a dma_buf backing is mapped with special entries (remap_pfn_range), so
+// for guest code run in place nothing else does it.
+//
+// Maintenance goes through each page's backing pointer, which the backing view always maps
+// read-write, instead of the guest address, which may already be unmapped
+// (KPageTableBase::UnmapCodeMemory asks after unmapping; such pages are skipped). With a PIPT
+// instruction cache any alias of a physical page reaches its lines. __builtin___clear_cache
+// cleans the data cache to the point of unification when IDC is 0 and invalidates the
+// instruction cache when DIC is 0 (compiler-rt clear_cache.c). Without NCE guest code is
+// recompiled, not run in place, so there is nothing to do.
+void Memory::SyncInstructionCache([[maybe_unused]] Common::ProcessAddress vaddr,
+                                  [[maybe_unused]] std::size_t size) {
+#ifdef HAS_NCE
+    const u64 begin = GetInteger(vaddr);
+    const u64 end = begin + size;
+    for (u64 page = begin & ~CITRON_PAGEMASK; page < end; page += CITRON_PAGESIZE) {
+        u8* const backing = impl->GetPointerSilent(page);
+        if (!backing) {
+            continue;
+        }
+        const u64 first = std::max(begin, page);
+        const u64 last = std::min(end, page + CITRON_PAGESIZE);
+        __builtin___clear_cache(reinterpret_cast<char*>(backing + (first - page)),
+                                reinterpret_cast<char*>(backing + (last - page)));
+    }
+#endif
 }
 
 const u8* Memory::GetPointer(Common::ProcessAddress vaddr) const {

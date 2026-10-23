@@ -123,6 +123,48 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
 
 void Scheduler::RequestOutsideRenderPassOperationContext() {
     EndRenderPass();
+    RecordDeferredWaitForIdle();
+    // Copies, clears, dispatches and query work all come through here
+    unsynced_writes = true;
+}
+
+void Scheduler::RequestOutsideRenderPassSyncedOperationContext() {
+    EndRenderPass();
+    RecordDeferredWaitForIdle();
+}
+
+void Scheduler::WaitForIdle(VkPipelineStageFlags src_stages) {
+    deferred_wfi_stages |= src_stages;
+    if (state.renderpass && !unsynced_writes) {
+        // Draws since the last barrier wrote attachments only, which later draws of this render
+        // pass see in order. The barrier waits until something reads or writes memory in a way
+        // the pass does not order.
+        return;
+    }
+    EndRenderPass();
+    RecordDeferredWaitForIdle();
+    unsynced_writes = false;
+}
+
+void Scheduler::RecordDeferredWaitForIdle() {
+    if (deferred_wfi_stages == 0) {
+        return;
+    }
+    // A pipeline barrier with a memory barrier: later work starts after earlier work has
+    // finished and sees its writes. The event pair this replaced had TOP_OF_PIPE as its second
+    // scope, which carries no memory dependency, and the event was never reset, so every wait
+    // after the first did nothing.
+    Record([src_stages = deferred_wfi_stages](vk::CommandBuffer cmdbuf) {
+        static constexpr VkMemoryBarrier WRITES_VISIBLE{
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+        };
+        cmdbuf.PipelineBarrier(src_stages, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0,
+                               WRITES_VISIBLE);
+    });
+    deferred_wfi_stages = 0;
 }
 
 bool Scheduler::UpdateGraphicsPipeline(GraphicsPipeline* pipeline) {

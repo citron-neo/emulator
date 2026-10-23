@@ -145,7 +145,7 @@ public:
 } // namespace
 
 void BucketTree::Header::Format(s32 entry_count_) {
-    ASSERT(entry_count_ >= 0);
+    assert(entry_count_ >= 0);
 
     this->magic = Magic;
     this->version = Version;
@@ -175,11 +175,11 @@ Result BucketTree::NodeHeader::Verify(s32 node_index, size_t node_size, size_t e
 Result BucketTree::Initialize(VirtualFile node_storage, VirtualFile entry_storage, size_t node_size,
                               size_t entry_size, s32 entry_count) {
     // Validate preconditions.
-    ASSERT(entry_size >= sizeof(s64));
-    ASSERT(node_size >= entry_size + sizeof(NodeHeader));
-    ASSERT(NodeSizeMin <= node_size && node_size <= NodeSizeMax);
-    ASSERT(Common::IsPowerOfTwo(node_size));
-    ASSERT(!this->IsInitialized());
+    assert(entry_size >= sizeof(s64));
+    assert(node_size >= entry_size + sizeof(NodeHeader));
+    assert(NodeSizeMin <= node_size && node_size <= NodeSizeMax);
+    assert(Common::IsPowerOfTwo(node_size));
+    assert(!this->IsInitialized());
 
     // Ensure valid entry count.
     R_UNLESS(entry_count > 0, ResultInvalidArgument);
@@ -231,10 +231,10 @@ Result BucketTree::Initialize(VirtualFile node_storage, VirtualFile entry_storag
 }
 
 void BucketTree::Initialize(size_t node_size, s64 end_offset) {
-    ASSERT(NodeSizeMin <= node_size && node_size <= NodeSizeMax);
-    ASSERT(Common::IsPowerOfTwo(node_size));
-    ASSERT(end_offset > 0);
-    ASSERT(!this->IsInitialized());
+    assert(NodeSizeMin <= node_size && node_size <= NodeSizeMax);
+    assert(Common::IsPowerOfTwo(node_size));
+    assert(end_offset > 0);
+    assert(!this->IsInitialized());
 
     m_node_size = node_size;
 
@@ -261,8 +261,8 @@ void BucketTree::Finalize() {
 }
 
 Result BucketTree::Find(Visitor* visitor, s64 virtual_address) {
-    ASSERT(visitor != nullptr);
-    ASSERT(this->IsInitialized());
+    assert(visitor != nullptr);
+    assert(this->IsInitialized());
 
     R_UNLESS(virtual_address >= 0, ResultInvalidOffset);
     R_UNLESS(!this->IsEmpty(), ResultOutOfRange);
@@ -319,8 +319,8 @@ Result BucketTree::EnsureOffsetCache() {
 }
 
 Result BucketTree::Visitor::Initialize(const BucketTree* tree, const BucketTree::Offsets& offsets) {
-    ASSERT(tree != nullptr);
-    ASSERT(m_tree == nullptr || m_tree == tree);
+    assert(tree != nullptr);
+    assert(m_tree == nullptr || m_tree == tree);
 
     if (m_entry == nullptr) {
         m_entry = ::operator new(tree->m_entry_size);
@@ -412,7 +412,7 @@ Result BucketTree::Visitor::MovePrevious() {
 }
 
 Result BucketTree::Visitor::Find(s64 virtual_address) {
-    ASSERT(m_tree != nullptr);
+    assert(m_tree != nullptr);
 
     // Get the node.
     const auto* const node = m_tree->m_node_l1.Get<Node>();

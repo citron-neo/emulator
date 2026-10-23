@@ -4,13 +4,13 @@
 #pragma once
 
 #include <chrono>
+#include <concepts>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <unordered_map>
 
-#include "common/concepts.h"
 #include "core/hle/kernel/k_port.h"
 #include "core/hle/kernel/svc.h"
 #include "core/hle/result.h"
@@ -64,7 +64,7 @@ public:
     Result UnregisterService(const std::string& name);
     Result GetServicePort(Kernel::KClientPort** out_client_port, const std::string& name);
 
-    template <Common::DerivedFrom<SessionRequestHandler> T>
+    template <std::derived_from<SessionRequestHandler> T>
     std::shared_ptr<T> GetService(const std::string& service_name, bool block = false) const {
         using namespace std::literals::chrono_literals;
         while (true) {

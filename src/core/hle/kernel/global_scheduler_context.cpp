@@ -37,7 +37,7 @@ void GlobalSchedulerContext::PreemptThreads() {
         63,
     };
 
-    ASSERT(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
+    assert(KScheduler::IsSchedulerLockedByCurrentThread(m_kernel));
     for (u32 core_id = 0; core_id < Core::Hardware::NUM_CPU_CORES; core_id++) {
         const u32 priority = preemption_priorities[core_id];
         KScheduler::RotateScheduledQueue(m_kernel, core_id, priority);
@@ -49,19 +49,19 @@ bool GlobalSchedulerContext::IsLocked() const {
 }
 
 void GlobalSchedulerContext::RegisterDummyThreadForWakeup(KThread* thread) {
-    ASSERT(this->IsLocked());
+    assert(this->IsLocked());
 
     m_woken_dummy_threads.insert(thread);
 }
 
 void GlobalSchedulerContext::UnregisterDummyThreadForWakeup(KThread* thread) {
-    ASSERT(this->IsLocked());
+    assert(this->IsLocked());
 
     m_woken_dummy_threads.erase(thread);
 }
 
 void GlobalSchedulerContext::WakeupWaitingDummyThreads() {
-    ASSERT(this->IsLocked());
+    assert(this->IsLocked());
 
     for (auto* thread : m_woken_dummy_threads) {
         thread->DummyThreadEndWait();

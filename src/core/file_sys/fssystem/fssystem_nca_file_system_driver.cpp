@@ -42,7 +42,7 @@ public:
 
     virtual size_t Read(u8* buffer, size_t size, size_t offset) const override {
         // Validate pre-conditions.
-        ASSERT(m_storage != nullptr);
+        assert(m_storage != nullptr);
 
         // Read from the base storage.
         return m_storage->Read(buffer, size, offset);
@@ -50,7 +50,7 @@ public:
 
     virtual size_t GetSize() const override {
         // Validate pre-conditions.
-        ASSERT(m_storage != nullptr);
+        assert(m_storage != nullptr);
 
         return m_storage->GetSize();
     }
@@ -80,9 +80,9 @@ Result NcaFileSystemDriver::OpenStorageWithContext(VirtualFile* out,
 Result NcaFileSystemDriver::OpenStorageImpl(VirtualFile* out, NcaFsHeaderReader* out_header_reader,
                                             s32 fs_index, StorageContext* ctx) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(out_header_reader != nullptr);
-    ASSERT(0 <= fs_index && fs_index < NcaHeader::FsCountMax);
+    assert(out != nullptr);
+    assert(out_header_reader != nullptr);
+    assert(0 <= fs_index && fs_index < NcaHeader::FsCountMax);
 
     // Validate the fs index.
     R_UNLESS(m_reader->HasFsInfo(fs_index), ResultPartitionNotFound);
@@ -157,7 +157,7 @@ Result NcaFileSystemDriver::OpenStorageImpl(VirtualFile* out, NcaFsHeaderReader*
 
     if (patch_info.HasAesCtrExTable()) {
         // Check the encryption type.
-        ASSERT(out_header_reader->GetEncryptionType() == NcaFsHeader::EncryptionType::None ||
+        assert(out_header_reader->GetEncryptionType() == NcaFsHeader::EncryptionType::None ||
                out_header_reader->GetEncryptionType() == NcaFsHeader::EncryptionType::AesCtrEx ||
                out_header_reader->GetEncryptionType() ==
                    NcaFsHeader::EncryptionType::AesCtrExSkipLayerHash);
@@ -166,7 +166,7 @@ Result NcaFileSystemDriver::OpenStorageImpl(VirtualFile* out, NcaFsHeaderReader*
         VirtualFile aes_ctr_ex_storage_meta_storage = patch_meta_aes_ctr_ex_meta_storage;
         if (aes_ctr_ex_storage_meta_storage == nullptr) {
             // If we don't have a meta storage, we must not have a patch meta hash layer with both tables.
-            ASSERT(!out_header_reader->ExistsPatchMetaHashLayer() || !patch_info.HasIndirectTable());
+            assert(!out_header_reader->ExistsPatchMetaHashLayer() || !patch_info.HasIndirectTable());
 
             R_TRY(this->CreateAesCtrExStorageMetaStorage(
                 std::addressof(aes_ctr_ex_storage_meta_storage), storage, fs_data_offset,
@@ -235,7 +235,7 @@ Result NcaFileSystemDriver::OpenStorageImpl(VirtualFile* out, NcaFsHeaderReader*
         VirtualFile indirect_storage_meta_storage = patch_meta_indirect_meta_storage;
         if (indirect_storage_meta_storage == nullptr) {
             // If we don't have a meta storage, we must not have a patch meta hash layer with AesCtrEx.
-            ASSERT(!out_header_reader->ExistsPatchMetaHashLayer() || !patch_info.HasAesCtrExTable());
+            assert(!out_header_reader->ExistsPatchMetaHashLayer() || !patch_info.HasAesCtrExTable());
 
             R_TRY(this->CreateIndirectStorageMetaStorage(
                 std::addressof(indirect_storage_meta_storage), storage, patch_info));
@@ -445,8 +445,8 @@ Result NcaFileSystemDriver::CreateAesCtrStorage(
     VirtualFile* out, VirtualFile base_storage, s64 offset, const NcaAesCtrUpperIv& upper_iv,
     AlignmentStorageRequirement alignment_storage_requirement) {
     // Check pre-conditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
 
     // Pre-decrypted "DNCA" content (DXCI/DNSP) needs zero AES operations anywhere in the
     // file, not just for the main per-section body (which the EncryptionType::None case
@@ -494,8 +494,8 @@ Result NcaFileSystemDriver::CreateAesCtrStorage(
 Result NcaFileSystemDriver::CreateAesXtsStorage(VirtualFile* out, VirtualFile base_storage,
                                                 s64 offset) {
     // Check pre-conditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
 
     // See the matching check in CreateAesCtrStorage: pre-decrypted DNCA content needs no
     // AES operations at all, including the legacy AesXts body encryption used by
@@ -532,8 +532,8 @@ Result NcaFileSystemDriver::CreateSparseStorageMetaStorage(VirtualFile* out,
                                                            const NcaAesCtrUpperIv& upper_iv,
                                                            const NcaSparseInfo& sparse_info) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
 
     // Get the base storage size.
     s64 base_size = base_storage->GetSize();
@@ -572,9 +572,9 @@ Result NcaFileSystemDriver::CreateSparseStorageCore(std::shared_ptr<SparseStorag
                                                     const NcaSparseInfo& sparse_info,
                                                     bool external_info) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
-    ASSERT(meta_storage != nullptr);
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
+    assert(meta_storage != nullptr);
 
     // Read and verify the bucket tree header.
     BucketTree::Header header;
@@ -592,7 +592,7 @@ Result NcaFileSystemDriver::CreateSparseStorageCore(std::shared_ptr<SparseStorag
     R_UNLESS(sparse_storage != nullptr, ResultAllocationMemoryFailedAllocateShared);
 
     // Sanity check that we can be doing this.
-    ASSERT(header.entry_count != 0);
+    assert(header.entry_count != 0);
 
     // Initialize the sparse storage.
     R_TRY(sparse_storage->Initialize(
@@ -617,8 +617,8 @@ Result NcaFileSystemDriver::CreateSparseStorage(VirtualFile* out, s64* out_fs_da
                                                 const NcaAesCtrUpperIv& upper_iv,
                                                 const NcaSparseInfo& sparse_info) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(out_fs_data_offset != nullptr);
+    assert(out != nullptr);
+    assert(out_fs_data_offset != nullptr);
 
     // Check the sparse info generation.
     R_UNLESS(sparse_info.generation != 0, ResultInvalidNcaHeader);
@@ -683,8 +683,8 @@ Result NcaFileSystemDriver::CreateSparseStorageMetaStorageWithVerification(
     const NcaAesCtrUpperIv& upper_iv, const NcaSparseInfo& sparse_info,
     const NcaMetaDataHashDataInfo& meta_data_hash_data_info) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
 
     // Get the base storage size.
     s64 base_size = base_storage->GetSize();
@@ -752,8 +752,8 @@ Result NcaFileSystemDriver::CreateSparseStorageWithVerification(
     const NcaMetaDataHashDataInfo& meta_data_hash_data_info,
     NcaFsHeader::MetaDataHashType meta_data_hash_type) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(out_fs_data_offset != nullptr);
+    assert(out != nullptr);
+    assert(out_fs_data_offset != nullptr);
 
     // Check the sparse info generation.
     R_UNLESS(sparse_info.generation != 0, ResultInvalidNcaHeader);
@@ -824,12 +824,12 @@ Result NcaFileSystemDriver::CreateAesCtrExStorageMetaStorage(
     NcaFsHeader::EncryptionType encryption_type, const NcaAesCtrUpperIv& upper_iv,
     const NcaPatchInfo& patch_info) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
-    ASSERT(encryption_type == NcaFsHeader::EncryptionType::None ||
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
+    assert(encryption_type == NcaFsHeader::EncryptionType::None ||
            encryption_type == NcaFsHeader::EncryptionType::AesCtrEx ||
            encryption_type == NcaFsHeader::EncryptionType::AesCtrExSkipLayerHash);
-    ASSERT(patch_info.HasAesCtrExTable());
+    assert(patch_info.HasAesCtrExTable());
 
     // Validate patch info extents.
     R_UNLESS(patch_info.indirect_size > 0, ResultInvalidNcaPatchInfoIndirectSize);
@@ -883,10 +883,10 @@ Result NcaFileSystemDriver::CreateAesCtrExStorage(
     VirtualFile base_storage, VirtualFile meta_storage, s64 counter_offset,
     const NcaAesCtrUpperIv& upper_iv, const NcaPatchInfo& patch_info) {
     // Validate pre-conditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
-    ASSERT(meta_storage != nullptr);
-    ASSERT(patch_info.HasAesCtrExTable());
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
+    assert(meta_storage != nullptr);
+    assert(patch_info.HasAesCtrExTable());
 
     // Read the bucket tree header.
     BucketTree::Header header;
@@ -979,9 +979,9 @@ Result NcaFileSystemDriver::CreateIndirectStorageMetaStorage(VirtualFile* out,
                                                              VirtualFile base_storage,
                                                              const NcaPatchInfo& patch_info) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
-    ASSERT(patch_info.HasIndirectTable());
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
+    assert(patch_info.HasIndirectTable());
 
     // Get the base storage size.
     s64 base_size = base_storage->GetSize();
@@ -1011,10 +1011,10 @@ Result NcaFileSystemDriver::CreateIndirectStorage(
     VirtualFile* out, std::shared_ptr<IndirectStorage>* out_ind, VirtualFile base_storage,
     VirtualFile original_data_storage, VirtualFile meta_storage, const NcaPatchInfo& patch_info) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
-    ASSERT(meta_storage != nullptr);
-    ASSERT(patch_info.HasIndirectTable());
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
+    assert(meta_storage != nullptr);
+    assert(patch_info.HasIndirectTable());
 
     // Read the bucket tree header.
     BucketTree::Header header;
@@ -1029,7 +1029,7 @@ Result NcaFileSystemDriver::CreateIndirectStorage(
 
     // Get the indirect data size.
     const s64 indirect_data_size = patch_info.indirect_offset;
-    ASSERT(Common::IsAligned(indirect_data_size, NcaHeader::XtsBlockSize));
+    assert(Common::IsAligned(indirect_data_size, NcaHeader::XtsBlockSize));
 
     // Create the indirect data storage.
     auto indirect_data_storage =
@@ -1070,12 +1070,12 @@ Result NcaFileSystemDriver::CreatePatchMetaStorage(
     const NcaAesCtrUpperIv& upper_iv, const NcaPatchInfo& patch_info,
     const NcaMetaDataHashDataInfo& meta_data_hash_data_info) {
     // Validate preconditions.
-    ASSERT(out_aes_ctr_ex_meta != nullptr);
-    ASSERT(out_indirect_meta != nullptr);
-    ASSERT(base_storage != nullptr);
-    ASSERT(patch_info.HasAesCtrExTable());
-    ASSERT(patch_info.HasIndirectTable());
-    ASSERT(Common::IsAligned<s64>(patch_info.aes_ctr_ex_size, NcaHeader::XtsBlockSize));
+    assert(out_aes_ctr_ex_meta != nullptr);
+    assert(out_indirect_meta != nullptr);
+    assert(base_storage != nullptr);
+    assert(patch_info.HasAesCtrExTable());
+    assert(patch_info.HasIndirectTable());
+    assert(Common::IsAligned<s64>(patch_info.aes_ctr_ex_size, NcaHeader::XtsBlockSize));
 
     // Validate patch info extents.
     R_UNLESS(patch_info.indirect_size > 0, ResultInvalidNcaPatchInfoIndirectSize);
@@ -1150,8 +1150,8 @@ Result NcaFileSystemDriver::CreateSha256Storage(
     VirtualFile* out, VirtualFile base_storage,
     const NcaFsHeader::HashData::HierarchicalSha256Data& hash_data) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
 
     // Define storage types.
     using VerificationStorage = HierarchicalSha256Storage;
@@ -1223,7 +1223,7 @@ Result NcaFileSystemDriver::CreateIntegrityVerificationStorageForMeta(
     VirtualFile* out, VirtualFile* out_layer_info_storage, VirtualFile base_storage, s64 offset,
     const NcaMetaDataHashDataInfo& meta_data_hash_data_info) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
+    assert(out != nullptr);
 
     // Check the meta data hash data size.
     R_UNLESS(meta_data_hash_data_info.size == sizeof(NcaMetaDataHashData),
@@ -1263,9 +1263,9 @@ Result NcaFileSystemDriver::CreateIntegrityVerificationStorageImpl(
     const NcaFsHeader::HashData::IntegrityMetaInfo& meta_info, s64 layer_info_offset,
     int max_data_cache_entries, int max_hash_cache_entries, s8 buffer_level) {
     // Validate preconditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
-    ASSERT(layer_info_offset >= 0);
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
+    assert(layer_info_offset >= 0);
 
     // Define storage types.
     using VerificationStorage = HierarchicalIntegrityVerificationStorage;
@@ -1326,7 +1326,7 @@ Result NcaFileSystemDriver::CreateRegionSwitchStorage(VirtualFile* out,
                                                       VirtualFile inside_storage,
                                                       VirtualFile outside_storage) {
     // Check pre-conditions.
-    ASSERT(header_reader->GetHashType() == NcaFsHeader::HashType::HierarchicalIntegrityHash);
+    assert(header_reader->GetHashType() == NcaFsHeader::HashType::HierarchicalIntegrityHash);
 
     // Create the region.
     RegionSwitchStorage::Region region = {};
@@ -1356,9 +1356,9 @@ Result NcaFileSystemDriver::CreateCompressedStorage(VirtualFile* out,
                                                     const NcaCompressionInfo& compression_info,
                                                     GetDecompressorFunction get_decompressor) {
     // Check pre-conditions.
-    ASSERT(out != nullptr);
-    ASSERT(base_storage != nullptr);
-    ASSERT(get_decompressor != nullptr);
+    assert(out != nullptr);
+    assert(base_storage != nullptr);
+    assert(get_decompressor != nullptr);
 
     // Read and verify the bucket tree header.
     BucketTree::Header header;

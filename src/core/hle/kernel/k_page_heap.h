@@ -47,7 +47,7 @@ public:
     void SetInitialUsedSize(size_t reserved_size) {
         // Check that the reserved size is valid.
         const size_t free_size = this->GetNumFreePages() * PageSize;
-        ASSERT(m_heap_size >= free_size + reserved_size);
+        assert(m_heap_size >= free_size + reserved_size);
 
         // Set the initial used size.
         m_initial_used_size = m_heap_size - free_size - reserved_size;

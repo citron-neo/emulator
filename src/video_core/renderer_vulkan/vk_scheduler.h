@@ -60,6 +60,33 @@ public:
     /// of a renderpass.
     void RequestOutsideRenderPassOperationContext();
 
+    /// Same, for an operation that records a barrier before and after its own writes (reads and
+    /// writes of earlier work, then everything later), so it leaves no writes for a later
+    /// WaitForIdle to make visible.
+    void RequestOutsideRenderPassSyncedOperationContext();
+
+    /// WAIT_FOR_IDLE: later work runs after earlier work and sees its writes. Inside a render pass
+    /// with no writes besides attachments since the last such barrier, the barrier is deferred to
+    /// the next operation outside the render pass or the next draw that writes memory, and the
+    /// render pass goes on.
+    void WaitForIdle(VkPipelineStageFlags src_stages);
+
+    /// True while a WaitForIdle barrier is deferred. A draw that writes memory must end the render
+    /// pass first (RequestOutsideRenderPassOperationContext records the barrier).
+    [[nodiscard]] bool HasDeferredWaitForIdle() const noexcept {
+        return deferred_wfi_stages != 0;
+    }
+
+    /// True while recorded commands are inside a render pass.
+    [[nodiscard]] bool IsRenderPassActive() const noexcept {
+        return state.renderpass != nullptr;
+    }
+
+    /// Records that commands may have written memory other than render pass attachments.
+    void NoteMemoryWrites() noexcept {
+        unsynced_writes = true;
+    }
+
     /// Update the pipeline to the current execution context.
     bool UpdateGraphicsPipeline(GraphicsPipeline* pipeline);
 
@@ -202,9 +229,18 @@ private:
         Command* first = nullptr;
         Command* last = nullptr;
 
+        // A full chunk is handed to the worker thread, and every hand over wakes the worker.
+        // A busy scene fills a small chunk every twenty draws or so, which is thousands of
+        // wake-ups a second, so Android gets larger chunks.
+#ifdef ANDROID
+        static constexpr size_t CHUNK_SIZE = 0x20000;
+#else
+        static constexpr size_t CHUNK_SIZE = 0x8000;
+#endif
+
         size_t command_offset = 0;
         bool submit = false;
-        alignas(std::max_align_t) std::array<u8, 0x8000> data{};
+        alignas(std::max_align_t) std::array<u8, CHUNK_SIZE> data{};
     };
 
     struct State {
@@ -228,6 +264,9 @@ private:
 
     void EndRenderPass();
 
+    /// Records the deferred WaitForIdle barrier, if any. Outside a render pass only.
+    void RecordDeferredWaitForIdle();
+
     void AcquireNewChunk();
 
     const Device& device;
@@ -245,6 +284,13 @@ private:
     std::function<void()> on_submit;
 
     State state;
+
+    /// Memory other than attachments may have been written since the last full memory barrier.
+    /// True to start with: the scheduler does not know what came before it.
+    bool unsynced_writes = true;
+
+    /// Source stages of WaitForIdle barriers not yet recorded, 0 when none is deferred.
+    VkPipelineStageFlags deferred_wfi_stages = 0;
 
     u32 num_renderpass_images = 0;
     std::array<VkImage, 9> renderpass_images{};

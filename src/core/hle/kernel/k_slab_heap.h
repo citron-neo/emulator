@@ -30,7 +30,7 @@ public:
     constexpr KSlabHeapImpl() = default;
 
     void Initialize() {
-        ASSERT(m_head == nullptr);
+        assert(m_head == nullptr);
     }
 
     Node* GetHead() const {
@@ -102,7 +102,7 @@ public:
 
     void Initialize(size_t obj_size, void* memory, size_t memory_size) {
         // Ensure we don't initialize a slab using null memory.
-        ASSERT(memory != nullptr);
+        assert(memory != nullptr);
 
         // Set our object size.
         m_obj_size = obj_size;
@@ -141,8 +141,8 @@ public:
 
     void Free(void* obj) {
         // Don't allow freeing an object that wasn't allocated from this heap.
-        const bool contained = this->Contains(reinterpret_cast<uintptr_t>(obj));
-        ASSERT(contained);
+        [[maybe_unused]] const bool contained = this->Contains(reinterpret_cast<uintptr_t>(obj));
+        assert(contained);
         KSlabHeapImpl::Free(obj);
     }
 

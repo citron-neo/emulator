@@ -25,7 +25,7 @@ Result KSecureSystemResource::Initialize(size_t size, KResourceLimit* resource_l
     // Allocate secure memory.
     R_TRY(KSystemControl::AllocateSecureMemory(m_kernel, std::addressof(m_resource_address),
                                                m_resource_size, static_cast<u32>(m_resource_pool)));
-    ASSERT(m_resource_address != 0);
+    assert(m_resource_address != 0);
 
     // Ensure we clean up the secure memory, if we fail past this point.
     ON_RESULT_FAILURE {
@@ -76,9 +76,9 @@ Result KSecureSystemResource::Initialize(size_t size, KResourceLimit* resource_l
 
 void KSecureSystemResource::Finalize() {
     // Check that we have no outstanding allocations.
-    ASSERT(m_memory_block_slab_manager.GetUsed() == 0);
-    ASSERT(m_block_info_manager.GetUsed() == 0);
-    ASSERT(m_page_table_manager.GetUsed() == 0);
+    assert(m_memory_block_slab_manager.GetUsed() == 0);
+    assert(m_block_info_manager.GetUsed() == 0);
+    assert(m_page_table_manager.GetUsed() == 0);
 
     // Free our secure memory.
     KSystemControl::FreeSecureMemory(m_kernel, m_resource_address, m_resource_size,

@@ -40,7 +40,7 @@ public:
     }
 
     void Initialize(KDynamicPageManager* page_allocator, size_t num_objects) {
-        ASSERT(page_allocator != nullptr);
+        assert(page_allocator != nullptr);
 
         // Initialize members.
         m_address = page_allocator->GetAddress();
@@ -52,7 +52,7 @@ public:
         // Allocate until we have the correct number of objects.
         while (m_count.load() < num_objects) {
             auto* allocated = reinterpret_cast<T*>(page_allocator->Allocate());
-            ASSERT(allocated != nullptr);
+            assert(allocated != nullptr);
 
             for (size_t i = 0; i < sizeof(PageBuffer) / sizeof(T); i++) {
                 KSlabHeapImpl::Free(allocated + i);

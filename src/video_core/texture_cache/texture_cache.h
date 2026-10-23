@@ -13,6 +13,7 @@
 
 #include "common/alignment.h"
 #include "common/settings.h"
+#include "shader_recompiler/shader_info.h"
 #include "video_core/cache_memory_pressure.h"
 #include "video_core/control/channel_state.h"
 #include "video_core/dirty_flags.h"
@@ -534,11 +535,20 @@ void TextureCache<P>::FillImageViews(DescriptorTable<TICEntry>& table,
         for (ImageViewInOut& view : views) {
             view.id = VisitImageView(table, cached_image_view_ids, view.index);
             if constexpr (has_blacklists) {
-                if (view.blacklist && view.id != NULL_IMAGE_VIEW_ID) {
-                    const ImageViewBase& image_view{slot_image_views[view.id]};
-                    auto& image = slot_images[image_view.image_id];
-                    has_blacklisted |= ScaleDown(image);
-                    image.scale_rating = 0;
+                if (view.id != NULL_IMAGE_VIEW_ID && (view.blacklist || view.storage_format != 0)) {
+                    auto& image = slot_images[slot_image_views[view.id].image_id];
+                    if (view.blacklist) {
+                        has_blacklisted |= ScaleDown(image);
+                        image.scale_rating = 0;
+                    }
+                    // A typed storage view is made when the descriptors are written, after this,
+                    // so its format has to be in the image's list by then. Widening drops the
+                    // image's views and sets has_deleted_images: the views are looked up again.
+                    const auto storage_format =
+                        static_cast<Shader::ImageFormat>(view.storage_format);
+                    if (image.NeedsWideStorageViews(storage_format)) {
+                        WidenViewFormats(image);
+                    }
                 }
             }
         }
@@ -695,6 +705,9 @@ bool TextureCache<P>::BlitImage(const Tegra::Engines::Fermi2D::Surface& dst,
 
     PrepareImage(src_id, false, false);
     PrepareImage(dst_id, true, false);
+    // Both views are looked up below and used together; neither lookup may drop the other
+    PrepareViewFormat(src_id, images.src_format);
+    PrepareViewFormat(dst_id, images.dst_format);
 
     Image& dst_image = slot_images[dst_id];
     Image& src_image = slot_images[src_id];
@@ -1235,7 +1248,7 @@ ImageViewId TextureCache<P>::CreateImageView(const TICEntry& config) {
     }
     ImageBase& image = slot_images[image_id];
     const SubresourceBase base = image.TryFindBase(config.Address()).value();
-    ASSERT(base.level == 0);
+    assert(base.level == 0);
     ImageViewInfo view_info(config, base.layer);
     const s32 max_levels = image.info.resources.levels - view_info.range.base.level;
     if (max_levels > 0 && view_info.range.extent.levels > max_levels) {
@@ -1346,6 +1359,11 @@ void TextureCache<P>::InvalidateScale(Image& image) {
     if (image.scale_tick <= frame_tick) {
         image.scale_tick = frame_tick + 1;
     }
+    InvalidateImageViews(image);
+}
+
+template <class P>
+void TextureCache<P>::InvalidateImageViews(Image& image) {
     const std::span<const ImageViewId> image_view_ids = image.image_view_ids;
     auto& dirty = maxwell3d->dirty.flags;
     dirty[Dirty::RenderTargets] = true;
@@ -1495,7 +1513,8 @@ ImageId TextureCache<P>::InsertImage(const ImageInfo& info, GPUVAddr gpu_addr,
             cpu_addr = std::optional<DAddr>(fake_addr);
         }
     }
-    ASSERT_MSG(cpu_addr, "Tried to insert an image to an invalid gpu_addr=0x{:x}", gpu_addr);
+    assert(cpu_addr && "Tried to insert an image to an invalid gpu_addr=0x{:x}" &&
+           (void(gpu_addr), true));
     const ImageId image_id = JoinImages(info, gpu_addr, *cpu_addr);
     const Image& image = slot_images[image_id];
     // Using "image.gpu_addr" instead of "gpu_addr" is important because it might be different
@@ -1546,6 +1565,10 @@ ImageId TextureCache<P>::JoinImages(const ImageInfo& info, GPUVAddr gpu_addr, DA
             gpu_addr = solution->gpu_addr;
             cpu_addr = solution->cpu_addr;
             new_info.resources = solution->resources;
+            // The new image takes over this memory, including its first DMA download (see
+            // DmaImageId). A game that maps the same render target at a new GPU address every
+            // frame would otherwise get a full CPU sync for every DMA download.
+            new_info.dma_downloaded |= overlap.info.dma_downloaded;
             join_overlap_ids.push_back(overlap_id);
             join_copies_to_do.emplace_back(JoinCopy{false, overlap_id});
             return;
@@ -1573,6 +1596,7 @@ ImageId TextureCache<P>::JoinImages(const ImageInfo& info, GPUVAddr gpu_addr, DA
             }
             if (overlap.gpu_addr == gpu_addr && overlap.guest_size_bytes == size_bytes) {
                 join_ignore_textures.insert(overlap_id);
+                new_info.dma_downloaded |= overlap.info.dma_downloaded;
             }
         }
     };
@@ -1838,7 +1862,7 @@ ImageId TextureCache<P>::FindDMAImage(const ImageInfo& info, GPUVAddr gpu_addr) 
             if (existing_image.gpu_addr == gpu_addr && existing.type == info.type &&
                 existing.pitch == info.pitch &&
                 IsPitchLinearSameSize(existing, info, strict_size) &&
-                IsViewCompatible(existing.format, info.format, false, true)) {
+                IsViewCompatible(existing.format, info.format, false, runtime.HasNativeBgr())) {
                 image_id = existing_image_id;
                 image_ids.push_back(existing_image_id);
                 return true;
@@ -2104,7 +2128,7 @@ void TextureCache<P>::ForEachSparseSegment(ImageBase& image, Func&& func) {
     const auto segments = gpu_memory->GetSubmappedRange(image.gpu_addr, image.guest_size_bytes);
     for (const auto& [gpu_addr, size] : segments) {
         std::optional<DAddr> cpu_addr = gpu_memory->GpuToCpuAddress(gpu_addr);
-        ASSERT(cpu_addr);
+        assert(cpu_addr);
         if constexpr (RETURNS_BOOL) {
             if (func(gpu_addr, *cpu_addr, size)) {
                 break;
@@ -2121,6 +2145,9 @@ ImageViewId TextureCache<P>::FindOrEmplaceImageView(ImageId image_id, const Imag
     if (const ImageViewId image_view_id = image.FindView(info); image_view_id) {
         return image_view_id;
     }
+    if (image.NeedsWideViews(info.format)) {
+        WidenViewFormats(image);
+    }
     const ImageViewId image_view_id =
         slot_image_views.insert(runtime, info, image_id, image, slot_images);
     image.InsertView(info, image_view_id);
@@ -2128,10 +2155,26 @@ ImageViewId TextureCache<P>::FindOrEmplaceImageView(ImageId image_id, const Imag
 }
 
 template <class P>
+void TextureCache<P>::PrepareViewFormat(ImageId image_id, PixelFormat format) {
+    Image& image = slot_images[image_id];
+    if (image.NeedsWideViews(format)) {
+        WidenViewFormats(image);
+    }
+}
+
+template <class P>
+void TextureCache<P>::WidenViewFormats(Image& image) {
+    if (image.WidenViewFormats()) {
+        LOG_DEBUG(HW_GPU, "Image at {:#x} made again with every view format", image.gpu_addr);
+        InvalidateImageViews(image);
+    }
+}
+
+template <class P>
 void TextureCache<P>::RegisterImage(ImageId image_id) {
     ImageBase& image = slot_images[image_id];
-    ASSERT_MSG(False(image.flags & ImageFlagBits::Registered),
-               "Trying to register an already registered image");
+    assert(False(image.flags & ImageFlagBits::Registered) &&
+           "Trying to register an already registered image");
     image.flags |= ImageFlagBits::Registered;
     const auto storage_id = getStorageID(channel_state->gpu_memory.GetID());
     if (storage_id) {
@@ -2189,8 +2232,8 @@ void TextureCache<P>::RegisterImage(ImageId image_id) {
 template <class P>
 void TextureCache<P>::UnregisterImage(ImageId image_id) {
     Image& image = slot_images[image_id];
-    ASSERT_MSG(True(image.flags & ImageFlagBits::Registered),
-               "Trying to unregister an already registered image");
+    assert(True(image.flags & ImageFlagBits::Registered) &&
+           "Trying to unregister an already registered image");
     image.flags &= ~ImageFlagBits::Registered;
     image.flags &= ~ImageFlagBits::BadOverlap;
     lru_cache.Free(image.lru_index);
@@ -2209,14 +2252,15 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
                        selected_page_table) {
             const auto page_it = selected_page_table.find(page);
             if (page_it == selected_page_table.end()) {
-                ASSERT_MSG(false, "Unregistering unregistered page=0x{:x}", page << CITRON_PAGEBITS);
+                assert(false && "Unregistering unregistered page=0x{:x}" &&
+                       (void(page << CITRON_PAGEBITS), true));
                 return;
             }
             std::vector<ImageId>& image_ids = page_it->second;
             const auto vector_it = std::ranges::find(image_ids, image_id);
             if (vector_it == image_ids.end()) {
-                ASSERT_MSG(false, "Unregistering unregistered image in page=0x{:x}",
-                           page << CITRON_PAGEBITS);
+                assert(false && "Unregistering unregistered image in page=0x{:x}" &&
+                       (void(page << CITRON_PAGEBITS), true));
                 return;
             }
             image_ids.erase(vector_it);
@@ -2229,14 +2273,15 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
         ForEachCPUPage(image.cpu_addr, image.guest_size_bytes, [this, map_id](u64 page) {
             const auto page_it = page_table.find(page);
             if (page_it == page_table.end()) {
-                ASSERT_MSG(false, "Unregistering unregistered page=0x{:x}", page << CITRON_PAGEBITS);
+                assert(false && "Unregistering unregistered page=0x{:x}" &&
+                       (void(page << CITRON_PAGEBITS), true));
                 return;
             }
             std::vector<ImageMapId>& image_map_ids = page_it->second;
             const auto vector_it = std::ranges::find(image_map_ids, map_id);
             if (vector_it == image_map_ids.end()) {
-                ASSERT_MSG(false, "Unregistering unregistered image in page=0x{:x}",
-                           page << CITRON_PAGEBITS);
+                assert(false && "Unregistering unregistered image in page=0x{:x}" &&
+                       (void(page << CITRON_PAGEBITS), true));
                 return;
             }
             image_map_ids.erase(vector_it);
@@ -2248,7 +2293,7 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
         clear_page_table(page, *sparse_table);
     });
     auto it = sparse_views.find(image_id);
-    ASSERT(it != sparse_views.end());
+    assert(it != sparse_views.end());
     auto& sparse_maps = it->second;
     for (auto& map_view_id : sparse_maps) {
         const auto& map_range = slot_map_views[map_view_id];
@@ -2257,7 +2302,8 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
         ForEachCPUPage(cpu_addr, size, [this, image_id](u64 page) {
             const auto page_it = page_table.find(page);
             if (page_it == page_table.end()) {
-                ASSERT_MSG(false, "Unregistering unregistered page=0x{:x}", page << CITRON_PAGEBITS);
+                assert(false && "Unregistering unregistered page=0x{:x}" &&
+                       (void(page << CITRON_PAGEBITS), true));
                 return;
             }
             std::vector<ImageMapId>& image_map_ids = page_it->second;
@@ -2281,7 +2327,7 @@ void TextureCache<P>::UnregisterImage(ImageId image_id) {
 
 template <class P>
 void TextureCache<P>::TrackImage(ImageBase& image, ImageId image_id) {
-    ASSERT(False(image.flags & ImageFlagBits::Tracked));
+    assert(False(image.flags & ImageFlagBits::Tracked));
     image.flags |= ImageFlagBits::Tracked;
     if (False(image.flags & ImageFlagBits::Sparse)) {
         if (image.cpu_addr < ~(1ULL << 40)) {
@@ -2291,7 +2337,7 @@ void TextureCache<P>::TrackImage(ImageBase& image, ImageId image_id) {
     }
     if (True(image.flags & ImageFlagBits::Registered)) {
         auto it = sparse_views.find(image_id);
-        ASSERT(it != sparse_views.end());
+        assert(it != sparse_views.end());
         auto& sparse_maps = it->second;
         for (auto& map_view_id : sparse_maps) {
             const auto& map = slot_map_views[map_view_id];
@@ -2309,7 +2355,7 @@ void TextureCache<P>::TrackImage(ImageBase& image, ImageId image_id) {
 
 template <class P>
 void TextureCache<P>::UntrackImage(ImageBase& image, ImageId image_id) {
-    ASSERT(True(image.flags & ImageFlagBits::Tracked));
+    assert(True(image.flags & ImageFlagBits::Tracked));
     image.flags &= ~ImageFlagBits::Tracked;
     if (False(image.flags & ImageFlagBits::Sparse)) {
         if (image.cpu_addr < ~(1ULL << 40)) {
@@ -2317,9 +2363,9 @@ void TextureCache<P>::UntrackImage(ImageBase& image, ImageId image_id) {
         }
         return;
     }
-    ASSERT(True(image.flags & ImageFlagBits::Registered));
+    assert(True(image.flags & ImageFlagBits::Registered));
     auto it = sparse_views.find(image_id);
-    ASSERT(it != sparse_views.end());
+    assert(it != sparse_views.end());
     auto& sparse_maps = it->second;
     for (auto& map_view_id : sparse_maps) {
         const auto& map = slot_map_views[map_view_id];
@@ -2334,7 +2380,7 @@ void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
     ImageBase& image = slot_images[image_id];
     if (image.HasScaled()) {
         const u64 scaled_size = GetScaledImageSizeBytes(image);
-        ASSERT(total_used_memory >= scaled_size);
+        assert(total_used_memory >= scaled_size);
         total_used_memory -= std::min(total_used_memory, scaled_size);
     }
     u64 tentative_size = std::max(image.guest_size_bytes, image.unswizzled_size_bytes);
@@ -2344,7 +2390,7 @@ void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
         tentative_size = TranscodedAstcSize(tentative_size, image.info.format);
     }
     const u64 aligned_size = Common::AlignUp(tentative_size, 1024);
-    ASSERT(total_used_memory >= aligned_size);
+    assert(total_used_memory >= aligned_size);
     total_used_memory -= std::min(total_used_memory, aligned_size);
 
     if (texture_count > 0) {
@@ -2360,19 +2406,19 @@ void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
     const GPUVAddr gpu_addr = image.gpu_addr;
     const auto alloc_it = image_allocs_table.find(gpu_addr);
     if (alloc_it == image_allocs_table.end()) {
-        ASSERT_MSG(false, "Trying to delete an image alloc that does not exist in address 0x{:x}",
-                   gpu_addr);
+        assert(false && "Trying to delete an image alloc that does not exist in address 0x{:x}" &&
+               (void(gpu_addr), true));
         return;
     }
     const ImageAllocId alloc_id = alloc_it->second;
     std::vector<ImageId>& alloc_images = slot_image_allocs[alloc_id].images;
     const auto alloc_image_it = std::ranges::find(alloc_images, image_id);
     if (alloc_image_it == alloc_images.end()) {
-        ASSERT_MSG(false, "Trying to delete an image that does not exist");
+        assert(false && "Trying to delete an image that does not exist");
         return;
     }
-    ASSERT_MSG(False(image.flags & ImageFlagBits::Tracked), "Image was not untracked");
-    ASSERT_MSG(False(image.flags & ImageFlagBits::Registered), "Image was not unregistered");
+    assert(False(image.flags & ImageFlagBits::Tracked) && "Image was not untracked");
+    assert(False(image.flags & ImageFlagBits::Registered) && "Image was not unregistered");
 
     // Mark render targets as dirty
     auto& dirty = maxwell3d->dirty.flags;
@@ -2398,8 +2444,8 @@ void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
                 return other_alias.id == image_id;
             });
         other_image.CheckAliasState();
-        ASSERT_MSG(num_removed_aliases == 1, "Invalid number of removed aliases: {}",
-                   num_removed_aliases);
+        assert(num_removed_aliases == 1 && "Invalid number of removed aliases: {}" &&
+               (void(num_removed_aliases), true));
     }
     for (const ImageId overlap_id : image.overlapping_images) {
         ImageBase& other_image = slot_images[overlap_id];
@@ -2407,8 +2453,8 @@ void TextureCache<P>::DeleteImage(ImageId image_id, bool immediate_delete) {
             other_image.overlapping_images,
             [image_id](const ImageId other_overlap_id) { return other_overlap_id == image_id; });
         other_image.CheckBadOverlapState();
-        ASSERT_MSG(num_removed_overlaps == 1, "Invalid number of removed overlapps: {}",
-                   num_removed_overlaps);
+        assert(num_removed_overlaps == 1 && "Invalid number of removed overlapps: {}" &&
+               (void(num_removed_overlaps), true));
     }
     for (const ImageViewId image_view_id : image_view_ids) {
         if (!immediate_delete) {
@@ -2459,7 +2505,7 @@ void TextureCache<P>::RemoveFramebuffers(std::span<const ImageViewId> removed_vi
     while (it != framebuffers.end()) {
         if (it->first.Contains(removed_views)) {
             auto framebuffer_id = it->second;
-            ASSERT(framebuffer_id);
+            assert(framebuffer_id);
             sentenced_framebuffers.Push(std::move(slot_framebuffers[framebuffer_id]));
             it = framebuffers.erase(it);
         } else {
@@ -2564,7 +2610,7 @@ void TextureCache<P>::CopyImage(ImageId dst_id, ImageId src_id, std::vector<Imag
     Image& src = slot_images[src_id];
     const bool is_rescaled = True(src.flags & ImageFlagBits::Rescaled);
     if (is_rescaled) {
-        ASSERT(True(dst.flags & ImageFlagBits::Rescaled));
+        assert(True(dst.flags & ImageFlagBits::Rescaled));
         const bool both_2d{src.info.type == ImageType::e2D && dst.info.type == ImageType::e2D};
         const auto& resolution = Settings::values.resolution_info;
         for (auto& copy : copies) {

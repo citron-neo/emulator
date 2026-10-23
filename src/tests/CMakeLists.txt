@@ -18,9 +18,14 @@ add_executable(tests
     core/exit_callback.cpp
     core/internal_network/network.cpp
     precompiled_headers.h
+    video_core/blit_operation.cpp
     video_core/memory_tracker.cpp
     video_core/image_size.cpp
     video_core/cache_memory_pressure.cpp
+    video_core/descriptor_bank.cpp
+    video_core/dma_remap.cpp
+    video_core/syncpoint_manager.cpp
+    video_core/uma.cpp
     input_common/calibration_configuration_job.cpp
 )
 
@@ -30,6 +35,8 @@ set_property(TARGET tests PROPERTY UNITY_BUILD OFF)
 create_target_directory_groups(tests)
 
 target_link_libraries(tests PRIVATE common core input_common)
+# video_core/descriptor_bank.cpp includes the Vulkan backend's headers.
+target_link_libraries(tests PRIVATE Vulkan::Headers)
 target_link_libraries(tests PRIVATE ${PLATFORM_LIBRARIES} Catch2::Catch2WithMain Threads::Threads)
 
 add_test(NAME tests COMMAND tests)

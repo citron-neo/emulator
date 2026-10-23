@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include <deque>
+#include <memory>
 #include <span>
+#include <vector>
 
 #include "video_core/texture_cache/texture_cache_base.h"
 
@@ -46,6 +49,7 @@ public:
                                  RenderPassCache& render_pass_cache_,
                                  DescriptorPool& descriptor_pool,
                                  ComputePassDescriptorQueue& compute_pass_descriptor_queue);
+    ~TextureCacheRuntime();
 
     void Finish();
 
@@ -101,17 +105,32 @@ public:
         return false;
     }
 
+    /// Whether a BGR view of an RGB image (and the reverse) is made as a view of the same image.
+    /// Without it the texture cache keeps BGR and RGB in separate images and copies between them.
     bool HasNativeBgr() const noexcept {
-        // All known Vulkan drivers can natively handle BGR textures
-        return true;
+        return native_bgr;
     }
 
     [[nodiscard]] VkBuffer GetTemporaryBuffer(size_t needed_size);
     void CleanupUnusedBuffers();
 
-    std::span<const VkFormat> ViewFormats(PixelFormat format) {
-        return view_formats[static_cast<std::size_t>(format)];
+    /// Formats an image of this format may be viewed as. The narrow list holds only the formats
+    /// with the same components (A8B8G8R8 UNORM, SNORM, SINT, UINT and SRGB for example), so a
+    /// driver can keep framebuffer compression on the image; the wide list holds every format a
+    /// view of it may need.
+    std::span<const VkFormat> ViewFormats(PixelFormat format, bool wide) const {
+        const auto index = static_cast<std::size_t>(format);
+        return wide ? view_formats[index] : narrow_view_formats[index];
     }
+
+    /// Keeps the replaced images of an image that was made again with the wide format list (and
+    /// what was made from them) until the GPU and the delayed view destruction are done with them.
+    void RetireImage(vk::Image original, vk::Image scaled,
+                     std::vector<vk::ImageView> storage_views,
+                     std::unique_ptr<Framebuffer> scale_framebuffer,
+                     std::unique_ptr<ImageView> scale_view,
+                     std::unique_ptr<Framebuffer> normal_framebuffer,
+                     std::unique_ptr<ImageView> normal_view);
 
     void BarrierFeedbackLoop();
 
@@ -125,9 +144,20 @@ public:
     std::unique_ptr<MSAACopyPass> msaa_copy_pass;
     const Settings::ResolutionScalingInfo& resolution;
     std::array<std::vector<VkFormat>, VideoCore::Surface::MaxPixelFormat> view_formats;
+    std::array<std::vector<VkFormat>, VideoCore::Surface::MaxPixelFormat> narrow_view_formats;
+    bool native_bgr = true;
+
+    struct RetiredImage;
+    std::deque<std::unique_ptr<RetiredImage>> retired_images;
+    u64 frame_count{};
 
     static constexpr size_t indexing_slots = 8 * sizeof(size_t);
     std::array<vk::Buffer, indexing_slots> buffers{};
+
+    /// Custom border colour slots handed to samplers so far (never given back, see Sampler).
+    u32 custom_border_samplers{};
+    /// Whether running out of those slots has been logged.
+    bool custom_border_budget_reported{};
 };
 
 class Image : public VideoCommon::ImageBase {
@@ -183,8 +213,24 @@ public:
     // Allows cache GC to defer readbacks that may allocate scaling helper resources.
     bool NeedsScaleHelper() const;
 
+    /// Whether a view in this format needs the image made again with the wide format list.
+    [[nodiscard]] bool NeedsWideViews(PixelFormat view_format) const;
+
+    /// Same for a typed storage view (Shader::ImageFormat other than Typeless).
+    [[nodiscard]] bool NeedsWideStorageViews(Shader::ImageFormat storage_format) const;
+
+    /// Makes the image again with the wide format list and copies its contents. Every view of
+    /// the old image has to be dropped by the caller. Returns false when it already had it.
+    bool WidenViewFormats();
+
 private:
     bool BlitScaleHelper(bool scale_up);
+
+    [[nodiscard]] bool NeedsWideVkFormat(VkFormat view_format) const;
+
+    [[nodiscard]] VideoCommon::ImageInfo ScaledInfo() const;
+
+    void MakeStorageImageViews();
 
     Scheduler* scheduler{};
     TextureCacheRuntime* runtime{};
@@ -193,6 +239,8 @@ private:
     std::vector<vk::ImageView> storage_image_views;
     VkImageAspectFlags aspect_mask = 0;
     bool initialized = false;
+    /// Whether the image was made with the wide view format list
+    bool wide_view_formats = false;
     vk::Image scaled_image{};
     VkImage current_image{};
 
@@ -253,6 +301,12 @@ public:
         return supports_depth_comparison;
     }
 
+    /// False when the view's format cannot be sampled with a linear filter (Turnip: the 32-bit
+    /// float formats), in which case a linear sampler must not be paired with it
+    [[nodiscard]] bool SupportsLinearFilter() const noexcept {
+        return supports_linear_filter;
+    }
+
     [[nodiscard]] GPUVAddr GpuAddr() const noexcept {
         return gpu_addr;
     }
@@ -270,9 +324,14 @@ private:
     struct StorageViews {
         std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> signeds;
         std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> unsigneds;
+        /// Typeless accesses, in the view's own format with the identity swizzle
+        std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> typeless;
     };
 
     [[nodiscard]] vk::ImageView MakeView(VkFormat view_format, VkImageAspectFlags aspect);
+
+    /// A storage view in the sampled format, shaped like Handle(texture_type)
+    [[nodiscard]] vk::ImageView MakeTypelessStorageView(Shader::TextureType texture_type);
 
     const Device* device = nullptr;
     const SlotVector<Image>* slot_images = nullptr;
@@ -293,6 +352,7 @@ private:
     u32 buffer_size = 0;
     VideoCommon::ImageType physical_image_type = VideoCommon::ImageType::e2D;
     bool supports_depth_comparison = false;
+    bool supports_linear_filter = true;
 };
 
 class ImageAlloc : public VideoCommon::ImageAllocBase {};
@@ -377,8 +437,10 @@ public:
         return samples;
     }
 
-    [[nodiscard]] u32 NumColorBuffers() const noexcept {
-        return num_color_buffers;
+    /// Colour attachment slots of the render pass's subpass: the highest bound render target plus
+    /// one, since slot i is render target i (vk_render_pass_cache.cpp).
+    [[nodiscard]] u32 NumColorAttachments() const noexcept {
+        return num_color_attachments;
     }
 
     [[nodiscard]] u32 NumImages() const noexcept {
@@ -414,7 +476,7 @@ private:
     VkRenderPass renderpass{};
     VkExtent2D render_area{};
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-    u32 num_color_buffers = 0;
+    u32 num_color_attachments = 0;
     u32 num_images = 0;
     std::array<VkImage, 9> images{};
     std::array<VkImageSubresourceRange, 9> image_ranges{};
