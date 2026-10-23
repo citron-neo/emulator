@@ -107,6 +107,23 @@ All of the above is handled by running this once per machine:
 
 It verifies every tool at the end and tells you exactly what's still missing if anything failed to install.
 
+### Web Applet Backend
+
+Windows defaults to WebView2 (`CITRON_USE_WEBVIEW2_WEB_ENGINE=ON`), with
+QtWebEngine off. To select QtWebEngine instead on the MSVC or clang-cl toolchain,
+disable WebView2 explicitly:
+
+```bash
+cmake -S . -B build -DCITRON_USE_QT_WEB_ENGINE=ON \
+  -DCITRON_USE_WEBVIEW2_WEB_ENGINE=OFF
+```
+
+Only one backend may be enabled. Set both flags when switching an existing build
+directory because CMake preserves cached option values. QtWebEngine is not
+available for the `llvm-mingw` Windows target; use WebView2 there.
+The clang-cl build script explicitly selects WebView2 in its generated configure
+command; to switch that script, change both backend flags there as shown above.
+
 ### `llvm-mingw` — Linux (cross-compile, full pipeline)
 
 The `setup` stage installs all of these automatically:

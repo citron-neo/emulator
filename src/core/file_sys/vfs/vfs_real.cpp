@@ -4,7 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <iterator>
+#include <filesystem>
 #include <utility>
 #include "common/assert.h"
 #include "common/fs/file.h"
@@ -13,6 +13,7 @@
 #include "common/logging.h"
 #include "core/file_sys/vfs/vfs.h"
 #include "core/file_sys/vfs/vfs_real.h"
+#include "core/file_sys/vfs/vfs_vector.h"
 
 // For FileTimeStampRaw
 #include <sys/stat.h>
@@ -41,6 +42,25 @@ namespace FS = Common::FS;
 namespace {
 
 constexpr size_t MaxOpenFiles = 512;
+
+// Ultimate S (https://github.com/chrispo-git/ult-s) is a Super Smash Bros. Ultimate overhaul mod.
+// It disables its web menus on anything it fingerprints as an emulator, unless the file
+// sd:/ultimate/ult-s/web_menus.flag exists: its readme documents that file as the opt-in for
+// emulators that implement the WebApplet protocol. The mod ships, and requires, its own
+// sd:/ultimate/ult-s/config.toml, so that file is used to detect an Ultimate S install. The
+// capability is then exposed as a read-only virtual entry that is never written to the host SD
+// card, and nothing is exposed for any other game or mod.
+bool IsWebMenuCapabilityFile(std::string_view path) {
+    const auto components = FS::SplitPathComponentsCopy(path);
+    const size_t count = components.size();
+    if (count < 3 || components[count - 1] != "web_menus.flag" ||
+        components[count - 2] != "ult-s" || components[count - 3] != "ultimate") {
+        return false;
+    }
+
+    const auto ult_s_dir = std::filesystem::path{FS::ToU8String(path)}.parent_path();
+    return FS::IsFile(ult_s_dir / "config.toml");
+}
 
 constexpr FS::FileAccessMode ModeFlagsToFileAccessMode(OpenMode mode) {
     switch (mode) {
@@ -75,6 +95,9 @@ bool RealVfsFilesystem::IsWritable() const {
 
 VfsEntryType RealVfsFilesystem::GetEntryType(std::string_view path_) const {
     const auto path = FS::SanitizePath(path_, FS::DirectorySeparator::PlatformDefault);
+    if (IsWebMenuCapabilityFile(path)) {
+        return VfsEntryType::File;
+    }
     if (!FS::Exists(path)) {
         return VfsEntryType::None;
     }
@@ -88,6 +111,9 @@ VfsEntryType RealVfsFilesystem::GetEntryType(std::string_view path_) const {
 VirtualFile RealVfsFilesystem::OpenFileFromEntry(std::string_view path_, std::optional<u64> size,
                                                  OpenMode perms) {
     const auto path = FS::SanitizePath(path_, FS::DirectorySeparator::PlatformDefault);
+    if (IsWebMenuCapabilityFile(path)) {
+        return std::make_shared<VectorVfsFile>(std::vector<u8>{}, "web_menus.flag");
+    }
     std::scoped_lock lk{list_lock};
 
     if (auto it = cache.find(path); it != cache.end()) {
@@ -116,6 +142,9 @@ VirtualFile RealVfsFilesystem::OpenFile(std::string_view path_, OpenMode perms) 
 
 VirtualFile RealVfsFilesystem::CreateFile(std::string_view path_, OpenMode perms) {
     const auto path = FS::SanitizePath(path_, FS::DirectorySeparator::PlatformDefault);
+    if (IsWebMenuCapabilityFile(path)) {
+        return nullptr;
+    }
     {
         std::scoped_lock lk{list_lock};
         cache.erase(path);
@@ -149,6 +178,9 @@ VirtualFile RealVfsFilesystem::CopyFile(std::string_view old_path_, std::string_
 VirtualFile RealVfsFilesystem::MoveFile(std::string_view old_path_, std::string_view new_path_) {
     const auto old_path = FS::SanitizePath(old_path_, FS::DirectorySeparator::PlatformDefault);
     const auto new_path = FS::SanitizePath(new_path_, FS::DirectorySeparator::PlatformDefault);
+    if (IsWebMenuCapabilityFile(old_path) || IsWebMenuCapabilityFile(new_path)) {
+        return nullptr;
+    }
     {
         std::scoped_lock lk{list_lock};
         cache.erase(old_path);
@@ -162,6 +194,9 @@ VirtualFile RealVfsFilesystem::MoveFile(std::string_view old_path_, std::string_
 
 bool RealVfsFilesystem::DeleteFile(std::string_view path_) {
     const auto path = FS::SanitizePath(path_, FS::DirectorySeparator::PlatformDefault);
+    if (IsWebMenuCapabilityFile(path)) {
+        return false;
+    }
     {
         std::scoped_lock lk{list_lock};
         cache.erase(path);
@@ -216,8 +251,10 @@ RealVfsFilesystem::ListLockGuard RealVfsFilesystem::RefreshReference(const std::
     if (!reference.file) {
         this->EvictSingleReferenceLocked();
 
-        reference.file =
-            FS::FileOpen(path, ModeFlagsToFileAccessMode(perms), FS::FileType::BinaryFile);
+        // A guest may reopen an SD-card file with a broader access mode after it has already
+        // been read. Keep the host backing handle shareable so this does not fail on Windows.
+        reference.file = FS::FileOpen(path, ModeFlagsToFileAccessMode(perms),
+                                      FS::FileType::BinaryFile, FS::FileShareFlag::ShareReadWrite);
         if (reference.file) {
             num_open_files++;
         }
@@ -409,6 +446,9 @@ RealVfsDirectory::~RealVfsDirectory() = default;
 
 VirtualFile RealVfsDirectory::GetFileRelative(std::string_view relative_path) const {
     const auto full_path = FS::SanitizePath(path + '/' + std::string(relative_path));
+    if (IsWebMenuCapabilityFile(full_path)) {
+        return base.OpenFile(full_path, perms);
+    }
     if (!FS::Exists(full_path) || FS::IsDir(full_path)) {
         return nullptr;
     }
@@ -433,6 +473,9 @@ VirtualDir RealVfsDirectory::GetSubdirectory(std::string_view name) const {
 
 VirtualFile RealVfsDirectory::CreateFileRelative(std::string_view relative_path) {
     const auto full_path = FS::SanitizePath(path + '/' + std::string(relative_path));
+    if (IsWebMenuCapabilityFile(full_path)) {
+        return nullptr;
+    }
     if (!FS::CreateParentDirs(full_path)) {
         return nullptr;
     }
@@ -450,7 +493,26 @@ bool RealVfsDirectory::DeleteSubdirectoryRecursive(std::string_view name) {
 }
 
 std::vector<VirtualFile> RealVfsDirectory::GetFiles() const {
-    return IterateEntries<RealVfsFile, VfsFile>();
+    auto out = IterateEntries<RealVfsFile, VfsFile>();
+    if (perms != OpenMode::AllowAppend &&
+        IsWebMenuCapabilityFile(path + "/web_menus.flag")) {
+        // This is a virtual capability entry, so it must participate in directory
+        // enumeration as well as direct lookup. If a physical file shadows it,
+        // OpenFile still returns the synthetic zero-length capability file.
+        const auto entry = std::find_if(out.begin(), out.end(), [](const VirtualFile& file) {
+            return file && file->GetName() == "web_menus.flag";
+        });
+        auto capability = base.OpenFile(path + "/web_menus.flag", perms);
+        if (!capability) {
+            return out;
+        }
+        if (entry == out.end()) {
+            out.emplace_back(std::move(capability));
+        } else {
+            *entry = std::move(capability);
+        }
+    }
+    return out;
 }
 
 FileTimeStampRaw RealVfsDirectory::GetFileTimeStamp(std::string_view path_) const {
@@ -545,6 +607,10 @@ std::map<std::string, VfsEntryType, std::less<>> RealVfsDirectory::GetEntries() 
     };
 
     FS::IterateDirEntries(path, callback);
+
+    if (IsWebMenuCapabilityFile(path + "/web_menus.flag")) {
+        out.insert_or_assign("web_menus.flag", VfsEntryType::File);
+    }
 
     return out;
 }

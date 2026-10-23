@@ -4,6 +4,7 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
 #include <optional>
 
 #include "common/common_types.h"
@@ -22,7 +23,8 @@ enum class ContentRecordType : u8;
 
 namespace Service::AM::Frontend {
 
-class WebBrowser final : public FrontendApplet {
+class WebBrowser final : public FrontendApplet,
+                         public std::enable_shared_from_this<WebBrowser> {
 public:
     WebBrowser(Core::System& system_, std::shared_ptr<Applet> applet_,
                LibraryAppletMode applet_mode_, const Core::Frontend::WebBrowserApplet& frontend_);
@@ -66,6 +68,11 @@ private:
     const Core::Frontend::WebBrowserApplet& frontend;
 
     bool complete{false};
+    // ILibraryAppletAccessor invokes Execute() again after every interactive-in message. A web
+    // session keeps one frontend page alive for the whole conversation, so reopening it for an
+    // ACK or page reply is both unnecessary and destructive (it re-enters the GUI's modal web
+    // loop and strands a second loading dialog over the first page).
+    bool frontend_opened{false};
     Result status{ResultSuccess};
 
     WebAppletVersion web_applet_version{};
@@ -77,6 +84,8 @@ private:
     std::filesystem::path offline_cache_dir;
     std::filesystem::path offline_document;
     FileSys::VirtualFile offline_romfs;
+
+    bool web_session_enabled{};
 
     std::string external_url;
 };

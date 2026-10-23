@@ -61,7 +61,22 @@ class QtAmiiboSettingsDialog;
 class QtControllerSelectorDialog;
 class QtProfileSelectionDialog;
 class QtSoftwareKeyboardDialog;
+// web_applet's concrete type is chosen per build; the three backend defines are
+// mutually exclusive. Order matches WebBrowserOpenWebPage's backend-selection
+// #if in main.cpp (finding #18) -- must resolve to the same concrete type.
+#if defined(CITRON_USE_QT_WEB_ENGINE)
 class QtNXWebEngineView;
+using ActiveWebEngineView = QtNXWebEngineView;
+#elif defined(CITRON_USE_WEBKITGTK_WEB_ENGINE)
+class WebKitGTKView;
+using ActiveWebEngineView = WebKitGTKView;
+#elif defined(CITRON_USE_WEBVIEW2_WEB_ENGINE)
+class WebView2View;
+using ActiveWebEngineView = WebView2View;
+#else
+class QtNXWebEngineView;
+using ActiveWebEngineView = QtNXWebEngineView;
+#endif
 
 enum class StartGameType { Normal, Global };
 
@@ -194,6 +209,9 @@ signals:
                                           std::u16string submitted_text, s32 cursor_position);
     void WebBrowserExtractOfflineRomFS();
     void WebBrowserClosed(Service::AM::Frontend::WebExitReason exit_reason, std::string last_url);
+    /// Emitted when the page open in the web applet sends an outgoing message via the injected
+    /// window.nx.sendMessage bridge (e.g. ARCropolis's mod-manager UI requesting closure).
+    void WebBrowserInteractiveDataReceived(std::string data);
     void SigInterrupt();
     void ConfigurationSaved();
 public slots:
@@ -222,8 +240,17 @@ public slots:
     void ProfileSelectorSelectProfile(const Core::Frontend::ProfileSelectParameters& parameters);
     void ProfileSelectorRequestExit();
     void WebBrowserOpenWebPage(const std::string& main_url, const std::string& additional_args,
-                               bool is_local);
-    void WebBrowserRequestExit();
+                               bool is_local, quint64 request_id);
+    void WebBrowserRequestExit(quint64 request_id);
+    /// Delivers data pushed by the guest (WebBrowser::ExecuteInteractive) into the page currently
+    /// open in the web applet, dispatched as a "message" event so window.nx.addEventListener
+    /// ("message", ...) listeners (used e.g. for ARCropolis's "GetModSize" reply) receive it.
+    void WebBrowserDeliverInteractiveData(const std::string& data);
+    /// Push-based path for WebKitGTK/WebView2 backends: called directly from their
+    /// message-handler callbacks instead of being polled by the event loop.
+    void ForwardWebBrowserInteractiveData(const std::string& data) {
+        Q_EMIT WebBrowserInteractiveDataReceived(data);
+    }
     void OnAppFocusStateChanged(Qt::ApplicationState state);
     void OnTasStateChanged();
     void IncrementInstallProgress();
@@ -487,7 +514,8 @@ private:
     QtProfileSelectionDialog* profile_select_applet = nullptr;
     QDialog* error_applet = nullptr;
     QtSoftwareKeyboardDialog* software_keyboard = nullptr;
-    QtNXWebEngineView* web_applet = nullptr;
+    ActiveWebEngineView* web_applet = nullptr;
+    quint64 web_applet_request_id{};
     QAction* action_exit_fullscreen;
     bool is_amiibo_file_select_active{};
     bool is_load_file_select_active{};

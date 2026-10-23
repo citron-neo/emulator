@@ -82,6 +82,22 @@ No PGO round-trip at all:
 If your package manager isn't one of the six recognized ones, `setup` prints the
 manual package list and continues.
 
+## Web Applet Backend
+
+The default backend is WebKitGTK on Linux (`CITRON_USE_WEBKITGTK_WEB_ENGINE=ON`);
+QtWebEngine is opt-in (`CITRON_USE_QT_WEB_ENGINE=OFF`). Exactly one backend may be
+enabled. To use QtWebEngine instead, disable WebKitGTK explicitly:
+
+```bash
+cmake -S . -B build -DCITRON_USE_QT_WEB_ENGINE=ON \
+  -DCITRON_USE_WEBKITGTK_WEB_ENGINE=OFF
+```
+
+When switching an existing build directory, set both flags explicitly because
+CMake preserves cached option values. The Linux build script likewise selects
+WebKitGTK explicitly in its configure arguments; change both backend flags there
+if you want that script to build with QtWebEngine.
+
 A plain `git clone` (no `\--recurse-submodules`) is all you need — every
 dependency, including `libusb` and `dynarmic`, is fetched fresh via CPM at
 configure time.
