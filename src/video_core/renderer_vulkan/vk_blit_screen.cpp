@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/settings.h"
+#include "common/terminal_fail_stop.h"
 #include "video_core/framebuffer_config.h"
 #include "video_core/present.h"
 #include "video_core/renderer_vulkan/present/filters.h"
@@ -23,9 +24,27 @@ BlitScreen::BlitScreen(Tegra::MaxwellDeviceMemoryManager& device_memory_, const 
 BlitScreen::~BlitScreen() = default;
 
 void BlitScreen::WaitIdle() {
-    present_manager.WaitPresent();
-    scheduler.Finish();
-    device.GetLogical().WaitIdle();
+    const char* stage = "blit.finish";
+    try {
+        scheduler.Finish();
+        stage = "blit.recording_drain";
+        // Present() records a host closure. Publish it before waiting for the
+        // presentation queue, otherwise that queue can appear prematurely idle.
+        scheduler.WaitWorker();
+        stage = "blit.presentation_drain";
+        present_manager.WaitPresent();
+        stage = "blit.native_idle";
+        // Drains can submit work; take this lock only after both CPU producers.
+        std::scoped_lock lock{scheduler.submit_mutex};
+        const auto idle = device.GetLogical().WaitIdle();
+        if (idle != VK_SUCCESS) {
+            Common::TerminalFailStop(stage, "vulkan_result", static_cast<int>(idle));
+        }
+    } catch (const vk::Exception& error) {
+        Common::TerminalFailStop(stage, "vulkan_exception", static_cast<int>(error.GetResult()));
+    } catch (...) {
+        Common::TerminalFailStop(stage, "host_exception");
+    }
 }
 
 void BlitScreen::SetWindowAdaptPass() {

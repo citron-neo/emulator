@@ -4,6 +4,7 @@
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/vi/container.h"
 #include "core/hle/service/vi/manager_display_service.h"
+#include "core/hle/service/vi/vi_results.h"
 
 namespace Service::VI {
 
@@ -104,12 +105,16 @@ IManagerDisplayService::~IManagerDisplayService() = default;
 Result IManagerDisplayService::CreateSharedLayerSession(Kernel::KProcess* owner_process,
                                                         u64* out_buffer_id, u64* out_layer_handle,
                                                         u64 display_id, bool enable_blending) {
-    R_RETURN(m_container->GetSharedBufferManager()->CreateSession(
+    auto* manager = m_container->GetSharedBufferManager();
+    R_UNLESS(manager, VI::ResultOperationFailed);
+    R_RETURN(manager->CreateSession(
         owner_process, out_buffer_id, out_layer_handle, display_id, enable_blending));
 }
 
 void IManagerDisplayService::DestroySharedLayerSession(Kernel::KProcess* owner_process) {
-    m_container->GetSharedBufferManager()->DestroySession(owner_process);
+    auto* manager = m_container->GetSharedBufferManager();
+    if (!manager) return; // Terminal refusal retains the container's owner records.
+    manager->DestroySession(owner_process);
 }
 
 Result IManagerDisplayService::SetLayerBlending(bool enabled, u64 layer_id) {

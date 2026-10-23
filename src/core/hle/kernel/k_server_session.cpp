@@ -375,7 +375,7 @@ Result CleanupServerHandles(KernelCore& kernel, uint64_t message, size_t buffer_
     // Get the linear message pointer.
     u32* msg_ptr;
     if (message) {
-        msg_ptr = kernel.System().DeviceMemory().GetPointer<u32>(message_paddr);
+        msg_ptr = kernel.System().DeviceMemory().GetPointer<u32>(message_paddr, buffer_size);
     } else {
         msg_ptr = GetCurrentMemory(kernel).GetPointer<u32>(thread.GetTlsAddress());
         buffer_size = MessageBufferSize;
@@ -562,7 +562,7 @@ Result ReceiveMessage(KernelCore& kernel, bool& recv_list_broken, uint64_t dst_m
     bool dst_user, src_user;
 
     if (dst_message_buffer) {
-        dst_msg_ptr = kernel.System().DeviceMemory().GetPointer<u32>(dst_message_paddr);
+        dst_msg_ptr = kernel.System().DeviceMemory().GetPointer<u32>(dst_message_paddr, dst_buffer_size);
         dst_user = true;
     } else {
         dst_msg_ptr = dst_page_table.GetMemory().GetPointer<u32>(dst_thread.GetTlsAddress());

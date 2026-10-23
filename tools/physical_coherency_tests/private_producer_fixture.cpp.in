@@ -1,0 +1,77 @@
+#if defined(__linux__) && !defined(__ANDROID__)
+#include <sys/uio.h>
+static bool PrivateCpuProbe(void* page) {
+    u8 byte=201;ssize_t result{};
+    std::thread writer([&]{iovec local{&byte,1},remote{page,1};result=process_vm_writev(getpid(),&local,1,&remote,1,0);});
+    writer.join();return result==1;
+}
+#endif
+void TestPrivateProducerDomain() {
+#if defined(__linux__) && !defined(__ANDROID__)
+    using S=Vulkan::Scheduler;using A=Vulkan::PrivateProducerTestAccess;using W=S::WriteState;
+    for(unsigned mode=0;mode<12;++mode){
+        auto s=std::make_unique<Scenario>();
+        assert(!s->runtime.CreatePrivateProducerDomain(1,64));
+        assert(!s->runtime.CreatePrivateProducerDomain(3,4097));
+        auto domain=s->runtime.CreatePrivateProducerDomain();assert(domain);
+        auto initial=A::Operation(*domain);assert(initial);
+        void* page=A::Page(*domain);
+        assert(domain->Poll()==W::Pending);
+        assert(!PrivateCpuProbe(page)); // Actual concurrent post-admission CPU access, no notification callback.
+        const std::array<u8,4> bytes{17,17,17,17};
+        assert(!domain->CpuWrite(8,bytes));assert(!domain->Fill(0,0,4,0));
+        assert(!A::GuestMappingMatches(*domain,s->runtime.test_mapping)); // Cannot relabel ordinary guest/NCE backing.
+        s->scheduler.RunWorker();s->gpu.Complete();assert(domain->Poll()==W::Complete);
+        assert(domain->CpuWrite(8,bytes));assert(static_cast<const u8*>(page)[8]==17);
+        for(u32 slot=0;slot<3;++slot){assert(A::Current(*domain,initial,slot,0,8));assert(!A::Current(*domain,initial,slot,8,4));}
+        assert(domain->Fill(0,16,16,0x63636363));
+        auto effect=A::Operation(*domain);assert(effect);
+        auto targets=A::Targets(*domain);auto weak_native=std::weak_ptr<const void>{targets[0].pin.RetainedOwner()};
+        const std::array<VkBuffer,3> native_handles{targets[0].pin.Handle(),targets[1].pin.Handle(),targets[2].pin.Handle()};
+        auto weak_backing=A::WeakState(*domain);
+        for(u32 slot=0;slot<3;++slot)for(u64 byte=0;byte<64;++byte){
+            const bool expected=!(byte>=8&&byte<12)&&!(byte>=16&&byte<32);
+            assert(A::Current(*domain,initial,slot,byte,1)==expected);
+        }
+        assert(!PrivateCpuProbe(page)); // Polling an OLD receipt above must not release the NEW guard.
+        assert(!domain->CpuWrite(16,bytes));
+        bool foreign_write=true;std::thread cpu([&]{foreign_write=domain->CpuWrite(16,bytes);});cpu.join();assert(!foreign_write);
+        bool foreign_gpu=true;std::thread gpu_entry([&]{foreign_gpu=domain->Fill(0,0,4,0);});gpu_entry.join();assert(!foreign_gpu);
+        if(mode==2||mode==3){s->gpu.submit_result=VK_ERROR_DEVICE_LOST;s->gpu.uncertain_submit_effects=mode==3;}
+        if(mode==4){domain.reset();targets.clear();assert(!weak_backing.expired()&&!weak_native.expired());}
+        if(mode==5)A::DropGuard(effect); // Privileged fault injection: destructor must quarantine, never unlock.
+        if(mode==6)A::InvalidateEpoch(*domain);
+        if(mode==7)domain->Retire();
+        if(mode==8){s->scheduler.RetireCheckedWritesAfterDeviceIdle();assert(effect->ResourcesRetained());}
+        if(mode==9){ // Unclassified rendering cannot reach these handles, but domain ownership can still be retired.
+            domain->Retire();assert(!domain->Fill(0,0,4,1));
+        }
+        if(mode==10){s->scheduler.submission_owner->store(false);assert(!domain->Fill(0,0,4,0));}
+        if(mode==11)s->runtime.staged_pin_domain->Seal();
+        assert(!PrivateCpuProbe(page));
+        bool loss=false;try{s->scheduler.RunWorker();}catch(const vk::Exception& e){loss=e.GetResult()==VK_ERROR_DEVICE_LOST;}
+        assert(loss==(mode==2||mode==3));
+        if(mode==1){assert(domain->Poll()==W::Submitted);assert(!PrivateCpuProbe(page));}
+        s->gpu.Complete();
+        const auto status=domain?domain->Poll():s->scheduler.PollCheckedTransfer(effect);
+        const bool success=mode<2||mode==8;
+        assert(status==(success?W::Complete:W::Unknown));
+        if(success){assert(domain->CpuWrite(40,bytes));assert(static_cast<const u8*>(page)[40]==17);}
+        else {
+            assert(!PrivateCpuProbe(page));
+            if(domain){assert(!domain->CpuWrite(0,bytes));assert(!domain->Fill(0,0,4,0));}
+        }
+        if(mode==2||mode==3)assert(s->gpu.counter==1);
+        if(mode==4){s->scheduler.RetireCheckedWritesAfterDeviceIdle();assert(weak_backing.expired()&&weak_native.expired());}
+        else {
+            const bool changed=success||mode==3||mode==5;
+            for(u32 slot=0;slot<3;++slot){const auto& native=reinterpret_cast<Allocation*>(native_handles[slot])->bytes;
+                for(u64 byte=0;byte<64;++byte)assert(native[byte]==(slot==0&&changed&&byte>=16&&byte<32?99:0));}
+            assert(initial->PlannedContent()->HasRoot(1,0,64,1,0));
+        }
+    }
+    std::cout<<"PASS 12 private-domain admission/lifetime modes: real Linux CPU protection and fan-out; simulated GPU failure/completion, guest/NCE integration Unknown\n";
+#else
+    std::cout<<"SKIP private-domain OS enforcement fixture: Linux required\n";
+#endif
+}

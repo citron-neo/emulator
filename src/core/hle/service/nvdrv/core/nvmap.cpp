@@ -15,6 +15,7 @@
 #include "core/hle/service/nvdrv/core/nvmap.h"
 #include "core/memory.h"
 #include "video_core/gpu.h"
+#include "video_core/unmap_failure.h"
 #include "video_core/host1x/host1x.h"
 
 namespace Service::Nvidia::NvCore {
@@ -80,13 +81,8 @@ void NvMap::AddHandle(std::shared_ptr<Handle> handle_description) {
     handles.emplace(handle_description->id, std::move(handle_description));
 }
 
-void NvMap::UnmapHandle(Handle& handle_description) {
-    // Remove pending unmap queue entry if needed
-    if (handle_description.unmap_queue_entry) {
-        unmap_queue.erase(*handle_description.unmap_queue_entry);
-        handle_description.unmap_queue_entry.reset();
-    }
-
+bool NvMap::UnmapHandle(Handle& handle_description) {
+    if (host1x.GMMU().HasUnmapFailure()) return false;
     const bool has_gmmu_mapping = handle_description.pin_virt_address >= 0x1000;
     const bool has_smmu_mapping = handle_description.d_address >= 0x1000;
     if (has_gmmu_mapping || has_smmu_mapping) {
@@ -100,11 +96,22 @@ void NvMap::UnmapHandle(Handle& handle_description) {
 
     // Free and unmap the handle from Host1x GMMU
     if (has_gmmu_mapping) {
-        host1x.GMMU().Unmap(static_cast<GPUVAddr>(handle_description.pin_virt_address),
-                            handle_description.aligned_size);
+        try {
+            host1x.GMMU().Unmap(static_cast<GPUVAddr>(handle_description.pin_virt_address),
+                                handle_description.aligned_size);
+        } catch (const VideoCommon::UnmapFailure&) {
+            // Retain queue/handle/mapping owners. No SMMU or allocation release.
+            return false;
+        }
         host1x.Allocator().Free(handle_description.pin_virt_address,
                                 static_cast<u32>(handle_description.aligned_size));
         handle_description.pin_virt_address = 0;
+    }
+
+    // Remove pending unmap queue entry if needed
+    if (handle_description.unmap_queue_entry) {
+        unmap_queue.erase(*handle_description.unmap_queue_entry);
+        handle_description.unmap_queue_entry.reset();
     }
 
     // Free and unmap the handle from the SMMU
@@ -117,7 +124,7 @@ void NvMap::UnmapHandle(Handle& handle_description) {
             smmu.Free(handle_description.d_address, static_cast<size_t>(aligned_up));
         }
         handle_description.d_address = 0;
-        return;
+        return true;
     }
     const VAddr vaddress = handle_description.address;
     auto* session = core.GetSession(handle_description.session_id);
@@ -126,6 +133,7 @@ void NvMap::UnmapHandle(Handle& handle_description) {
     }
     handle_description.d_address = 0;
     handle_description.in_heap = false;
+    return true;
 }
 
 bool NvMap::TryRemoveHandle(const Handle& handle_description) {
@@ -176,22 +184,30 @@ DAddr NvMap::GetHandleAddress(Handle::Id handle) {
 }
 
 DAddr NvMap::PinHandle(NvMap::Handle::Id handle, bool low_area_pin) {
+    if (host1x.GMMU().HasUnmapFailure()) return 0;
     auto handle_description{GetHandle(handle)};
     if (!handle_description) [[unlikely]] {
         return 0;
     }
 
-    std::scoped_lock lock(handle_description->mutex);
-    const auto map_low_area = [&] {
+    std::unique_lock lock(handle_description->mutex);
+    const auto map_low_area = [&]() -> bool {
         if (handle_description->pin_virt_address == 0) {
             auto& gmmu_allocator = host1x.Allocator();
             auto& gmmu = host1x.GMMU();
             u32 address =
                 gmmu_allocator.Allocate(static_cast<u32>(handle_description->aligned_size));
-            gmmu.Map(static_cast<GPUVAddr>(address), handle_description->d_address,
-                     handle_description->aligned_size);
+            try {
+                gmmu.Map(static_cast<GPUVAddr>(address), handle_description->d_address,
+                         handle_description->aligned_size);
+            } catch (const VideoCommon::UnmapFailure&) {
+                // Quarantine may win after the initial check. Retain the cold
+                // reservation until owner teardown; never publish a new pin.
+                return false;
+            }
             handle_description->pin_virt_address = address;
         }
+        return true;
     };
     if (!handle_description->pins) {
         // If we're in the unmap queue we can just remove ourselves and return since we're already
@@ -199,13 +215,13 @@ DAddr NvMap::PinHandle(NvMap::Handle::Id handle, bool low_area_pin) {
         {
             // Lock now to prevent our queue entry from being removed for allocation in-between the
             // following check and erase
-            std::scoped_lock queueLock(unmap_queue_lock);
+            std::unique_lock queueLock(unmap_queue_lock);
             if (handle_description->unmap_queue_entry) {
                 unmap_queue.erase(*handle_description->unmap_queue_entry);
                 handle_description->unmap_queue_entry.reset();
 
                 if (low_area_pin) {
-                    map_low_area();
+                    if (!map_low_area()) return 0;
                     handle_description->pins++;
                     return static_cast<DAddr>(handle_description->pin_virt_address);
                 }
@@ -231,18 +247,24 @@ DAddr NvMap::PinHandle(NvMap::Handle::Id handle, bool low_area_pin) {
             size_t free_attempts = 0;
             while ((address = smmu.Allocate(aligned_up)) == 0) {
                 // Free handles until the allocation succeeds
-                std::scoped_lock queueLock(unmap_queue_lock);
+                std::unique_lock queueLock(unmap_queue_lock);
                 bool freed_any = false;
                 // Try to free multiple handles from the queue
                 while (!unmap_queue.empty() && free_attempts < MAX_FREE_ATTEMPTS) {
                     if (auto freeHandleDesc{unmap_queue.front()}) {
                         // Handles in the unmap queue are guaranteed not to be pinned so don't
                         // bother checking if they are before unmapping
-                        std::scoped_lock freeLock(freeHandleDesc->mutex);
+                        std::unique_lock freeLock(freeHandleDesc->mutex);
                         const bool was_mapped = freeHandleDesc->d_address != 0;
                         const bool has_unmap_queue_entry =
                             freeHandleDesc->unmap_queue_entry.has_value();
-                        UnmapHandle(*freeHandleDesc);
+                        if (!UnmapHandle(*freeHandleDesc)) {
+                            freeLock.unlock();
+                            queueLock.unlock();
+                            lock.unlock();
+                            host1x.System().GPU().NotifyShutdown();
+                            return 0;
+                        }
                         freed_any |= was_mapped;
                         if (!has_unmap_queue_entry) {
                             unmap_queue.pop_front();
@@ -267,7 +289,7 @@ DAddr NvMap::PinHandle(NvMap::Handle::Id handle, bool low_area_pin) {
     }
 
     if (low_area_pin) {
-        map_low_area();
+        if (!map_low_area()) return 0;
     }
 
     handle_description->pins++;
@@ -284,14 +306,15 @@ void NvMap::UnpinHandle(Handle::Id handle) {
     }
 
     std::scoped_lock lock(handle_description->mutex);
-    if (--handle_description->pins < 0) {
-        LOG_WARNING(Service_NVDRV, "Pin count imbalance detected!");
-    } else if (!handle_description->pins) {
+    if (handle_description->pins == 1) {
         std::scoped_lock queueLock(unmap_queue_lock);
-
-        // Add to the unmap queue allowing this handle's memory to be freed if needed
+        // Allocate the retained queue owner before dropping the final pin.
+        // A failed allocation must leave the handle pinned and retry-free.
         unmap_queue.push_back(handle_description);
         handle_description->unmap_queue_entry = std::prev(unmap_queue.end());
+        --handle_description->pins;
+    } else if (--handle_description->pins < 0) {
+        LOG_WARNING(Service_NVDRV, "Pin count imbalance detected!");
     }
 }
 
@@ -315,7 +338,7 @@ std::optional<NvMap::FreeInfo> NvMap::FreeHandle(Handle::Id handle, bool interna
     // We use a weak ptr here so we can tell when the handle has been freed and report that back to
     // guest
     if (auto handle_description = hWeak.lock()) {
-        std::scoped_lock lock(handle_description->mutex);
+        std::unique_lock lock(handle_description->mutex);
 
         if (internal_session) {
             if (--handle_description->internal_dupes < 0)
@@ -326,8 +349,14 @@ std::optional<NvMap::FreeInfo> NvMap::FreeHandle(Handle::Id handle, bool interna
             } else if (handle_description->dupes == 0) {
                 // Force unmap the handle
                 if (handle_description->d_address) {
-                    std::scoped_lock queueLock(unmap_queue_lock);
-                    UnmapHandle(*handle_description);
+                    std::unique_lock queueLock(unmap_queue_lock);
+                    if (!UnmapHandle(*handle_description)) {
+                        ++handle_description->dupes; // preserve the failed free's guest owner
+                        queueLock.unlock();
+                        lock.unlock();
+                        host1x.System().GPU().NotifyShutdown();
+                        return std::nullopt;
+                    }
                 }
 
                 handle_description->pins = 0;

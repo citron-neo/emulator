@@ -71,6 +71,8 @@ VK_DEFINE_HANDLE(VmaAllocator)
     EXTENSION(EXT, CONDITIONAL_RENDERING, conditional_rendering)                                   \
     EXTENSION(EXT, CONSERVATIVE_RASTERIZATION, conservative_rasterization)                         \
     EXTENSION(EXT, DEPTH_RANGE_UNRESTRICTED, depth_range_unrestricted)                             \
+    EXTENSION(KHR, EXTERNAL_MEMORY_FD, external_memory_fd)                                      \
+    EXTENSION(EXT, EXTERNAL_MEMORY_DMA_BUF, external_memory_dma_buf)                            \
     EXTENSION(EXT, MEMORY_BUDGET, memory_budget)                                                   \
     EXTENSION(EXT, ROBUSTNESS_2, robustness_2)                                                     \
     EXTENSION(EXT, SAMPLER_FILTER_MINMAX, sampler_filter_minmax)                                   \
@@ -424,6 +426,26 @@ public:
         return features.features.shaderInt64;
     }
 
+    /// 8/16-bit access to storage buffers, and to uniform buffers (the "uniformAndStorage"
+    /// features). Turnip reports the uniform ones as false (Mesa tu_device.cc).
+    bool IsStorageBuffer8BitAccessSupported() const {
+        return features.bit8_storage.storageBuffer8BitAccess;
+    }
+    bool IsStorageBuffer16BitAccessSupported() const {
+        return features.bit16_storage.storageBuffer16BitAccess;
+    }
+    bool IsUniformBuffer8BitAccessSupported() const {
+        return features.bit8_storage.uniformAndStorageBuffer8BitAccess;
+    }
+    bool IsUniformBuffer16BitAccessSupported() const {
+        return features.bit16_storage.uniformAndStorageBuffer16BitAccess;
+    }
+
+    /// Returns true if storage images can use the R8, R16 and two-component formats.
+    bool IsStorageImageExtendedFormatsSupported() const {
+        return features.features.shaderStorageImageExtendedFormats;
+    }
+
     /// Returns true if shader int16 is supported.
     bool IsShaderInt16Supported() const {
         return features.features.shaderInt16;
@@ -600,6 +622,11 @@ public:
         return extensions.custom_border_color;
     }
 
+    /// Returns how many samplers with a custom border colour can exist at once.
+    u32 GetMaxCustomBorderColorSamplers() const {
+        return properties.custom_border_color.maxCustomBorderColorSamplers;
+    }
+
     /// Returns true if the device supports VK_EXT_extended_dynamic_state.
     bool IsExtExtendedDynamicStateSupported() const {
         return extensions.extended_dynamic_state;
@@ -691,6 +718,16 @@ public:
         return 0x00010300U;
     }
 
+    /// Both extensions must be enabled before querying/importing a guest dma-buf.
+    bool CanImportGuestDmaBuf() const {
+        return extensions.external_memory_fd && extensions.external_memory_dma_buf;
+    }
+
+    /// Returns true when the physical device reports VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU.
+    bool IsIntegrated() const {
+        return is_integrated;
+    }
+
     /// Returns true when a known debugging tool is attached.
     bool HasDebuggingToolAttached() const {
         return has_renderdoc || has_nsight_graphics;
@@ -766,6 +803,19 @@ public:
         return features.robustness2.nullDescriptor;
     }
 
+    /// Returns true when buffer reads outside a descriptor's range are guaranteed to return zero
+    bool HasRobustBufferAccess2() const {
+        return features.robustness2.robustBufferAccess2;
+    }
+
+    /// Granularity of the bounds check behind robustBufferAccess2 for uniform buffers. Bytes past
+    /// the descriptor range but inside the rounded-up range can read the buffer, not zero.
+    u64 GetRobustUniformBufferAccessSizeAlignment() const {
+        const u64 alignment = properties.robustness2.robustUniformBufferAccessSizeAlignment;
+        // The extension allows up to 256. Assume the worst when the driver reported nothing.
+        return alignment != 0 ? alignment : 256;
+    }
+
     bool HasExactDepthBiasControl() const {
         return features.depth_bias_control.depthBiasExact;
     }
@@ -784,6 +834,11 @@ public:
 
     u32 GetMaxUserClipDistances() const {
         return properties.properties.limits.maxClipDistances;
+    }
+
+    /// Input locations a geometry shader may use (VUID-RuntimeSpirv-Location-06272)
+    u32 GetMaxGeometryInputLocations() const {
+        return properties.properties.limits.maxGeometryInputComponents / 4;
     }
 
     bool SupportsConditionalBarriers() const {
@@ -905,6 +960,8 @@ private:
         VkPhysicalDevicePushDescriptorPropertiesKHR push_descriptor{};
         VkPhysicalDeviceSubgroupSizeControlProperties subgroup_size_control{};
         VkPhysicalDeviceTransformFeedbackPropertiesEXT transform_feedback{};
+        VkPhysicalDeviceRobustness2PropertiesEXT robustness2{};
+        VkPhysicalDeviceCustomBorderColorPropertiesEXT custom_border_color{};
 
         VkPhysicalDeviceProperties properties{};
     };

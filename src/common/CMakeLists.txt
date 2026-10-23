@@ -31,12 +31,18 @@ add_library(common STATIC
     bit_set.h
     bit_util.h
     bounded_threadsafe_queue.h
+    terminal_ingress.h
+    terminal_fail_stop.cpp
+    terminal_fail_stop.h
+    owned_retirement.h
     cityhash.cpp
     cityhash.h
     common_funcs.h
     common_precompiled_headers.h
     common_types.h
     concepts.h
+    controlled_guest_arena.h
+    slow_path_metrics.h
     container_hash.h
     demangle.cpp
     demangle.h
@@ -67,7 +73,16 @@ add_library(common STATIC
     hex_util.cpp
     hex_util.h
     host_memory.cpp
+    host_mapping_domain.h
     host_memory.h
+    pinned_physical_memory.h
+    retained_backing_storage.h
+    published_guest_chunk.h
+    physical_range_admission.h
+    physical_page_gate.h
+    physical_cpu_page.h
+    physical_registration_bundle.h
+    mapping_lifetime.h
     input.h
     intrusive_red_black_tree.h
     literals.h
@@ -196,6 +211,7 @@ if(ARCHITECTURE_x86_64)
             x64/native_clock.h
             x64/rdtsc.cpp
             x64/rdtsc.h
+            x64/xbyak.h
             x64/xbyak_abi.h
             x64/xbyak_util.h
     )

@@ -124,7 +124,7 @@ KVirtualAddress InitializeSlabHeap(Core::System& system, KMemoryLayout& memory_l
 
     if (size > 0) {
         void* backing_kernel_memory{system.DeviceMemory().GetPointer<void>(
-            TranslateSlabAddrToPhysical(memory_layout, start))};
+            TranslateSlabAddrToPhysical(memory_layout, start), size)};
 
         const KMemoryRegion* region = memory_layout.FindVirtual(start + size - 1);
         ASSERT(region != nullptr);
@@ -291,8 +291,8 @@ void KPageBufferSlabHeap::Initialize(Core::System& system) {
     ASSERT(slab_address != 0);
 
     // Initialize the slabheap.
-    KPageBuffer::InitializeSlabHeap(kernel, system.DeviceMemory().GetPointer<void>(slab_address),
-                                    slab_size);
+    KPageBuffer::InitializeSlabHeap(
+        kernel, system.DeviceMemory().GetPointer<void>(slab_address, slab_size), slab_size);
 }
 
 } // namespace Kernel

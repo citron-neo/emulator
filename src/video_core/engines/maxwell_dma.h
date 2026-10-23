@@ -5,6 +5,8 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
+#include <span>
 #include <vector>
 
 #include "common/bit_field.h"
@@ -12,6 +14,7 @@
 #include "common/common_types.h"
 #include "common/scratch_buffer.h"
 #include "video_core/engines/engine_interface.h"
+#include "video_core/physical_access_plan.h"
 
 namespace Core {
 class System;
@@ -97,6 +100,30 @@ public:
 
 class MaxwellDMA final : public EngineInterface {
 public:
+    static constexpr std::size_t NUM_REGS = 0x800;
+    /// Pure register projection for preflight. This does not describe/authorize a memory access;
+    /// page kinds, launch effects, semaphore writes and remap/layout rules still require checks.
+    [[nodiscard]] std::optional<std::array<u32, NUM_REGS>> ProjectPendingState() const;
+    struct AccessRange {
+        GPUVAddr address;
+        u64 size;
+    };
+    struct SingleLineCopy {
+        GPUVAddr source, destination;
+        u32 bytes;
+        // Conservative synchronization coverage, NOT exact write/publication extents.
+        AccessRange source_coverage, destination_coverage;
+    };
+    /// One launch word only; not a whole NI batch. Rejects additional launch semantics.
+    /// Storage plans, layout eligibility and completion/admission are separate prerequisites.
+    [[nodiscard]] std::optional<SingleLineCopy> DescribeSingleLineCopy(u32 launch_word) const;
+    struct SingleLineStoragePlan {
+        SingleLineCopy description;
+        PhysicalCopyPlan storage;
+    };
+    /// Resolves conservative coverage to real retained storage at one mapping checkpoint.
+    /// Not executable: layout eligibility, representation pins and admission remain required.
+    [[nodiscard]] std::optional<SingleLineStoragePlan> PrepareSingleLineStorage(u32 launch_word) const;
     struct PackedGPUVAddr {
         u32 upper;
         u32 lower;
@@ -219,7 +246,7 @@ public:
         u32 remap_constb_value;
 
         union {
-            BitField<0, 12, u32> dst_components_raw;
+            u32 components_raw;
             BitField<0, 3, Swizzle> dst_x;
             BitField<4, 3, Swizzle> dst_y;
             BitField<8, 3, Swizzle> dst_z;
@@ -229,10 +256,28 @@ public:
             BitField<24, 2, u32> num_dst_components_minus_one;
         };
 
-        Swizzle GetComponent(size_t i) const {
-            const u32 raw = dst_components_raw;
-            return static_cast<Swizzle>((raw >> (i * 3)) & 0x7);
+        /// DST_X..DST_W of SET_REMAP_COMPONENTS: 3 bits each, 4 bits apart (clb0b5.h).
+        [[nodiscard]] Swizzle DstComponent(u32 i) const {
+            return static_cast<Swizzle>((components_raw >> (i * 4)) & 0x7);
         }
+        [[nodiscard]] u32 ComponentSize() const {
+            return component_size_minus_one + 1;
+        }
+        [[nodiscard]] u32 SrcElementSize() const {
+            return (num_src_components_minus_one + 1) * ComponentSize();
+        }
+        [[nodiscard]] u32 DstElementSize() const {
+            return (num_dst_components_minus_one + 1) * ComponentSize();
+        }
+        /// True when every destination element is its source element unchanged, so the copy
+        /// only has to know the element size.
+        [[nodiscard]] bool IsPlainCopy() const;
+        /// Builds `count` destination elements from `src`: component i of an element becomes the
+        /// source component or constant that DST_i names (a constant as its first ComponentSize()
+        /// bytes in memory order, as this code did before; checked on a Switch for 4-byte ones),
+        /// or keeps what `dst` holds for NO_WRITE. `src` holds count * SrcElementSize() bytes,
+        /// `dst` count * DstElementSize() bytes.
+        void RemapElements(std::span<const u8> src, std::span<u8> dst, size_t count) const;
     };
     static_assert(sizeof(RemapConst) == 12);
 
@@ -255,9 +300,24 @@ private:
 
     void CopyBlockLinearToPitch();
 
+    /// Puts the widths and origins of a copy between an image and a buffer in bytes, as the GPU
+    /// path (AccelerateDMAInterface::ImageToBuffer and BufferToImage) takes them. Without
+    /// REMAP_ENABLE they are bytes already. With it they count elements; a remap that keeps every
+    /// component in place is a byte copy of element-size times as many bytes. Returns false for
+    /// any other remap, or when a scaled origin does not fit its 16-bit field.
+    [[nodiscard]] bool ScaleForPlainCopy(DMA::Parameters& image_params, DMA::ImageCopy& copy_info,
+                                         u32& buffer_width) const;
+
     void CopyPitchToBlockLinear();
 
     void CopyBlockLinearToBlockLinear();
+
+    /// A pitch copy of count elements through SET_REMAP_COMPONENTS.
+    void CopyRemapped(GPUVAddr src, GPUVAddr dst, u32 count);
+
+    /// A multi-line copy through SET_REMAP_COMPONENTS that is not a plain copy, with a block
+    /// linear source or destination.
+    void CopyRemappedRect(bool is_src_pitch, bool is_dst_pitch);
 
     void ReleaseSemaphore();
 
@@ -272,7 +332,6 @@ private:
     Common::ScratchBuffer<u8> write_buffer;
     Common::ScratchBuffer<u8> intermediate_buffer;
 
-    static constexpr std::size_t NUM_REGS = 0x800;
     struct Regs {
         union {
             struct {

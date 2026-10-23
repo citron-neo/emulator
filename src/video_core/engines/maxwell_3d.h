@@ -6,6 +6,7 @@
 #include <array>
 #include <bitset>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <optional>
 #include <type_traits>
@@ -58,6 +59,12 @@ public:
 
     /// Binds a rasterizer to this engine.
     void BindRasterizer(VideoCore::RasterizerInterface* rasterizer);
+
+    /// Stops this engine's channel at a semaphore acquire: (address, payload, greater_or_equal).
+    using SemaphoreAcquireCallback = std::function<void(GPUVAddr, u32, bool)>;
+    void SetSemaphoreAcquire(SemaphoreAcquireCallback callback) {
+        semaphore_acquire = std::move(callback);
+    }
 
     /// Register structure of the Maxwell3D engine.
     struct Regs {
@@ -628,7 +635,7 @@ public:
                 case Size::Size_B10_G11_R11:
                     return 3;
                 default:
-                    ASSERT(false);
+                    assert(false);
                     return 1;
                 }
             }
@@ -667,7 +674,7 @@ public:
                 case Size::Size_B10_G11_R11:
                     return 4;
                 default:
-                    ASSERT(false);
+                    assert(false);
                     return 1;
                 }
             }
@@ -705,7 +712,7 @@ public:
                 case Size::Size_B10_G11_R11:
                     return "10_11_11";
                 default:
-                    ASSERT(false);
+                    assert(false);
                     return {};
                 }
             }
@@ -729,7 +736,7 @@ public:
                 case Type::Float:
                     return "FLOAT";
                 }
-                ASSERT(false);
+                assert(false);
                 return {};
             }
 
@@ -770,7 +777,7 @@ public:
                 case 3:
                     return {x3, y3};
                 default:
-                    ASSERT(false);
+                    assert(false);
                     return {0, 0};
                 }
             }
@@ -817,7 +824,7 @@ public:
             u32 Map(std::size_t index) const {
                 const std::array<u32, NumRenderTargets> maps{target0, target1, target2, target3,
                                                              target4, target5, target6, target7};
-                ASSERT(index < maps.size());
+                assert(index < maps.size());
                 return maps[index];
             }
         };
@@ -2222,7 +2229,7 @@ public:
                 case IndexFormat::UnsignedInt:
                     return 4;
                 }
-                ASSERT(false);
+                assert(false);
                 return 1;
             }
 
@@ -2407,8 +2414,9 @@ public:
                 All = 15,
             };
 
+            // NVB197_SET_REPORT_SEMAPHORE_D_COMPARISON (clb197.h): _EQ 0, _GE 1
             enum class Comparison : u32 {
-                NotEqual = 0,
+                Equal = 0,
                 GreaterOrEqual = 1,
             };
 
@@ -3138,7 +3146,7 @@ private:
 
     u32 ProcessShadowRam(u32 method, u32 argument);
 
-    void ProcessDirtyRegisters(u32 method, u32 argument);
+    void ProcessDirtyRegisters(u32 method, u32 argument, bool from_sink = false);
 
     void ConsumeSinkImpl() override;
 
@@ -3191,6 +3199,8 @@ private:
     bool zero_kai_layer_fix_logged = false;
 
     VideoCore::RasterizerInterface* rasterizer = nullptr;
+
+    SemaphoreAcquireCallback semaphore_acquire;
 
     /// Start offsets of each macro in macro_memory
     std::array<u32, 0x80> macro_positions{};

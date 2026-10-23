@@ -37,7 +37,8 @@ class nvmap;
 class nvhost_gpu final : public nvdevice {
 public:
     explicit nvhost_gpu(Core::System& system_, EventInterface& events_interface_,
-                        NvCore::Container& core);
+                        NvCore::Container& core,
+                        std::shared_ptr<Tegra::Control::ChannelState> channel);
     ~nvhost_gpu() override;
 
     NvResult Ioctl1(DeviceFD fd, Ioctl command, std::span<const u8> input,

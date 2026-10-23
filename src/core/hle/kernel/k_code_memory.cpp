@@ -35,7 +35,8 @@ Result KCodeMemory::Initialize(Core::DeviceMemory& device_memory, KProcessAddres
 
     // Clear the memory.
     for (const auto& block : *m_page_group) {
-        std::memset(device_memory.GetPointer<void>(block.GetAddress()), 0xFF, block.GetSize());
+        std::memset(device_memory.GetPointer<void>(block.GetAddress(), block.GetSize()), 0xFF,
+                    block.GetSize());
     }
 
     // Set remaining tracking members.

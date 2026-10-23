@@ -255,7 +255,7 @@ bool Maxwell3D::IsMethodExecutable(u32 method) {
 void Maxwell3D::ProcessMacro(u32 method, const u32* base_start, u32 amount, bool is_last_call) {
     if (executing_macro == 0) {
         // A macro call must begin by writing the macro method's register, not its argument.
-        ASSERT((method % 2) == 0 && "Can't start macro execution by writing to the ARGS register");
+        assert((method % 2) == 0 && "Can't start macro execution by writing to the ARGS register");
         executing_macro = method;
     }
 
@@ -323,8 +323,18 @@ size_t Maxwell3D::EstimateIndexBufferSize() {
     static constexpr std::array<size_t, 3> max_sizes = {std::numeric_limits<u8>::max(), std::numeric_limits<u16>::max(), std::numeric_limits<u32>::max()};
     const size_t byte_size = regs.index_buffer.FormatSizeInBytes();
     const size_t log2_byte_size = Common::Log2Ceil64(byte_size);
-    const size_t cap{GetMaxCurrentVertices() * 4 * byte_size};
-    const size_t lower_cap = std::min<size_t>(size_t(end_address - start_address), cap);
+    if (end_address < start_address) {
+        return 0;
+    }
+    // Draws that fetch their vertices from storage buffers (vertex pulling) have no vertex
+    // streams enabled; capping by the vertex count would then estimate zero indices and bind no
+    // index buffer at all. Only cap when there are vertex streams to cap against.
+    const u32 max_vertices = GetMaxCurrentVertices();
+    const u64 difference = end_address - start_address;
+    const u64 extent = difference == std::numeric_limits<u64>::max() ? difference : difference + 1;
+    const size_t index_range = static_cast<size_t>(extent / byte_size);
+    const size_t cap{max_vertices != 0 ? size_t{max_vertices} * 4 : index_range};
+    const size_t lower_cap = std::min<size_t>(index_range, cap);
     return std::min<size_t>(memory_manager.GetMemoryLayoutSize(start_address, byte_size * max_sizes[log2_byte_size]) / byte_size, lower_cap);
 }
 
@@ -346,25 +356,47 @@ void Maxwell3D::ConsumeSinkImpl() {
     if (control == Regs::ShadowRamControl::Track || control == Regs::ShadowRamControl::TrackWithFilter) {
         for (auto [method, value] : method_sink) {
             shadow_state.reg_array[method] = value;
-            ProcessDirtyRegisters(method, value);
+            ProcessDirtyRegisters(method, value, true);
         }
     } else if (control == Regs::ShadowRamControl::Replay) {
         for (auto [method, value] : method_sink)
-            ProcessDirtyRegisters(method, shadow_state.reg_array[method]);
+            ProcessDirtyRegisters(method, shadow_state.reg_array[method], true);
     } else {
         for (auto [method, value] : method_sink)
-            ProcessDirtyRegisters(method, value);
+            ProcessDirtyRegisters(method, value, true);
     }
     method_sink.clear();
 }
 
-void Maxwell3D::ProcessDirtyRegisters(u32 method, u32 argument) {
+void Maxwell3D::ProcessDirtyRegisters(u32 method, u32 argument, bool from_sink) {
     constexpr u32 rt_start = MAXWELL3D_REG_INDEX(rt);
     constexpr u32 rt_words = sizeof(Regs::RenderTargetConfig) / sizeof(u32);
     constexpr u32 dimension_word =
         offsetof(Regs::RenderTargetConfig, array_pitch) / sizeof(u32) - 1;
+    // Games rewrite most of their state before every draw. A write that changes nothing must not
+    // mark the state dirty, or every draw pays for rebinding all of it. Render target words still
+    // go through the check below: the memory behind a target can be mapped after its registers
+    // were written, and the next identical write is the first chance to see that.
+    const bool changed{regs.reg_array[method] != argument};
+    const bool is_rt_word{method >= rt_start &&
+                          method < rt_start + Regs::NumRenderTargets * rt_words};
+    if (!changed && !is_rt_word) {
+        return;
+    }
+    if (Settings::values.dump_macros.GetValue() && method >= rt_start &&
+        method < rt_start + Regs::NumRenderTargets * rt_words &&
+        (method - rt_start) % rt_words == dimension_word &&
+        regs.reg_array[method] != argument &&
+        ((argument & 0xffffU) > 16 || (regs.reg_array[method] & 0xffffU) > 16)) {
+        LOG_WARNING(HW_GPU,
+                    "Large render target dimension write: rt={}, method=0x{:x}, old=0x{:x}, "
+                    "value=0x{:x}, shadow_mode={}, source={}",
+                    (method - rt_start) / rt_words, method * sizeof(u32), regs.reg_array[method],
+                    argument, static_cast<u32>(shadow_state.shadow_ram_control),
+                    from_sink ? "command_buffer" : "call_method");
+    }
     regs.reg_array[method] = argument;
-    if (method >= rt_start && method < rt_start + Regs::NumRenderTargets * rt_words) {
+    if (is_rt_word) {
         const u32 index = (method - rt_start) / rt_words;
         const u32 first_word = rt_start + index * rt_words;
         const std::span<const u32, 10> rt{regs.reg_array.data() + first_word, 10};
@@ -391,6 +423,9 @@ void Maxwell3D::ProcessDirtyRegisters(u32 method, u32 argument) {
             }
         }
     }
+    if (!changed) {
+        return;
+    }
     for (const auto& table : dirty.tables)
         dirty.flags[table[method]] = true;
 }
@@ -400,6 +435,14 @@ void Maxwell3D::ProcessMethodCall(u32 method, u32 argument, u32 nonshadow_argume
     case MAXWELL3D_REG_INDEX(wait_for_idle):
         return rasterizer->WaitForIdle();
     case MAXWELL3D_REG_INDEX(shadow_ram_control):
+        if (Settings::values.dump_macros.GetValue() &&
+            (regs.rt[0].depth > 16 || shadow_state.rt[0].depth > 16)) {
+            LOG_WARNING(HW_GPU,
+                        "Large RT shadow mode change: old={}, new={}, rt0=0x{:x}, shadow_rt0=0x{:x}",
+                        static_cast<u32>(shadow_state.shadow_ram_control), nonshadow_argument,
+                        regs.reg_array[MAXWELL3D_REG_INDEX(rt) + 6],
+                        shadow_state.reg_array[MAXWELL3D_REG_INDEX(rt) + 6]);
+        }
         shadow_state.shadow_ram_control = Regs::ShadowRamControl(nonshadow_argument);
         return;
     case MAXWELL3D_REG_INDEX(load_mme.instruction_ptr):
@@ -486,7 +529,7 @@ void Maxwell3D::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
     // It is an error to write to a register other than the current macro's ARG register before
     // it has finished execution.
     if (executing_macro != 0) {
-        ASSERT(method == executing_macro + 1);
+        assert(method == executing_macro + 1);
     }
 
     // Methods after 0xE00 are special, they're actually triggers for some microcode that was
@@ -496,9 +539,20 @@ void Maxwell3D::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
         return;
     }
 
-    ASSERT(method < Regs::NUM_REGS && "Invalid Maxwell3D register, increase the size of the Regs structure");
+    assert(method < Regs::NUM_REGS && "Invalid Maxwell3D register, increase the size of the Regs structure");
 
     const u32 argument = ProcessShadowRam(method, method_argument);
+    constexpr u32 rt_start = MAXWELL3D_REG_INDEX(rt);
+    constexpr u32 rt_words = sizeof(Regs::RenderTargetConfig) / sizeof(u32);
+    constexpr u32 dimension_word = offsetof(Regs::RenderTargetConfig, array_pitch) / sizeof(u32) - 1;
+    if (Settings::values.dump_macros.GetValue() && method >= rt_start &&
+        method < rt_start + Regs::NumRenderTargets * rt_words &&
+        (method - rt_start) % rt_words == dimension_word && argument != method_argument &&
+        (argument & 0xffffU) > 16) {
+        LOG_WARNING(HW_GPU,
+                    "Large render target shadow replay: rt={}, input=0x{:x}, effective=0x{:x}",
+                    (method - rt_start) / rt_words, method_argument, argument);
+    }
     ProcessDirtyRegisters(method, argument);
     ProcessMethodCall(method, argument, method_argument, is_last_call);
 }
@@ -531,7 +585,7 @@ void Maxwell3D::CallMultiMethod(u32 method, const u32* base_start, u32 amount,
         ProcessCBMultiData(base_start, amount);
         break;
     case MAXWELL3D_REG_INDEX(inline_data): {
-        ASSERT(methods_pending == amount);
+        assert(methods_pending == amount);
         upload_state.ProcessData(base_start, amount);
         return;
     }
@@ -589,9 +643,14 @@ void Maxwell3D::ProcessQueryGet() {
         rasterizer->Query(sequence_address, query_type, flags, payload, subreport);
         break;
     case Regs::ReportSemaphore::Operation::Acquire:
-        // TODO(Blinkhawk): Under this operation, the GPU waits for the CPU to write a value that
-        // matches the current payload.
-        UNIMPLEMENTED_MSG("Unimplemented query operation ACQUIRE");
+        // NVB197_SET_REPORT_SEMAPHORE_D_OPERATION_ACQUIRE: the following work waits until the
+        // word at the address equals the payload (COMPARISON_EQ) or is at least it (_GE). Running
+        // past it, as before, let the GPU read commands the guest had not finished writing.
+        if (semaphore_acquire) {
+            semaphore_acquire(sequence_address, payload,
+                              regs.report_semaphore.query.comparison ==
+                                  Regs::ReportSemaphore::Comparison::GreaterOrEqual);
+        }
         break;
     case Regs::ReportSemaphore::Operation::ReportOnly:
         rasterizer->Query(sequence_address, query_type, flags, payload, subreport);
@@ -706,10 +765,10 @@ void Maxwell3D::ProcessCBBind(size_t stage_index) {
 void Maxwell3D::ProcessCBMultiData(const u32* start_base, u32 amount) {
     // Write the input value to the current const buffer at the current position.
     const GPUVAddr buffer_address = regs.const_buffer.Address();
-    ASSERT(buffer_address != 0);
+    assert(buffer_address != 0);
 
     // Don't allow writing past the end of the buffer.
-    ASSERT(regs.const_buffer.offset <= regs.const_buffer.size);
+    assert(regs.const_buffer.offset <= regs.const_buffer.size);
 
     const GPUVAddr address{buffer_address + regs.const_buffer.offset};
     const size_t copy_size = amount * sizeof(u32);
@@ -742,7 +801,7 @@ Texture::TSCEntry Maxwell3D::GetTSCEntry(u32 tsc_index) const {
 }
 
 u32 Maxwell3D::GetRegisterValue(u32 method) const {
-    ASSERT_MSG(method < Regs::NUM_REGS, "Invalid Maxwell3D register");
+    assert(method < Regs::NUM_REGS && "Invalid Maxwell3D register");
     return regs.reg_array[method];
 }
 

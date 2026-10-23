@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "common/assert.h"
@@ -31,10 +32,12 @@ Tegra::CommandHeader BuildFenceAction(Tegra::Engines::Puller::FenceOperation op,
 } // namespace
 
 nvhost_gpu::nvhost_gpu(Core::System& system_, EventInterface& events_interface_,
-                       NvCore::Container& core_)
+                       NvCore::Container& core_,
+                       std::shared_ptr<Tegra::Control::ChannelState> channel)
     : nvdevice{system_}, events_interface{events_interface_}, core{core_},
       syncpoint_manager{core_.GetSyncpointManager()}, nvmap{core.GetNvMapFile()},
-      channel_state{system.GPU().AllocateChannel()} {
+      channel_state{std::move(channel)} {
+    ASSERT(channel_state);
     channel_syncpoint = syncpoint_manager.AllocateSyncpoint(false);
     sm_exception_breakpoint_int_report_event =
         events_interface.CreateEvent("GpuChannelSMExceptionBreakpointInt");
@@ -172,6 +175,7 @@ NvResult nvhost_gpu::SetChannelPriority(IoctlChannelSetPriority& params) {
 }
 
 NvResult nvhost_gpu::SetupGPFIFOChannel(IoctlAllocGpfifoEx& params, DeviceFD fd) {
+    std::scoped_lock lock(channel_mutex);
     if (channel_state->initialized) {
         LOG_WARNING(Service_NVDRV, "GPFIFO channel already initialized, rejecting duplicate alloc");
         return NvResult::AlreadyAllocated;
@@ -182,14 +186,14 @@ NvResult nvhost_gpu::SetupGPFIFOChannel(IoctlAllocGpfifoEx& params, DeviceFD fd)
         program_id = session->process->GetProgramId();
     }
 
-    channel_state->program_id = program_id;
-    params.fence_out = syncpoint_manager.GetSyncpointFence(channel_syncpoint);
-
     // When the address space hasn't been bound yet, record the program_id and
     // let the channel be materialized lazily on the first GPFIFO submission.
-    if (channel_state->memory_manager) {
-        system.GPU().InitChannel(*channel_state, program_id);
+    auto publication = system.GPU().InitChannel(*channel_state, program_id, true);
+    if (!publication) {
+        return NvResult::InvalidState;
     }
+    channel_state->program_id = program_id;
+    params.fence_out = syncpoint_manager.GetSyncpointFence(channel_syncpoint);
 
     return NvResult::Success;
 }
@@ -319,8 +323,9 @@ NvResult nvhost_gpu::SubmitGPFIFOImpl(IoctlSubmitGpfifo& params, Tegra::CommandL
 
     // Materialize the channel if it was deferred during AllocGPFIFO because
     // the address space wasn't bound at that point.
-    if (!channel_state->initialized && channel_state->memory_manager) {
-        system.GPU().InitChannel(*channel_state, channel_state->program_id);
+    auto publication = gpu.InitChannel(*channel_state, channel_state->program_id);
+    if (!publication) {
+        return NvResult::InvalidState;
     }
 
     const auto bind_id = channel_state->bind_id;

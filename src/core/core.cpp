@@ -4,6 +4,7 @@
 
 #include <array>
 #include <atomic>
+#include <exception>
 #include <fstream>
 #include <memory>
 #include <string>
@@ -37,6 +38,7 @@
 #include "common/fs/fs.h"
 #include "common/logging.h"
 #include "common/settings.h"
+#include "common/terminal_fail_stop.h"
 #include "common/settings_enums.h"
 #include "common/string_util.h"
 #include "core/arm/exclusive_monitor.h"
@@ -53,6 +55,7 @@
 #include "core/file_sys/vfs/vfs_concat.h"
 #include "core/file_sys/vfs/vfs_real.h"
 #include "core/gpu_dirty_memory_manager.h"
+#include "core/hle/kernel/board/nintendo/nx/k_system_control.h"
 #include "core/hle/kernel/k_memory_manager.h"
 #include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/k_resource_limit.h"
@@ -208,6 +211,9 @@ struct System::Impl {
 
         if (layout_changed) {
             device_memory.reset();
+            guest_memory_from_gpu = false;
+            guest_memory_lazy_backing = false;
+            guest_memory_from_gpu_unavailable = false;
         }
 
         LOG_DEBUG(Kernel, "Re-initializing");
@@ -319,11 +325,60 @@ struct System::Impl {
         debugger.emplace(system, port);
     }
 
-    void InitializeKernel(System& system) {
+    /// Moves guest memory onto memory exported by the GPU driver when the driver can provide it
+    /// (VideoCore::ExportGuestMemory), so that a Vulkan device can import the same memory. Guest
+    /// memory is replaced before the kernel is initialized, as ReinitializeIfNecessary does when
+    /// the memory layout changes. Tried at every game start until it works or the driver says it
+    /// never will: the Android frontend loads the driver after System::Initialize has created
+    /// guest memory.
+    void UseGuestMemoryFromGpu(Frontend::EmuWindow& emu_window) {
+        if (guest_memory_from_gpu || guest_memory_lazy_backing) {
+            return;
+        }
+#if defined(__linux__)
+        if (Settings::values.use_lazy_guest_backing.GetValue()) {
+            Common::LazyBackingParams params;
+            params.exporter = VideoCore::CreateGuestBackingExporter(emu_window);
+            const bool export_available = params.exporter != nullptr;
+            device_memory.reset();
+            device_memory.emplace(std::move(params));
+            guest_memory_lazy_backing = true;
+            LOG_INFO(Core, "Lazy physical backing: on (32 MiB {}, renderer direct access disabled)",
+                     export_available ? "GPU-exportable chunks with CPU-only fallback"
+                                      : "CPU-only memfd chunks");
+            return;
+        }
+#endif
+        if (guest_memory_from_gpu_unavailable) {
+            return;
+        }
+        // The size DeviceMemory gives itself (device_memory.cpp).
+        const VideoCore::GuestMemoryExport exported = VideoCore::ExportGuestMemory(
+            emu_window, Kernel::Board::Nintendo::Nx::KSystemControl::Init::GetIntendedMemorySize(),
+            GuestMemoryChunkSize);
+        if (exported.fds.empty()) {
+            guest_memory_from_gpu_unavailable = !exported.retry;
+            return;
+        }
+        device_memory.reset();
+        try {
+            device_memory.emplace(exported.fds, exported.direct_importable);
+        } catch (const std::exception& e) {
+            // HostMemory has closed the descriptors; guest memory comes from the usual place
+            LOG_ERROR(Core, "Guest memory from the GPU driver could not be mapped: {}", e.what());
+            device_memory.emplace();
+            guest_memory_from_gpu_unavailable = true;
+            return;
+        }
+        guest_memory_from_gpu = true;
+    }
+
+    void InitializeKernel(System& system, Frontend::EmuWindow& emu_window) {
         LOG_DEBUG(Core, "initialized OK");
 
         // Setting changes may require a full system reinitialization (e.g., disabling multicore).
         ReinitializeIfNecessary(system);
+        UseGuestMemoryFromGpu(emu_window);
 
         kernel.Initialize();
         cpu_manager.Initialize();
@@ -364,7 +419,7 @@ struct System::Impl {
             exit_result.store(SystemResultStatus::Success);
         }
         build_id = {};
-        InitializeKernel(system);
+        InitializeKernel(system, emu_window);
 
         const auto file = GetGameFileFromPath(virtual_filesystem, filepath);
 
@@ -461,15 +516,25 @@ struct System::Impl {
         exit_locked = false;
         exit_requested = false;
 
-        if (gpu_core) {
-            gpu_core->NotifyShutdown();
+        const char* stage = "system.producer_close";
+        try {
+            if (gpu_core) {
+                gpu_core->NotifyShutdown();
+            }
+            stop_event.request_stop();
+            core_timing.SyncPause(false);
+            Network::CancelPendingSocketOperations();
+
+            stage = "system.execution_stop";
+            kernel.SuspendEmulation(true);
+            // Before service/Process owners or GPU/Host1x/backing can retire.
+            stage = "system.gpu_drain";
+            if (gpu_core) {
+                gpu_core->Shutdown();
+            }
+        } catch (...) {
+            Common::TerminalFailStop(stage, "host_exception");
         }
-
-        stop_event.request_stop();
-        core_timing.SyncPause(false);
-        Network::CancelPendingSocketOperations();
-
-        kernel.SuspendEmulation(true);
         kernel.CloseServices();
         kernel.ShutdownCores();
 
@@ -621,6 +686,9 @@ struct System::Impl {
     bool is_multicore{};
     bool is_async_gpu{};
     bool extended_memory_layout{};
+    bool guest_memory_from_gpu{}; ///< device_memory is backed by memory the GPU driver exported
+    bool guest_memory_lazy_backing{};
+    bool guest_memory_from_gpu_unavailable{}; ///< The driver cannot provide it in this process
 
     ExecuteProgramCallback execute_program_callback;
     std::mutex exit_callback_mutex;
@@ -671,7 +739,13 @@ struct System::Impl {
 
 System::System() : impl{std::make_unique<Impl>(*this)} {}
 
-System::~System() = default;
+System::~System() {
+    // Fallback for callers that did not explicitly stop a live emulation session.
+    // Impl's reverse member order would otherwise destroy backing before GPU.
+    if (impl && impl->gpu_core) {
+        impl->ShutdownMainProcess();
+    }
+}
 
 CpuManager& System::GetCpuManager() {
     return impl->cpu_manager;
@@ -1188,3 +1262,17 @@ u64 System::GetMainApplicationAruid() const {
 }
 
 } // namespace Core
+
+#ifdef CITRON_SCHEDULER_TESTS
+#include "core/scheduler_system_test_access.h"
+void Core::SystemTestAccess::Initialize(System& system, Frontend::EmuWindow& window,
+                                          RendererFactory factory) {
+    system.impl->InitializeKernel(system, window);
+    system.impl->host1x_core.emplace(system);
+    system.impl->gpu_core = std::make_unique<Tegra::GPU>(system, true, false);
+    system.impl->gpu_core->BindRenderer(factory(system));
+    system.impl->gpu_core->Start();
+    system.impl->cpu_manager.OnGpuReady();
+    system.impl->core_timing.SyncPause(false);
+}
+#endif

@@ -38,7 +38,7 @@ namespace Service::VI {
 
 class SharedBufferManager;
 
-class Container {
+class Container : public std::enable_shared_from_this<Container> {
 public:
     explicit Container(Core::System& system);
     ~Container();
@@ -81,12 +81,15 @@ private:
     Result DestroyLayerLocked(u64 layer_id);
     Result OpenLayerLocked(s32* out_producer_binder_id, u64 layer_id, u64 aruid);
     Result CloseLayerLocked(u64 layer_id);
-    void EnsureInitialized();
+    bool EnsureInitialized();
 
 public:
     bool ComposeOnDisplay(s32* out_swap_interval, f32* out_compose_speed_scale, u64 display_id);
 
 private:
+    // Serialize the complete close/drain sequence, including repeated callbacks.
+    // Conductor never takes this lock.
+    std::mutex m_termination_lock{};
     std::mutex m_lock{};
     DisplayList m_displays{};
     LayerList m_layers{};

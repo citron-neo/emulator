@@ -53,6 +53,9 @@ public:
     /// Waits for the present thread to finish presenting all queued frames.
     void WaitPresent();
 
+    /// After scheduler host work is drained, present all queued frames and join the worker.
+    void Shutdown();
+
 private:
     void PresentThread(std::stop_token token);
 

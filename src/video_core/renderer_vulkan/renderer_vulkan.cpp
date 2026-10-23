@@ -17,6 +17,7 @@
 #include <ranges>
 #include "common/scope_exit.h"
 #include "common/settings.h"
+#include "common/terminal_fail_stop.h"
 #include "core/core_timing.h"
 #include "core/frontend/graphics_context.h"
 #include "video_core/capture.h"
@@ -128,17 +129,91 @@ RendererVulkan::RendererVulkan(Core::Frontend::EmuWindow& emu_window,
         scheduler.RegisterOnSubmit([this] { turbo_mode->QueueSubmitted(); });
     }
     Report();
+    if (Settings::values.guest_chunk_import_diagnostics.GetValue()) {
+        try {
+            chunk_import_diagnostics = std::make_unique<GuestChunkImportDiagnostics>(device);
+        } catch (const std::exception& exception) {
+            LOG_WARNING(Render_Vulkan, "Phase 3 diagnostics unavailable; staged rendering retained: {}",
+                        exception.what());
+        }
+    }
 } catch (const vk::Exception& exception) {
     LOG_ERROR(Render_Vulkan, "Vulkan initialization failed with error: {}", exception.what());
     throw std::runtime_error{fmt::format("Vulkan initialization error {}", exception.what())};
 }
 
 RendererVulkan::~RendererVulkan() {
-    scheduler.RegisterOnSubmit([] {});
-    void(device.GetLogical().WaitIdle());
+    Shutdown();
+    if (chunk_import_diagnostics) {
+        chunk_import_diagnostics->Close();
+        const auto stats = chunk_import_diagnostics->GetStats();
+        LOG_INFO(Render_Vulkan,
+                 "Phase 3 import teardown: device_epoch={} backing_generation={} active_imports={} "
+                 "imported_logical_bytes={} cache_entries_released={}",
+                 stats.device_epoch, stats.backing_generation, stats.active_imports,
+                 stats.imported_logical_bytes, stats.cache_entries_released);
+    }
+}
+
+void RendererVulkan::Shutdown() {
+    if (is_shut_down) {
+        return;
+    }
+    if (terminal_shutdown_started) {
+        Common::TerminalFailStop("renderer.entry", "reentrant_shutdown");
+    }
+    terminal_shutdown_started = true;
+    const char* stage = "renderer.rasterizer_shutdown";
+    try {
+        // GPU emulation and CompositeState callbacks have already stopped. Keep every
+        // referenced cache, GPU owner and Vulkan object alive through these boundaries.
+        rasterizer.Shutdown(); // includes joining the fencing callback thread
+        stage = "renderer.recording_drain";
+        scheduler.WaitWorker(); // publish even a final recorded Present callback
+        stage = "renderer.presentation_join";
+        present_manager.Shutdown(); // drain presentation and stop its queue submissions
+        stage = "renderer.scheduler_join";
+        scheduler.Shutdown(); // no recording/submission callbacks can run after this
+        stage = "renderer.detach_submit";
+        scheduler.RegisterOnSubmit({}); // safe only after the recording worker joined
+        stage = "renderer.turbo_disposal";
+        turbo_mode.reset(); // stop its separate device/worker before renderer resources
+        stage = "renderer.native_idle";
+        {
+            // All producers are joined before taking the submission lock. Never hold it
+            // across worker drains, which may submit their final command buffers.
+            std::scoped_lock lock{scheduler.submit_mutex};
+            const auto idle = device.GetLogical().WaitIdle();
+            if (idle == VK_SUCCESS) {
+                stage = "renderer.checked_disposal";
+                if (!rasterizer.RetireControlledTransfersAfterDeviceIdle()) {
+                    Common::TerminalFailStop(stage, "unsettled_host_ownership", static_cast<int>(idle));
+                }
+            } else {
+                Common::TerminalFailStop(stage, "vulkan_result", static_cast<int>(idle));
+            }
+        }
+        stage = "renderer.completion_join";
+        scheduler.GetMasterSemaphore().Shutdown(); // no remaining completion-helper access
+        is_shut_down = true;
+    } catch (const vk::Exception& error) {
+        Common::TerminalFailStop(stage, "vulkan_exception", static_cast<int>(error.GetResult()));
+    } catch (...) {
+        Common::TerminalFailStop(stage, "host_exception");
+    }
 }
 
 void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebuffers) {
+    if (chunk_import_diagnostics) {
+        try {
+            ExerciseChunkImports();
+        } catch (const std::exception& exception) {
+            LOG_WARNING(Render_Vulkan, "Phase 3 diagnostics stopped; staged rendering retained: {}",
+                        exception.what());
+            chunk_import_diagnostics.reset();
+            diagnostic_chunk.reset();
+        }
+    }
     if (framebuffers.empty()) {
         return;
     }
@@ -180,6 +255,49 @@ void RendererVulkan::Composite(std::span<const Tegra::FramebufferConfig> framebu
 
     gpu.RendererFrameEndNotify();
     rasterizer.TickFrame();
+}
+
+void RendererVulkan::ExerciseChunkImports() {
+    const auto now = std::chrono::steady_clock::now();
+    if (now < next_chunk_diagnostic) return;
+    next_chunk_diagnostic = now + std::chrono::seconds{5};
+    const u64 generation = device_memory.GuestBackingGeneration();
+    chunk_import_diagnostics->SetGeneration(generation);
+    if (diagnostic_chunk && (!diagnostic_chunk->Alive() ||
+                             diagnostic_chunk->epoch->generation != generation)) {
+        diagnostic_chunk.reset();
+    }
+    // Only an already materialized exportable chunk; never an arena sweep or CPU access.
+    if (!diagnostic_chunk) diagnostic_chunk = device_memory.FirstPublishedGuestChunk();
+    if (diagnostic_chunk) {
+        if (const auto view = chunk_import_diagnostics->Exercise(diagnostic_chunk)) {
+            LOG_INFO(Render_Vulkan,
+                     "Phase 3 import observation: generation={} chunk={} allocation_size={} "
+                     "alignment={} memory_type={} memory_properties={:#x}",
+                     view->generation, view->chunk, view->allocation_size, view->alignment,
+                     view->memory_type, view->memory_properties);
+        }
+    } else {
+        LOG_INFO(Render_Vulkan, "Phase 3 import probe: no published exportable chunk; no import attempted");
+    }
+    const auto s = chunk_import_diagnostics->GetStats();
+    LOG_INFO(Render_Vulkan,
+             "Phase 3 import cache: device_epoch={} backing_generation={} import_requests={} "
+             "import_cache_hits={} imports_created={} import_failures={} active_imports={} "
+             "peak_active_imports={} imported_logical_bytes={} import_duration_ns_total={} "
+             "import_duration_ns_max={} fd_dup_failures={} cache_entries_released={} vk_result={} "
+             "sampled_peak_process_fds={} sampled_peak_process_vmas={}",
+             s.device_epoch, s.backing_generation, s.import_requests, s.import_cache_hits,
+             s.imports_created, s.import_failures, s.active_imports, s.peak_active_imports,
+             s.imported_logical_bytes, s.import_duration_ns_total, s.import_duration_ns_max,
+             s.fd_dup_failures, s.cache_entries_released, s.last_vk_result,
+             s.peak_process_fd_count, s.peak_process_vma_count);
+    for (size_t i = 1; i < s.rejections.size(); ++i) {
+        if (s.rejections[i]) {
+            LOG_INFO(Render_Vulkan, "Phase 3 import rejection: reason={} count={}",
+                     ChunkImportRejectionName(static_cast<ChunkImportRejection>(i)), s.rejections[i]);
+        }
+    }
 }
 
 void RendererVulkan::Report() const {

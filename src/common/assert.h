@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <cassert>
+#include <utility>
+
 #include "common/logging.h"
 
 // Sometimes we want to try to continue even after hitting an assert.

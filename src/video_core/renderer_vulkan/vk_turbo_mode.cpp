@@ -10,6 +10,7 @@
 #include "common/logging.h"
 #include "common/polyfill_thread.h"
 #include "common/thread.h"
+#include "common/terminal_fail_stop.h"
 #include "video_core/host_shaders/vulkan_turbo_mode_comp_spv.h"
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
@@ -40,9 +41,31 @@ TurboMode::TurboMode(const vk::Instance& instance, const vk::InstanceDispatch& d
 }
 
 TurboMode::~TurboMode() {
+    const char* stage = "turbo.worker_join";
+    try {
+        // The desktop worker dereferences resources while Android resets driver state
+        // when it leaves Run. Both must finish before member/resource destruction.
+        m_thread.request_stop();
+        m_submission_cv.notify_all();
+        if (m_thread.joinable()) {
+            m_thread.join();
+        }
 #ifndef ANDROID
-    CleanupResources();
+        // Its adaptive fence wait can time out before Run observes stop. Joining the
+        // host thread alone does not retire that separate device's last dispatch.
+        stage = "turbo.native_idle";
+        const auto idle = m_device.GetLogical().WaitIdle();
+        if (idle != VK_SUCCESS) {
+            Common::TerminalFailStop(stage, "vulkan_result", static_cast<int>(idle));
+        }
+        stage = "turbo.disposal";
+        CleanupResources();
 #endif
+    } catch (const vk::Exception& error) {
+        Common::TerminalFailStop(stage, "vulkan_exception", static_cast<int>(error.GetResult()));
+    } catch (...) {
+        Common::TerminalFailStop(stage, "host_exception");
+    }
 }
 
 void TurboMode::QueueSubmitted() {
@@ -237,6 +260,12 @@ void TurboMode::Run(std::stop_token stop_token) {
     u32 consecutive_timeouts = 0;
     u32 total_timeout_cycles = 0;
     bool auto_disabled = false;
+#ifndef ANDROID
+    // A timeout does not retire native work. Keep the same fence, command buffer
+    // and descriptors until success, or until destructor-owned device idle.
+    bool dispatch_pending = false;
+    std::chrono::steady_clock::time_point submit_start{};
+#endif
 
     Common::SetCurrentThreadName("TurboMode");
 
@@ -273,80 +302,90 @@ void TurboMode::Run(std::stop_token stop_token) {
         auto& dld = m_device.GetLogical();
         auto& res = *resources;
 
-        // Reset the fence
-        res.fence.Reset();
+        if (!dispatch_pending) {
+            // Reset the fence
+            res.fence.Reset();
 
-        // Update descriptor set with optimized buffer info
-        const VkDescriptorBufferInfo buffer_info{
-            .buffer = *res.buffer,
-            .offset = 0,
-            .range = VK_WHOLE_SIZE,
-        };
+            // Update descriptor set with optimized buffer info
+            const VkDescriptorBufferInfo buffer_info{
+                .buffer = *res.buffer,
+                .offset = 0,
+                .range = VK_WHOLE_SIZE,
+            };
 
-        const VkWriteDescriptorSet buffer_write{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .pNext = nullptr,
-            .dstSet = res.descriptor_set,
-            .dstBinding = 0,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .pImageInfo = nullptr,
-            .pBufferInfo = &buffer_info,
-            .pTexelBufferView = nullptr,
-        };
+            const VkWriteDescriptorSet buffer_write{
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = nullptr,
+                .dstSet = res.descriptor_set,
+                .dstBinding = 0,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .pImageInfo = nullptr,
+                .pBufferInfo = &buffer_info,
+                .pTexelBufferView = nullptr,
+            };
 
-        dld.UpdateDescriptorSets(std::array{buffer_write}, {});
+            dld.UpdateDescriptorSets(std::array{buffer_write}, {});
 
-        // Record command buffer with optimized settings
-        res.command_buffer.Begin(VkCommandBufferBeginInfo{
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .pNext = nullptr,
-            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-            .pInheritanceInfo = nullptr,
-        });
+            // Record command buffer with optimized settings
+            res.command_buffer.Begin(VkCommandBufferBeginInfo{
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                .pNext = nullptr,
+                .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+                .pInheritanceInfo = nullptr,
+            });
 
-        // Clear buffer with optimized range
-        res.command_buffer.FillBuffer(*res.buffer, 0, VK_WHOLE_SIZE, 0);
+            // Clear buffer with optimized range
+            res.command_buffer.FillBuffer(*res.buffer, 0, VK_WHOLE_SIZE, 0);
 
-        // Bind resources
-        res.command_buffer.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *res.pipeline_layout, 0,
-                                             std::array{res.descriptor_set}, {});
-        res.command_buffer.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *res.pipeline);
+            // Bind resources
+            res.command_buffer.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *res.pipeline_layout, 0,
+                                                 std::array{res.descriptor_set}, {});
+            res.command_buffer.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *res.pipeline);
 
-        // Dispatch with optimized group sizes
-        res.command_buffer.Dispatch(DISPATCH_GROUP_SIZE_X, DISPATCH_GROUP_SIZE_Y, DISPATCH_GROUP_SIZE_Z);
+            // Dispatch with optimized group sizes
+            res.command_buffer.Dispatch(DISPATCH_GROUP_SIZE_X, DISPATCH_GROUP_SIZE_Y,
+                                        DISPATCH_GROUP_SIZE_Z);
 
-        res.command_buffer.End();
+            res.command_buffer.End();
 
-        // Submit with optimized submit info
-        const VkSubmitInfo submit_info{
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .pNext = nullptr,
-            .waitSemaphoreCount = 0,
-            .pWaitSemaphores = nullptr,
-            .pWaitDstStageMask = nullptr,
-            .commandBufferCount = 1,
-            .pCommandBuffers = res.command_buffer.address(),
-            .signalSemaphoreCount = 0,
-            .pSignalSemaphores = nullptr,
-        };
+            // Submit with optimized submit info
+            const VkSubmitInfo submit_info{
+                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                .pNext = nullptr,
+                .waitSemaphoreCount = 0,
+                .pWaitSemaphores = nullptr,
+                .pWaitDstStageMask = nullptr,
+                .commandBufferCount = 1,
+                .pCommandBuffers = res.command_buffer.address(),
+                .signalSemaphoreCount = 0,
+                .pSignalSemaphores = nullptr,
+            };
 
-        const auto submit_start = std::chrono::steady_clock::now();
-        m_device.GetGraphicsQueue().Submit(std::array{submit_info}, *res.fence);
+            submit_start = std::chrono::steady_clock::now();
+            const auto submit_result =
+                m_device.GetGraphicsQueue().Submit(std::array{submit_info}, *res.fence);
+            if (submit_result != VK_SUCCESS) {
+                Common::TerminalFailStop("turbo.submit", "vulkan_result",
+                                         static_cast<int>(submit_result));
+            }
+            dispatch_pending = true;
+        }
 
         // Wait for completion with adaptive timeout
         const u64 current_timeout = performance_stats.adaptive_timeout_ns.load(std::memory_order_relaxed);
         const auto wait_result = res.fence.Wait(current_timeout);
         const auto submit_end = std::chrono::steady_clock::now();
 
-        if (wait_result) {
+        if (wait_result == VK_SUCCESS) {
+            dispatch_pending = false;
             const auto execution_time = submit_end - submit_start;
             UpdatePerformanceMetrics(execution_time);
             UpdateAdaptiveTimeout(false); // Success, try to reduce timeout
             consecutive_timeouts = 0; // Reset consecutive timeout counter
             total_timeout_cycles = 0; // Reset total timeout cycles
-        } else {
+        } else if (wait_result == VK_TIMEOUT) {
             performance_stats.timeout_count.fetch_add(1, std::memory_order_relaxed);
             UpdateAdaptiveTimeout(true); // Timeout occurred, increase timeout
             consecutive_timeouts++;
@@ -368,6 +407,8 @@ void TurboMode::Run(std::stop_token stop_token) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 consecutive_timeouts = 0; // Reset for next cycle
             }
+        } else {
+            Common::TerminalFailStop("turbo.wait", "vulkan_result", static_cast<int>(wait_result));
         }
 #endif
 

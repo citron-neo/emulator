@@ -17,6 +17,8 @@
 #include "core/hle/kernel/k_system_resource.h"
 #include "core/hle/kernel/k_thread.h"
 #include "core/hle/kernel/k_thread_local_page.h"
+#include "core/hle/kernel/process_execution_stop.h"
+#include "core/hle/kernel/process_cohort_stop.h"
 #include "core/memory.h"
 
 namespace Kernel {
@@ -36,6 +38,7 @@ struct DebugWatchpoint {
 };
 
 class KProcess final : public KAutoObjectWithSlabHeapAndContainer<KProcess, KWorkerTask> {
+    friend struct Core::SchedulerTestAccess;
     KERNEL_AUTOOBJECT_TRAITS(KProcess, KSynchronizationObject);
 
 public:
@@ -68,10 +71,20 @@ private:
     using TLPIterator = TLPTree::iterator;
 
 private:
+    struct OwnerRegistration {
+        KernelCore& kernel;
+        u64 id{};
+        ~OwnerRegistration();
+    };
+    // First member: normal C++ destruction completes retirement only AFTER
+    // PageTable/Memory and all other members have finished destruction.
+    OwnerRegistration m_owner_registration;
     KProcessPageTable m_page_table;
     std::atomic<size_t> m_used_kernel_memory_size{};
     TLPTree m_fully_used_tlp_tree{};
     TLPTree m_partially_used_tlp_tree{};
+    // Cleanup failures retain their TLS owner here, outside the reusable allocation trees.
+    TLPTree m_finalizing_tlp_tree{};
     s32 m_ideal_core_id{};
     KResourceLimit* m_resource_limit{};
     KSystemResource* m_system_resource{};
@@ -132,6 +145,8 @@ private:
 
 private:
     Result StartTermination();
+    Result InitializeCommon(const Svc::CreateProcessParameter& params, KResourceLimit* res_limit,
+                            bool is_real);
     void FinishTermination();
 
     void PinThread(s32 core_id, KThread* thread) {
@@ -151,6 +166,8 @@ private:
 public:
     explicit KProcess(KernelCore& kernel);
     ~KProcess() override;
+    [[nodiscard]] std::optional<ProcessCohortStop> TryStopProcessCohort(u32 poll_budget = 64);
+    void Destroy() override;
 
     Result Initialize(const Svc::CreateProcessParameter& params, KResourceLimit* res_limit,
                       bool is_real);
@@ -328,7 +345,8 @@ public:
     void RemoveSharedMemory(KSharedMemory* shmem, KProcessAddress address, size_t size);
 
     Result CreateThreadLocalRegion(KProcessAddress* out);
-    Result DeleteThreadLocalRegion(KProcessAddress addr);
+    Result DeleteThreadLocalRegion(
+        KProcessAddress addr, const Core::Memory::Memory::MappingTeardown* teardown = nullptr);
 
     KProcessAddress GetProcessLocalRegionAddress() const {
         return m_plr_address;
@@ -508,6 +526,9 @@ public:
     Core::Memory::Memory& GetMemory() {
         return m_memory;
     }
+    // Close all backend entry domains before requesting actual execution halt.
+    // Host services, raw aliases and mappings are separate, still-open prerequisites.
+    [[nodiscard]] std::optional<ProcessExecutionStop> TryStopGuestExecution(u32 poll_budget = 64);
 
     Core::ExclusiveMonitor& GetExclusiveMonitor() const {
         return *m_exclusive_monitor;

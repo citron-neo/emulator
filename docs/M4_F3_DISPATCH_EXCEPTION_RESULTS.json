@@ -1,0 +1,124 @@
+{
+  "date": "2026-10-23",
+  "baseline_commit": "0bb6abcc71c877baa51d680fb5a268b886dc640d",
+  "positive_repeats": 3,
+  "executed_controls": {
+    "dispatch": [
+      "missing-pending-cancellation",
+      "early-exception-return",
+      "exception-is-completion"
+    ],
+    "unmap": [
+      "cancel-is-success",
+      "failure-is-success",
+      "optional-false-is-failure",
+      "missing-preservation-check",
+      "missing-active-completion-wait"
+    ],
+    "production": []
+  },
+  "precise_control_count": 8,
+  "source_hash_entries_checked": 32,
+  "unique_inputs_checked": 26,
+  "sha256": {
+    "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+    "tools/gpu_lifecycle_tests/run_dispatch_exception_tests.py": "edf5c55225885ef6885f593a51bb1352f1766986867c25efd641d5b15d0a1c94",
+    "src/video_core/gpu_thread.cpp": "d56e13d853d2bf51c3cc106e72e1903c4d418b4f93a61a70e19c8ff6df4f1c0c",
+    "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+    "src/video_core/renderer_vulkan/vk_rasterizer.cpp": "c271c4fad1057c886335d62d572ec9d8b4387bea5a9bd2fd73dcccd1f973a16b",
+    "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+    "tools/gpu_lifecycle_tests/run_thread_tests.py": "bd9332fa187d85285874a756548ea5d78e26c90c54ef00e39e7e032d8255ab07",
+    "tools/gpu_lifecycle_tests/run_checked_unmap_tests.py": "5454696ec8b679aa4c22ae435d775a88026d2a3702298177e790c8ca554cc189",
+    "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+    "src/core/hle/service/nvdrv/core/nvmap.cpp": "be297bbbc3029d85f5daf58e68b66f83ed5c35a596805c515146f22908e038ad",
+    "src/core/hle/service/nvdrv/core/nvmap.h": "624935701a9b4830e771093abcb6061a2a036a0ec0d80ffcec788475d831edb4",
+    "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.cpp": "e2379d4806aa609d2974d0a8ec43ffa8e40282b9a2c59033d68052685562a5f9",
+    "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.cpp": "b147fb98d6b71bd0a094e815dba87c9f27a538dc7d0f4b271f86d397e1845c74",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+    "src/core/hle/service/nvdrv/nvdrv.cpp": "3a72c654320190ad39b788bba5728768d62baa0d1e64165177d16cb9a1ef7cf0",
+    "src/video_core/control/channel_state.cpp": "e7374891fdca91d9f095b5c5882b267988943ba160852d77d77c01ad15a24311",
+    "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+    "src/video_core/gpu.cpp": "f4016909612046c2201932baa248b343c21a9020277c0498673fef7e9f1712da",
+    "src/video_core/gpu.h": "1337d726f0f46376ee258f26db9147d061ed606278d2b7875fb90ecf75936f29",
+    "src/video_core/memory_manager.cpp": "6d071246cc1b47177f2048a55ed8323840c7ce870fa511a4e96050edf3c87800",
+    "src/video_core/memory_manager.h": "db03427bd693d7b20812828e60a59c4e2cc6cf314b1c206cfd720e4f56906682",
+    "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+    "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+    "src/video_core/renderer_vulkan/vk_rasterizer.h": "83eedc42b63f6b74becdd205b39322abd4a38452a361c45c4dd7a487bd3fda1d",
+    "tools/physical_coherency_tests/run_windows_production_checks.py": "1303539088d5b889a8cf96f087e51fce45b0ca487dd40983416a3dbc8d09ee38"
+  },
+  "additional_source_sha256": {
+    ".github/workflows/pr375-pr380-integration.yml": "9117173950707fa7b98bc0a4ea5b6d29f8b86720b92d5ab445708eca0ccd7f8d",
+    "tools/gpu_lifecycle_tests/README.md": "70ea0a78f54670f9c13341b334e720c87e11aa0998e52d6a3cf6e21ce3309986"
+  },
+  "compiler": "g++ (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+  "no_compiler_diagnostics": true,
+  "production_objects": [
+    {
+      "source": "src/video_core/gpu.cpp",
+      "sha256": "f4016909612046c2201932baa248b343c21a9020277c0498673fef7e9f1712da",
+      "object_sha256": "db327d28bffed56be97b20973b5d3687d64deb38d9d2e97c56d53723e220e676",
+      "object_size": 148343
+    },
+    {
+      "source": "src/video_core/gpu_thread.cpp",
+      "sha256": "d56e13d853d2bf51c3cc106e72e1903c4d418b4f93a61a70e19c8ff6df4f1c0c",
+      "object_sha256": "fb990d144fc6e42392950a347eec52b6a707695f88ebf9d098907ed5d62b40af",
+      "object_size": 83663
+    },
+    {
+      "source": "src/video_core/renderer_vulkan/vk_rasterizer.cpp",
+      "sha256": "c271c4fad1057c886335d62d572ec9d8b4387bea5a9bd2fd73dcccd1f973a16b",
+      "object_sha256": "e01be2415f77b2ea07e3ba1f974fdb33e1efa4de4f3ee040dd6eb198e82e31c8",
+      "object_size": 1136028
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/core/nvmap.cpp",
+      "sha256": "be297bbbc3029d85f5daf58e68b66f83ed5c35a596805c515146f22908e038ad",
+      "object_sha256": "6434debefbfaf3de5d6eccdfd0f32c08448db0b351e95ec95634eae33edc179d",
+      "object_size": 56476
+    },
+    {
+      "source": "src/video_core/memory_manager.cpp",
+      "sha256": "6d071246cc1b47177f2048a55ed8323840c7ce870fa511a4e96050edf3c87800",
+      "object_sha256": "3e660d37cdb2a0bba1f1a25ce881d1f8f2eb554420e3d57419bf9fbdade308b5",
+      "object_size": 134928
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.cpp",
+      "sha256": "e2379d4806aa609d2974d0a8ec43ffa8e40282b9a2c59033d68052685562a5f9",
+      "object_sha256": "0923a74c2b9b1b7ad022373b6b15a7d92838832a7cdb70e63cba32a6befccc1c",
+      "object_size": 168231
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/devices/nvhost_gpu.cpp",
+      "sha256": "b147fb98d6b71bd0a094e815dba87c9f27a538dc7d0f4b271f86d397e1845c74",
+      "object_sha256": "fa1cdf31e334ba757dd0cc0f6ab98aeae8fe871465ce4e2cb326c559e2fff655",
+      "object_size": 82124
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/nvdrv.cpp",
+      "sha256": "3a72c654320190ad39b788bba5728768d62baa0d1e64165177d16cb9a1ef7cf0",
+      "object_sha256": "44a23db8dac09c8c9a3a105b91a271440105364abb892751d47561f4d1eb89d3",
+      "object_size": 172075
+    },
+    {
+      "source": "src/video_core/control/channel_state.cpp",
+      "sha256": "e7374891fdca91d9f095b5c5882b267988943ba160852d77d77c01ad15a24311",
+      "object_sha256": "9103c8f1af4995d8c04ffd132daac572e2006a7b70323a80aed8f44a57e9f3eb",
+      "object_size": 4963
+    }
+  ],
+  "expected_failure_witnesses": {
+    "m4-dispatch-pending-baseline": "throwing dispatch left a runnable callback after return",
+    "m4-dispatch-active-baseline": "throwing dispatch returned while action still running"
+  },
+  "boundary": "Exceptional dispatch return cancels Pending or joins Running and reports Failed. Real helper and ThreadManager regression with fixtures; nine real Windows COFF objects. No application link, native Vulkan/device completion, F2 routing or main merge. Guest admission Unknown.",
+  "cleanup": {
+    "temporary_files_removed": 71,
+    "executables_removed": 12,
+    "objects_removed": 9,
+    "final_evidence_dir": ".diagnostics/m4-dispatch-results"
+  }
+}

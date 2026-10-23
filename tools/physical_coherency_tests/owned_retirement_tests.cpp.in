@@ -1,0 +1,67 @@
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <new>
+#include "common/owned_retirement.h"
+using namespace std::chrono_literals;
+std::atomic<bool> reject_allocations=false;
+void Require(bool ok,const char* why){if(!ok){std::fprintf(stderr,"FAIL %s\n",why);std::fflush(stderr);std::_Exit(91);}}
+void* operator new(std::size_t size){Require(!reject_allocations,"retirement allocated after effects");if(auto* p=std::malloc(size?size:1))return p;throw std::bad_alloc{};}
+void operator delete(void* p) noexcept{std::free(p);}void operator delete(void* p,std::size_t) noexcept{std::free(p);}
+struct Resource {std::function<void()> released;~Resource(){if(released)released();}};
+void Deferred() {
+    auto domain=std::make_shared<Common::ProducerDrain>();Common::OwnedRetirementQueue queue{domain};
+    auto resource=std::make_shared<Resource>();std::weak_ptr<Resource> weak=resource;int calls=0;
+    auto record=queue.Prepare([owner=resource,&calls]{++calls;return true;});resource.reset();
+    auto closed=domain->TryClose(64);Require(bool(closed),"close failed");
+    reject_allocations=true;queue.Retire(std::move(record));reject_allocations=false;
+    Require(!weak.expired() && calls==0,"closed retirement discarded owners or executed effects");
+    Require(!queue.Drain() && calls==0,"closed retirement replayed effects");
+    Require(closed->ResumeNoEffects() && queue.Drain() && calls==1 && weak.expired(),"resumed retirement failed exactly-once cleanup");
+    Require(queue.Drain() && calls==1,"retirement replayed completed effects");
+}
+void Uncertain(bool throwing) {
+    auto domain=std::make_shared<Common::ProducerDrain>();Common::OwnedRetirementQueue queue{domain};
+    auto resource=std::make_shared<Resource>();std::weak_ptr<Resource> weak=resource;int calls=0;
+    auto record=queue.Prepare([owner=resource,&calls,throwing]{++calls;if(throwing)throw 7;return false;});resource.reset();
+    queue.Retire(std::move(record));
+    Require(!weak.expired() && calls==1,"uncertain retirement released owners");
+    Require(!domain->TryClose(64) && !domain->TryEnter(),"uncertain retirement granted admission");
+    Require(!queue.Drain() && calls==1,"uncertain retirement was retried");
+}
+void PreparedFailure() {
+    auto domain=std::make_shared<Common::ProducerDrain>();Common::OwnedRetirementQueue queue{domain};
+    auto resource=std::make_shared<Resource>();std::weak_ptr<Resource> weak=resource;int calls=0;
+    auto record=queue.Prepare([owner=resource,&calls]{++calls;return true;});resource.reset();
+    reject_allocations=true;queue.Quarantine(std::move(record));reject_allocations=false;
+    Require(!weak.expired() && calls==0 && !queue.Drain(),"construction quarantine lost owners or ran cleanup");
+}
+void CountFinalRelease() {
+    auto domain=std::make_shared<Common::ProducerDrain>();Common::OwnedRetirementQueue queue{domain};
+    auto resource=std::make_shared<Resource>();std::promise<void> entered,release;auto began=entered.get_future();auto leave=release.get_future().share();
+    std::optional<Common::ProducerDrain::Closure> closed;bool counted=false;
+    resource->released=[&]{counted=closed && closed->Poll()==Common::ProducerDrain::Result::Pending;};
+    auto record=queue.Prepare([owner=resource,&entered,&leave]{entered.set_value();leave.wait();return true;});resource.reset();
+    auto work=std::async(std::launch::async,[&]{queue.Retire(std::move(record));});
+    Require(began.wait_for(3s)==std::future_status::ready,"retirement rendezvous timeout");
+    auto closure=domain->TryClose(64);Require(bool(closure),"active retirement close failed");closed.emplace(std::move(*closure));
+    Require(closed && closed->Poll()==Common::ProducerDrain::Result::Pending,"active retirement escaped drain");
+    release.set_value();work.get();
+    Require(counted && closed->Poll()==Common::ProducerDrain::Result::DrainedSubset,"final owner release escaped retirement entry");
+}
+void OlderSuccessAfterFailure() {
+    auto domain=std::make_shared<Common::ProducerDrain>();Common::OwnedRetirementQueue queue{domain};
+    auto resource=std::make_shared<Resource>();std::weak_ptr<Resource> weak=resource;
+    std::promise<void> entered,release;auto began=entered.get_future();auto leave=release.get_future().share();
+    auto old=queue.Prepare([owner=resource,&entered,&leave]{entered.set_value();leave.wait();return true;});resource.reset();
+    auto newer=queue.Prepare([]{return false;});
+    auto work=std::async(std::launch::async,[&]{queue.Retire(std::move(old));});
+    Require(began.wait_for(3s)==std::future_status::ready,"old retirement rendezvous timeout");
+    queue.Retire(std::move(newer));release.set_value();work.get();
+    Require(!weak.expired() && !queue.Drain() && !domain->TryEnter(),"older retirement success released newer quarantine owners");
+}
+int main(){Deferred();Uncertain(false);Uncertain(true);PreparedFailure();CountFinalRelease();OlderSuccessAfterFailure();
+    std::cout<<"PASS owned retirement defers, retains Unknown, counts final release and never retries partial effects\n";}

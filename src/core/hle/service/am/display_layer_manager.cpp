@@ -184,7 +184,9 @@ void DisplayLayerManager::SetOverlayZIndex(s32 z_index) {
 Result DisplayLayerManager::WriteAppletCaptureBuffer(bool* out_was_written,
                                                      s32* out_fbshare_layer_index) {
     R_UNLESS(m_buffer_sharing_enabled, VI::ResultPermissionDenied);
-    R_RETURN(m_display_service->GetContainer()->GetSharedBufferManager()->WriteAppletCaptureBuffer(
+    auto* manager = m_display_service->GetContainer()->GetSharedBufferManager();
+    R_UNLESS(manager, VI::ResultOperationFailed);
+    R_RETURN(manager->WriteAppletCaptureBuffer(
         out_was_written, out_fbshare_layer_index));
 }
 

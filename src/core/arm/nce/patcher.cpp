@@ -11,7 +11,9 @@
 #include "core/arm/nce/patcher.h"
 #include "core/core.h"
 #include "core/core_timing.h"
+#include "core/hle/kernel/k_thread.h"
 #include "core/hle/kernel/svc.h"
+#include "core/memory.h"
 
 namespace Core::NCE {
 

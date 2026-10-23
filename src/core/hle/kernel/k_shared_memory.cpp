@@ -60,7 +60,8 @@ Result KSharedMemory::Initialize(Core::DeviceMemory& device_memory, KProcess* ow
 
     // Clear all pages in the memory.
     for (const auto& block : *m_page_group) {
-        std::memset(m_device_memory->GetPointer<void>(block.GetAddress()), 0, block.GetSize());
+        std::memset(m_device_memory->GetPointer<void>(block.GetAddress(), block.GetSize()), 0,
+                    block.GetSize());
     }
 
     R_SUCCEED();

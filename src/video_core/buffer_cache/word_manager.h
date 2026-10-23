@@ -179,6 +179,17 @@ public:
         return cpu_addr;
     }
 
+    /// Controlled owner store: retain page protection and its existing cache reference.
+    /// Unlike ChangeRegionState<CPU, true>, this never calls the device/PTE tracker.
+    void MarkCpuModifiedRetainingTracking(u64 address, u64 size) noexcept {
+        auto cpu = words.template Span<Type::CPU>();
+        auto cached = words.template Span<Type::CachedCPU>();
+        IterateWords(address - cpu_addr, size, [&](size_t index, u64 mask) {
+            cpu[index] |= mask;
+            cached[index] &= ~mask;
+        });
+    }
+
     static u64 ExtractBits(u64 word, size_t page_start, size_t page_end) {
         constexpr size_t number_bits = sizeof(u64) * 8;
         const size_t limit_page_end = number_bits - std::min(page_end, number_bits);

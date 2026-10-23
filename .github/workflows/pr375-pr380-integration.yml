@@ -1,0 +1,359 @@
+name: PR 375 and 380 integration validation
+
+on:
+  push:
+    branches: [codex/pr375-pr380-integration]
+  workflow_dispatch:
+    inputs:
+      validation_scope:
+        description: Choose Linux, Android, or full validation
+        type: choice
+        default: linux-only
+        options:
+          - linux-only
+          - android-only
+          - full
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr375-pr380-${{ github.ref }}-${{ github.sha }}-${{ inputs.validation_scope || 'full' }}
+  cancel-in-progress: true
+
+jobs:
+  android-native:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.validation_scope != 'linux-only' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      NDK_VERSION: 29.0.14206865
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install cross-build host tools and NDK
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ninja-build autoconf automake libtool pkg-config nasm glslang-tools
+          sdkmanager "ndk;$NDK_VERSION"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+      - name: Configure arm64 production libraries through CPM
+        run: |
+          cmake -S . -B build-android-integration -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-30 -DANDROID_STL=c++_shared \
+            -DCMAKE_BUILD_TYPE=Release -DCITRON_USE_CPM=ON -DCITRON_USE_BUNDLED_VCPKG=OFF \
+            -DENABLE_QT=OFF -DENABLE_SDL2=OFF -DENABLE_WEB_SERVICE=OFF -DENABLE_LIBUSB=OFF \
+            -DCITRON_ROOM=OFF -DCITRON_TESTS=OFF -DCITRON_USE_BUNDLED_FFMPEG=ON \
+            -DCITRON_ENABLE_LTO=OFF -DCITRON_USE_PRECOMPILED_HEADERS=OFF
+      - name: Check scheduler header through presentation compilation without PCH
+        # This consumer sees Scheduler before Device through its own includes.
+        # Clang rejects non-dependent Device member access without its definition.
+        run: |
+          cmake --build build-android-integration --parallel 3 --target \
+            src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/present/window_adapt_pass.cpp.o
+      - name: Compile real NCE, HostMemory, Vulkan and shader libraries
+        # Gather independent compiler errors in one remote run; Ninja still exits nonzero.
+        run: cmake --build build-android-integration --target core video_core shader_recompiler --parallel 3 -- -k 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr375-pr380-android-configure-${{ github.sha }}
+          path: build-android-integration/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: warn
+
+  linux-production:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.validation_scope != 'android-only' }}
+    runs-on: ubuntu-24.04
+    container: ghcr.io/pkgforge-dev/archlinux:latest
+    timeout-minutes: 120
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 2G
+      CCACHE_SLOPPINESS: pch_defines,time_macros
+    steps:
+      - name: Install native build dependencies
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Syu --needed --noconfirm git cmake ninja gcc python pkgconf \
+            boost boost-libs fmt nlohmann-json lz4 zstd zlib openssl opus ffmpeg \
+            enet sdl2 alsa-lib catch2 autoconf automake libtool vulkan-swrast vulkan-icd-loader ccache gdb
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: m3b-native-ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: m3b-native-ccache-${{ runner.os }}-
+      - name: Record exact build inputs
+        run: |
+          # checkout and container shell use different HOME/ownership contexts.
+          # Trust this checkout explicitly before shell-side Git operations.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          mkdir -p .diagnostics/pr375-pr380
+          git rev-parse HEAD | tee .diagnostics/pr375-pr380/source.txt
+          git submodule status > .diagnostics/pr375-pr380/submodules.txt
+          pacman -Q > .diagnostics/pr375-pr380/packages.txt
+      - name: Configure native production targets
+        run: |
+          cmake -S . -B build-integration -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_FLAGS=-fpch-preprocess \
+            -DCITRON_USE_CPM=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF \
+            -DENABLE_QT=OFF -DENABLE_SDL2=ON -DCITRON_USE_EXTERNAL_SDL2=OFF \
+            -DENABLE_CUBEB=OFF -DENABLE_WEB_SERVICE=OFF -DENABLE_LIBUSB=OFF \
+            -DCITRON_ROOM=OFF -DCITRON_TESTS=ON -DCITRON_CRASH_DUMPS=OFF
+      - name: Verify controlled outer PTE and mapping publication closure
+        run: python tools/physical_coherency_tests/run_mapping_publication_tests.py
+      - name: Verify cache publication targets across process ASID transitions
+        run: python tools/physical_coherency_tests/run_device_cache_owner_tests.py
+      - name: Verify terminal direct rasterizer ingress and owner join
+        run: python tools/gpu_lifecycle_tests/run_thread_tests.py --repeat 3 --handoff-controls
+      - name: Verify retained GPU address-space and channel owner publication
+        run: |
+          python tools/gpu_lifecycle_tests/run_owner_publication_tests.py --repeat 3
+          python tools/gpu_lifecycle_tests/run_channel_rebind_tests.py --repeat 3
+          python tools/gpu_lifecycle_tests/run_address_space_mapping_tests.py --repeat 3
+          python tools/gpu_lifecycle_tests/run_checked_unmap_tests.py --repeat 3
+          python tools/gpu_lifecycle_tests/run_dispatch_exception_tests.py --repeat 3
+          python tools/gpu_lifecycle_tests/run_native_fence_failure_tests.py --repeat 3
+          python tools/gpu_lifecycle_tests/run_checked_retirement_tests.py --repeat 3
+          python tools/gpu_lifecycle_tests/run_terminal_disposal_tests.py --repeat 3
+          python tools/gpu_lifecycle_tests/run_turbo_dispatch_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_managed_guest_write_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_audio_render_drain_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_audio_callback_drain_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_host1x_submit_drain_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_nvdrv_dispatch_drain_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_surface_composition_drain_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_vi_capture_drain_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_vi_session_owner_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_vi_termination_tests.py --repeat 3
+            python tools/physical_coherency_tests/run_vi_conductor_drain_tests.py --repeat 3
+            python tools/physical_coherency_tests/run_abandoned_slot_tests.py --repeat 3
+            python tools/gpu_lifecycle_tests/run_blit_idle_tests.py --repeat 3
+            python tools/gpu_lifecycle_tests/run_syncpoint_retirement_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_owned_retirement_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_nvdrv_retirement_tests.py --repeat 3
+          python tools/gpu_lifecycle_tests/run_unmap_ownership_tests.py --repeat 3
+      - name: Verify process unmap reference cleanup on refusal and uncertainty
+        run: python tools/physical_coherency_tests/run_process_unmap_tests.py
+      - name: Verify cross-call mapping ownership and finalization bookkeeping
+        run: python tools/physical_coherency_tests/run_cross_call_ownership_audit.py
+      - name: Verify owner teardown entries and retained TLS cleanup
+        run: python tools/physical_coherency_tests/run_process_teardown_tests.py
+      - name: Verify atomic no-effects release and concurrent Seal isolation
+        run: python tools/physical_coherency_tests/run_resume_batch_tests.py
+      - name: Verify process-owned backend stop and omitted service writer control
+        run: python tools/physical_coherency_tests/run_process_execution_stop_tests.py
+      - name: Verify sustained creation, initialization and cold publication across cohort stop
+        run: python tools/physical_coherency_tests/run_process_cohort_stop_tests.py
+      - name: Verify actual backing storage retention without access or lazy materialization
+        run: python tools/physical_coherency_tests/run_backing_storage_owner_tests.py
+      - name: Verify process owner inventory, actual reference capture and retirement failures
+        run: python tools/physical_coherency_tests/run_process_owner_roster_tests.py
+      - name: Verify HostMemory mapping freeze and omitted-owner controls
+        run: python tools/physical_coherency_tests/run_host_mapping_freeze_tests.py
+      - name: Verify real controlled arena owner admission and quarantine
+        run: python tools/physical_coherency_tests/run_controlled_guest_arena_tests.py
+      - name: Check native scheduler integration translation units first
+        run: |
+          cmake --build build-integration --parallel 3 --target \
+            src/common/CMakeFiles/common.dir/host_memory.cpp.o \
+            src/tests/CMakeFiles/controlled_cpu_scheduler_tests.dir/core/controlled_cpu_scheduler.cpp.o \
+            src/core/CMakeFiles/core.dir/core.cpp.o \
+            src/core/CMakeFiles/core.dir/memory.cpp.o \
+            src/core/CMakeFiles/core.dir/cpu_manager.cpp.o \
+            src/core/CMakeFiles/core.dir/hle/kernel/kernel.cpp.o \
+            src/core/CMakeFiles/core.dir/hle/kernel/physical_core.cpp.o \
+            src/core/CMakeFiles/core.dir/hle/kernel/k_page_table_base.cpp.o \
+            src/core/CMakeFiles/core.dir/hle/kernel/k_memory_block_manager.cpp.o \
+            src/core/CMakeFiles/core.dir/hle/kernel/k_process.cpp.o \
+            src/core/CMakeFiles/core.dir/hle/kernel/k_thread_local_page.cpp.o \
+            src/core/CMakeFiles/core.dir/hle/kernel/process_execution_stop.cpp.o \
+            src/core/CMakeFiles/core.dir/hle/kernel/process_owner_roster.cpp.o \
+            src/core/CMakeFiles/core.dir/hle/kernel/process_cohort_stop.cpp.o \
+            src/core/CMakeFiles/core.dir/hle/service/os/process.cpp.o \
+            src/core/CMakeFiles/core.dir/arm/dynarmic/arm_dynarmic_32.cpp.o \
+            src/core/CMakeFiles/core.dir/arm/dynarmic/arm_dynarmic_64.cpp.o \
+            src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/present/window_adapt_pass.cpp.o \
+            src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/vk_scheduler.cpp.o \
+            src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/vk_rasterizer.cpp.o \
+            src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/vk_buffer_cache.cpp.o -- -k 0
+      - name: Build CLI, shader tool and unit tests
+        run: cmake --build build-integration --target citron-cmd shader_tool tests controlled_cpu_scheduler_tests --parallel 3 -- -k 0
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .ccache
+          key: m3b-native-ccache-${{ runner.os }}-${{ github.sha }}
+      - name: Run production unit tests
+        run: ctest --test-dir build-integration --output-on-failure --timeout 180
+      - name: Validate unsupported synchronization evidence and mutation controls
+        run: |
+          g++ -std=c++23 -Wall -Wextra -Werror -I src -I externals/Vulkan-Headers/include \
+            tools/physical_coherency_tests/sync_provenance_tests.cpp \
+            -o .diagnostics/pr375-pr380/sync-provenance
+          .diagnostics/pr375-pr380/sync-provenance \
+            | tee .diagnostics/pr375-pr380/sync-provenance.txt
+          python tools/physical_coherency_tests/run_private_guard_kernel_tests.py
+          python tools/physical_coherency_tests/run_producer_drain_tests.py
+          python tools/physical_coherency_tests/run_producer_coverage_tests.py
+          python tools/physical_coherency_tests/run_reconciliation_planner_tests.py
+          python tools/physical_coherency_tests/run_sync_provenance_tests.py --content
+          for repeat in 1 2 3; do
+            .diagnostics/m4-sync-provenance/dependencies \
+              > .diagnostics/pr375-pr380/multi-region-fixture-$repeat.txt
+            cat .diagnostics/pr375-pr380/multi-region-fixture-$repeat.txt
+          done
+          g++ -std=c++23 -Wall -Wextra -Werror -I src \
+            tools/physical_coherency_tests/transfer_content_tests.cpp \
+            -o .diagnostics/pr375-pr380/transfer-content
+          .diagnostics/pr375-pr380/transfer-content \
+            | tee .diagnostics/pr375-pr380/transfer-content.txt
+      - name: Repeat native F3 witness and reject false fixed acceptance
+        run: python tools/physical_coherency_tests/run_native_f3_tests.py --repeat 3
+      - name: Repeat admitted native alias transfer adapter
+        run: |
+          for repeat in 1 2 3; do
+            timeout 30 build-integration/bin/controlled_cpu_scheduler_tests '[f3-transfer]' \
+              > .diagnostics/pr375-pr380/f3-transfer-$repeat.txt 2>&1
+            cat .diagnostics/pr375-pr380/f3-transfer-$repeat.txt
+          done
+      - name: Repeat checked write provenance on native Vulkan
+        run: |
+          for repeat in 1 2 3; do
+            timeout 30 build-integration/bin/controlled_cpu_scheduler_tests '[f3-provenance]' \
+              > .diagnostics/pr375-pr380/f3-provenance-$repeat.txt 2>&1
+            cat .diagnostics/pr375-pr380/f3-provenance-$repeat.txt
+            grep -F 'PASS native controlled CPU preparation owns real pin/owner entry through closure and exception cleanup; guest exclusion Unknown' \
+              .diagnostics/pr375-pr380/f3-provenance-$repeat.txt
+            grep -F 'PASS native controlled mapping constructor, six pre-effect refusals and Reset lifetime join; guest admission Unknown' \
+              .diagnostics/pr375-pr380/f3-provenance-$repeat.txt
+          done
+      - name: Preserve original F2 defect and fixed-mode negative control
+        run: |
+          python tools/physical_coherency_tests/run_write_coherency_witnesses.py --case f2 --repeat 3
+          if .diagnostics/write-coherency-witnesses/witnesses f2 require-fixed > .diagnostics/pr375-pr380/f2-require-fixed.txt 2>&1; then
+            cat .diagnostics/pr375-pr380/f2-require-fixed.txt
+            echo 'F2 unexpectedly reported fixed'
+            exit 1
+          else
+            result=$?
+            cat .diagnostics/pr375-pr380/f2-require-fixed.txt
+            test "$result" -eq 1
+            grep -Fx 'F2 expected=77 observed=10 backing=77' .diagnostics/pr375-pr380/f2-require-fixed.txt
+          fi
+      - name: Diagnose native F3 teardown on test failure
+        if: failure()
+        continue-on-error: true
+        run: |
+          timeout --signal=INT --kill-after=10 25 gdb --batch \
+            -ex 'set pagination off' -ex 'set confirm off' -ex run \
+            -ex 'thread apply all bt' \
+            --args build-integration/bin/controlled_cpu_scheduler_tests '[f3]' \
+            > .diagnostics/pr375-pr380/f3-teardown.txt 2>&1
+      - name: Exercise real Linux HostMemory and backing import lifetime
+        run: |
+          python tools/lazy_backing_tests/run_tests.py
+          python tools/lazy_backing_tests/run_export_tests.py
+          python tools/chunk_import_tests/run_backing_tests.py
+          python tools/physical_resolver_tests/run_cold_tests.py
+      - name: Run coherency and lifecycle integration regressions
+        run: |
+          python tools/pr375_pr380_tests/run_tests.py
+          python tools/pr375_pr380_tests/run_free_area_tests.py
+          python tools/physical_coherency_tests/run_copy_block_tests.py
+          python tools/physical_coherency_tests/run_preservation_callback_tests.py --repeat 3
+          python tools/physical_coherency_tests/run_dma_admission_tests.py
+          python tools/physical_coherency_tests/run_engine_projection_tests.py
+          python tools/physical_coherency_tests/run_gpu_plan_tests.py
+          python tools/physical_coherency_tests/run_representation_pin_tests.py
+          python tools/physical_coherency_tests/run_cache_representation_tests.py
+          python tools/physical_coherency_tests/run_physical_admission_tests.py
+          python tools/physical_coherency_tests/run_page_writer_tests.py
+          python tools/physical_coherency_tests/run_cpu_mapping_tests.py
+          python tools/physical_coherency_tests/run_first_registration_tests.py --repeat 10
+          python tools/physical_coherency_tests/run_cpu_preparation_owner_tests.py
+          python tools/physical_coherency_tests/run_registration_pipeline_tests.py --repeat 10
+          python tools/physical_coherency_tests/run_m3b_candidate_tests.py --repeat 3
+          python tools/dma_snapshot_tests/run_tests.py
+          python tools/gather_buffer_tests/run_tests.py
+          python tools/gather_buffer_tests/run_binding_alias_tests.py
+          python tools/gather_buffer_tests/run_cpu_scatter_tests.py
+          python tools/gather_buffer_tests/run_gpu_stop_tests.py
+          python tools/gather_buffer_tests/run_gpu_write_tests.py
+          python tools/gather_buffer_tests/run_index_range_tests.py
+          python tools/gather_buffer_tests/run_mapping_snapshot_tests.py
+          python tools/gather_buffer_tests/run_unmap_alias_tests.py
+          python tools/gather_buffer_tests/run_vulkan_import_tests.py
+          python tools/physical_resolver_tests/run_tests.py
+          python tools/physical_shadow_tests/run_tests.py
+          python tools/chunk_import_tests/run_tests.py
+          python tools/gpu_lifecycle_tests/run_tests.py
+          python tools/gpu_lifecycle_tests/run_thread_tests.py
+          python tools/gpu_lifecycle_tests/run_renderer_tests.py
+          python tools/gpu_lifecycle_tests/run_fence_tests.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr375-pr380-validation-${{ github.sha }}
+          path: |
+            .diagnostics/pr375-pr380/*.txt
+            .diagnostics/m3b-first-registration/extraction.json
+            .diagnostics/m3b-first-registration/*.cpp
+            .diagnostics/m3b-registration-pipeline/extraction.json
+            .diagnostics/m3b-registration-pipeline/*.cpp
+            .diagnostics/m3b-registration-pipeline/*.txt
+            .diagnostics/m4-sync-provenance/*
+            .diagnostics/m4-reconciliation-planner/*
+            .diagnostics/m4-producer-coverage/*
+            .diagnostics/m4-private-guard/*
+            .diagnostics/m4-producer-drain/*
+            .diagnostics/m4-resume-batch/*
+            .diagnostics/m4-host-mapping-freeze/*
+            .diagnostics/m4-controlled-owner/*
+            .diagnostics/m4-cpu-preparation-owner/*
+            .diagnostics/m4-mapping-publication/*
+            .diagnostics/m4-device-cache-owner/*
+            .diagnostics/m4-vi-capture/*.json
+            .diagnostics/m4-vi-capture/*.log
+            .diagnostics/m4-vi-session-owner/*.json
+            .diagnostics/m4-vi-session-owner/*.log
+            .diagnostics/m4-vi-termination/*.json
+            .diagnostics/m4-vi-termination/*.log
+              .diagnostics/m4-vi-conductor/*.json
+              .diagnostics/m4-vi-conductor/*.log
+              .diagnostics/m4-abandoned-slot/*.json
+              .diagnostics/m4-abandoned-slot/*.log
+              .diagnostics/m4-blit-idle/*.json
+              .diagnostics/m4-blit-idle/*.log
+              .diagnostics/m4-syncpoint-retirement/*.json
+              .diagnostics/m4-syncpoint-retirement/*.log
+            .diagnostics/gpu-lifecycle/linux/thread-extraction.json
+            .diagnostics/gpu-lifecycle/linux/thread-*.log
+            .diagnostics/gpu-lifecycle/linux/direct-*.log
+            .diagnostics/gpu-lifecycle/linux/gpu_thread.cpp
+            .diagnostics/gpu-lifecycle/linux/direct-*.cpp
+            .diagnostics/m4-gpu-owner-publication/extraction.json
+            .diagnostics/m4-gpu-owner-publication/*.log
+            .diagnostics/m4-gpu-owner-publication/*.cpp
+            .diagnostics/m4-process-unmap/*
+            .diagnostics/m4-cross-call-audit/*
+            .diagnostics/m4-process-teardown/*
+            .diagnostics/m4-process-execution-stop/*
+            .diagnostics/m4-backing-storage-owner/*
+            .diagnostics/m4-process-owner-roster/*
+            .diagnostics/m4-process-cohort-stop/*
+            build-integration/Testing/Temporary/LastTest.log
+            build-integration/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: warn

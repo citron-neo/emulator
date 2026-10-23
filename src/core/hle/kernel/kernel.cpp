@@ -51,6 +51,30 @@
 
 namespace Kernel {
 
+struct KernelCore::SlabHeapContainer {
+    KSlabHeap<KClientSession> client_session;
+    KSlabHeap<KEvent> event;
+    KSlabHeap<KPort> port;
+    KSlabHeap<KProcess> process;
+    KSlabHeap<KResourceLimit> resource_limit;
+    KSlabHeap<KSession> session;
+    KSlabHeap<KLightSession> light_session;
+    KSlabHeap<KSharedMemory> shared_memory;
+    KSlabHeap<KSharedMemoryInfo> shared_memory_info;
+    KSlabHeap<KThread> thread;
+    KSlabHeap<KTransferMemory> transfer_memory;
+    KSlabHeap<KCodeMemory> code_memory;
+    KSlabHeap<KDeviceAddressSpace> device_address_space;
+    KSlabHeap<KPageBuffer> page_buffer;
+    KSlabHeap<KThreadLocalPage> thread_local_page;
+    KSlabHeap<KObjectName> object_name;
+    KSlabHeap<KSessionRequest> session_request;
+    KSlabHeap<KSecureSystemResource> secure_system_resource;
+    KSlabHeap<KThread::LockWithPriorityInheritanceInfo> lock_info;
+    KSlabHeap<KEventInfo> event_info;
+    KSlabHeap<KDebug> debug;
+};
+
 struct KernelCore::Impl {
     static constexpr size_t ApplicationMemoryBlockSlabHeapSize = 20000;
     static constexpr size_t SystemMemoryBlockSlabHeapSize = 10000;
@@ -64,6 +88,8 @@ struct KernelCore::Impl {
     }
 
     void Initialize(KernelCore& kernel) {
+        // A new kernel session has a distinct domain. Old closures cannot reopen it.
+        guest_process_initialization = std::make_unique<Common::ProducerDrain>();
         hardware_timer = std::make_unique<Kernel::KHardwareTimer>(kernel);
         hardware_timer->Initialize();
 
@@ -778,7 +804,23 @@ struct KernelCore::Impl {
     std::atomic<u64> next_user_process_id{KProcess::ProcessIdMin};
     std::atomic<u64> next_thread_id{1};
 
-    // Lists all processes that exist in the current session.
+    std::unique_ptr<Common::ProducerDrain> guest_process_initialization =
+        std::make_unique<Common::ProducerDrain>();
+    ProcessOwnerRoster process_owners;
+    std::shared_ptr<Common::ProducerDrain> process_publications =
+        std::make_shared<Common::ProducerDrain>();
+    std::shared_ptr<Common::ProducerDrain> managed_guest_writes =
+        std::make_shared<Common::ProducerDrain>();
+    std::shared_ptr<Common::ProducerDrain> audio_render =
+        std::make_shared<Common::ProducerDrain>();
+    std::shared_ptr<Common::ProducerDrain> audio_callbacks =
+        std::make_shared<Common::ProducerDrain>();
+    std::shared_ptr<Common::ProducerDrain> host1x_submits =
+        std::make_shared<Common::ProducerDrain>();
+    std::shared_ptr<Common::ProducerDrain> nvdrv_dispatch =
+        std::make_shared<Common::ProducerDrain>();
+
+    // OS wrapper publication list, not an exhaustive KProcess/backing owner census.
     std::mutex process_list_lock;
     std::vector<KProcess*> process_list;
     KProcess* application_process{};
@@ -879,6 +921,8 @@ KResourceLimit* KernelCore::GetSystemResourceLimit() {
 }
 
 void KernelCore::AppendNewProcess(KProcess* process) {
+    auto publication = ProcessPublicationDomain()->EnterCold();
+    if (!publication) throw Core::Memory::ControlledMappingPublication::Refused("process list publication closed");
     process->Open();
 
     std::scoped_lock lk{impl->process_list_lock};
@@ -893,6 +937,8 @@ void KernelCore::RemoveProcess(KProcess* process) {
 }
 
 void KernelCore::MakeApplicationProcess(KProcess* process) {
+    auto publication = ProcessPublicationDomain()->EnterCold();
+    if (!publication) throw Core::Memory::ControlledMappingPublication::Refused("application process publication closed");
     impl->MakeApplicationProcess(process);
 }
 
@@ -1259,6 +1305,60 @@ void KernelCore::SuspendEmulation(bool suspended) {
     }
 }
 
+std::optional<GuestExecutionDrain> KernelCore::TryCloseGuestExecution(u32 poll_budget) {
+    GuestExecutionDrain drain;
+    for(size_t i=0;i<drain.cores.size();++i) {
+        if(!impl->cores[i]) return std::nullopt;
+        auto closure=impl->cores[i]->TryCloseGuestExecution(poll_budget);
+        if(!closure) return std::nullopt; // Acquired subset stays closed/Unknown.
+        drain.cores[i].emplace(std::move(*closure));
+    }
+    return drain;
+}
+
+std::optional<Common::ProducerDrain::Entry> KernelCore::TryEnterGuestProcessInitialization() {
+    return impl->guest_process_initialization->EnterCold();
+}
+
+std::optional<Common::ProducerDrain::Closure>
+KernelCore::TryCloseGuestProcessInitialization(u32 poll_budget) {
+    return impl->guest_process_initialization->TryClose(poll_budget);
+}
+
+u64 KernelCore::RegisterProcessOwner(KProcess* process) {
+    return impl->process_owners.Register(process);
+}
+void KernelCore::BeginProcessOwnerRetirement(u64 id) {
+    impl->process_owners.BeginRetirement(id);
+}
+void KernelCore::CompleteProcessOwnerRetirement(u64 id) {
+    impl->process_owners.CompleteRetirement(id);
+}
+std::optional<ProcessOwnerRoster::Snapshot> KernelCore::TryRetainProcessOwners() const {
+    return impl->process_owners.TryCapture();
+}
+std::optional<ProcessOwnerRoster::CreationClosure> KernelCore::TryCloseProcessCreation() {
+    return impl->process_owners.TryCloseCreation();
+}
+const std::shared_ptr<Common::ProducerDrain>& KernelCore::ProcessPublicationDomain() const {
+    return impl->process_publications;
+}
+const std::shared_ptr<Common::ProducerDrain>& KernelCore::ManagedGuestWriteDomain() const {
+    return impl->managed_guest_writes;
+}
+const std::shared_ptr<Common::ProducerDrain>& KernelCore::AudioRenderDomain() const {
+    return impl->audio_render;
+}
+const std::shared_ptr<Common::ProducerDrain>& KernelCore::AudioCallbackDomain() const {
+    return impl->audio_callbacks;
+}
+const std::shared_ptr<Common::ProducerDrain>& KernelCore::Host1xSubmitDomain() const {
+    return impl->host1x_submits;
+}
+const std::shared_ptr<Common::ProducerDrain>& KernelCore::NvdrvDispatchDomain() const {
+    return impl->nvdrv_dispatch;
+}
+
 void KernelCore::ShutdownCores() {
     impl->TerminateAllProcesses();
 
@@ -1318,29 +1418,6 @@ const Core::System& KernelCore::System() const {
     return impl->system;
 }
 
-struct KernelCore::SlabHeapContainer {
-    KSlabHeap<KClientSession> client_session;
-    KSlabHeap<KEvent> event;
-    KSlabHeap<KPort> port;
-    KSlabHeap<KProcess> process;
-    KSlabHeap<KResourceLimit> resource_limit;
-    KSlabHeap<KSession> session;
-    KSlabHeap<KLightSession> light_session;
-    KSlabHeap<KSharedMemory> shared_memory;
-    KSlabHeap<KSharedMemoryInfo> shared_memory_info;
-    KSlabHeap<KThread> thread;
-    KSlabHeap<KTransferMemory> transfer_memory;
-    KSlabHeap<KCodeMemory> code_memory;
-    KSlabHeap<KDeviceAddressSpace> device_address_space;
-    KSlabHeap<KPageBuffer> page_buffer;
-    KSlabHeap<KThreadLocalPage> thread_local_page;
-    KSlabHeap<KObjectName> object_name;
-    KSlabHeap<KSessionRequest> session_request;
-    KSlabHeap<KSecureSystemResource> secure_system_resource;
-    KSlabHeap<KThread::LockWithPriorityInheritanceInfo> lock_info;
-    KSlabHeap<KEventInfo> event_info;
-    KSlabHeap<KDebug> debug;
-};
 
 template <typename T>
 KSlabHeap<T>& KernelCore::SlabHeap() {

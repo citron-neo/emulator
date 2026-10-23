@@ -64,11 +64,11 @@ bool TextureCache<P>::RunGarbageCollector(bool aggressive_mode) {
     const size_t max_scans = aggressive_mode ? 128 : 64;
     const size_t max_download_bytes = 32_MiB;
     size_t download_bytes = 0;
-    struct PendingDownload {
+    struct PendingGCDownload {
         ImageId image_id;
         size_t offset;
     };
-    boost::container::small_vector<PendingDownload, 40> pending_downloads;
+    boost::container::small_vector<PendingGCDownload, 40> pending_downloads;
     size_t num_evictions = 0;
 
     const auto Cleanup = [&](ImageId image_id) {
@@ -475,10 +475,12 @@ void TextureCache<P>::UpdateRenderTargets(bool is_clear) {
     if (!flags[Dirty::RenderTargets]) {
         for (size_t index = 0; index < NUM_RT; ++index) {
             ImageViewId& color_buffer_id = render_targets.color_buffer_ids[index];
-            PrepareImageView(color_buffer_id, true, is_clear && IsFullClear(color_buffer_id));
+            PrepareImageView(color_buffer_id, true, is_clear && IsFullClear(color_buffer_id),
+                             ShadowKind::RenderTarget);
         }
         const ImageViewId depth_buffer_id = render_targets.depth_buffer_id;
-        PrepareImageView(depth_buffer_id, true, is_clear && IsFullClear(depth_buffer_id));
+        PrepareImageView(depth_buffer_id, true, is_clear && IsFullClear(depth_buffer_id),
+                         ShadowKind::RenderTarget);
         return;
     }
 
@@ -491,11 +493,13 @@ void TextureCache<P>::UpdateRenderTargets(bool is_clear) {
 
     for (size_t index = 0; index < NUM_RT; ++index) {
         ImageViewId& color_buffer_id = render_targets.color_buffer_ids[index];
-        PrepareImageView(color_buffer_id, true, is_clear && IsFullClear(color_buffer_id));
+        PrepareImageView(color_buffer_id, true, is_clear && IsFullClear(color_buffer_id),
+                         ShadowKind::RenderTarget);
     }
     const ImageViewId depth_buffer_id = render_targets.depth_buffer_id;
 
-    PrepareImageView(depth_buffer_id, true, is_clear && IsFullClear(depth_buffer_id));
+    PrepareImageView(depth_buffer_id, true, is_clear && IsFullClear(depth_buffer_id),
+                     ShadowKind::RenderTarget);
 
     for (size_t index = 0; index < NUM_RT; ++index) {
         render_targets.draw_buffers[index] = static_cast<u8>(maxwell3d->regs.rt_control.Map(index));
@@ -1604,7 +1608,36 @@ ImageId TextureCache<P>::JoinImages(const ImageInfo& info, GPUVAddr gpu_addr, DA
         }
     }
 
-    const ImageId new_image_id = slot_images.insert(runtime, new_info, gpu_addr, cpu_addr);
+    const auto log_image_allocation = [&](const char* reason) {
+        LOG_WARNING(HW_GPU,
+                    "Image allocation {}: gpu={:#x}, cpu={:#x}, type={}, format={}, samples={}, "
+                    "requested={}x{}x{} layers={} mips={} stride={}, "
+                    "merged={}x{}x{} layers={} mips={} stride={}, guest_bytes={}, "
+                    "upload_bytes={}, overlaps={}, aliases={}, cache_bytes={}",
+                    reason, gpu_addr, cpu_addr, static_cast<u32>(new_info.type),
+                    static_cast<u32>(new_info.format), new_info.num_samples,
+                    info.size.width, info.size.height, info.size.depth, info.resources.layers,
+                    info.resources.levels, info.layer_stride,
+                    new_info.size.width, new_info.size.height, new_info.size.depth,
+                    new_info.resources.layers, new_info.resources.levels, new_info.layer_stride,
+                    CalculateGuestSizeInBytes(new_info), CalculateUnswizzledSizeBytes(new_info),
+                    join_overlap_ids.size(), join_left_aliased_ids.size() +
+                                                join_right_aliased_ids.size(),
+                    total_used_memory);
+    };
+    // Keep this visible with the default Warning filter before a large allocation can fail.
+    if (CalculateGuestSizeInBytes(new_info) >= 256_MiB ||
+        CalculateUnswizzledSizeBytes(new_info) >= 256_MiB) {
+        log_image_allocation("large");
+    }
+    ImageId new_image_id;
+    try {
+        new_image_id = slot_images.insert(runtime, new_info, gpu_addr, cpu_addr);
+    } catch (const std::exception& exception) {
+        log_image_allocation("failed");
+        LOG_ERROR(HW_GPU, "Image construction exception: {}", exception.what());
+        throw;
+    }
     Image& new_image = slot_images[new_image_id];
 
     if (!gpu_memory->IsContinuousRange(new_image.gpu_addr, new_image.guest_size_bytes) &&
@@ -1900,6 +1933,25 @@ ImageViewId TextureCache<P>::FindColorBuffer(size_t index) {
         return ImageViewId{};
     }
     const ImageInfo info(regs.rt[index], regs.anti_alias_samples_mode);
+    const u64 layered_guest_bytes = ImageSize::Multiply(info.layer_stride, info.resources.layers);
+    if (layered_guest_bytes >= 256_MiB) {
+        const u32 rt_word = static_cast<u32>(
+            (offsetof(Tegra::Engines::Maxwell3D::Regs, rt) + index * sizeof(rt)) / sizeof(u32));
+        LOG_WARNING(HW_GPU,
+                    "Large color render target: rt={}, gpu=0x{:x}, count={}, "
+                    "mapping=[{},{},{},{},{},{},{},{}], "
+                    "raw=[{:08x},{:08x},{:08x},{:08x},{:08x},{:08x},{:08x},{:08x},{:08x},{:08x}], "
+                    "guest_bytes64={}, fully_mapped={}",
+                    index, gpu_addr, regs.rt_control.count.Value(), regs.rt_control.Map(0),
+                    regs.rt_control.Map(1), regs.rt_control.Map(2), regs.rt_control.Map(3),
+                    regs.rt_control.Map(4), regs.rt_control.Map(5), regs.rt_control.Map(6),
+                    regs.rt_control.Map(7), regs.reg_array[rt_word], regs.reg_array[rt_word + 1],
+                    regs.reg_array[rt_word + 2], regs.reg_array[rt_word + 3],
+                    regs.reg_array[rt_word + 4], regs.reg_array[rt_word + 5],
+                    regs.reg_array[rt_word + 6], regs.reg_array[rt_word + 7],
+                    regs.reg_array[rt_word + 8], regs.reg_array[rt_word + 9], layered_guest_bytes,
+                    gpu_memory->IsFullyMappedRange(gpu_addr, layered_guest_bytes));
+    }
     return FindRenderTargetView(info, gpu_addr);
 }
 
@@ -2469,7 +2521,11 @@ void TextureCache<P>::RemoveFramebuffers(std::span<const ImageViewId> removed_vi
 }
 
 template <class P>
-void TextureCache<P>::MarkModification(ImageBase& image) noexcept {
+void TextureCache<P>::MarkModification(ImageBase& image, ShadowKind shadow_kind) noexcept {
+    if (physical_shadow && gpu_memory) {
+        physical_shadow->Observe(*gpu_memory, image.gpu_addr, image.guest_size_bytes,
+                                 shadow_kind, true, image.cpu_addr);
+    }
     image.flags |= ImageFlagBits::GpuModified;
     image.modification_tick = ++modification_tick;
 }
@@ -2528,7 +2584,8 @@ void TextureCache<P>::SynchronizeAliases(ImageId image_id) {
 }
 
 template <class P>
-void TextureCache<P>::PrepareImage(ImageId image_id, bool is_modification, bool invalidate) {
+void TextureCache<P>::PrepareImage(ImageId image_id, bool is_modification, bool invalidate,
+                                  ShadowKind shadow_kind) {
     Image& image = slot_images[image_id];
     if (invalidate) {
         image.flags &= ~(ImageFlagBits::CpuModified | ImageFlagBits::GpuModified);
@@ -2540,14 +2597,17 @@ void TextureCache<P>::PrepareImage(ImageId image_id, bool is_modification, bool 
         SynchronizeAliases(image_id);
     }
     if (is_modification) {
-        MarkModification(image);
+        MarkModification(image, shadow_kind);
+    } else if (physical_shadow && gpu_memory) {
+        physical_shadow->Observe(*gpu_memory, image.gpu_addr, image.guest_size_bytes,
+                                 shadow_kind, false, image.cpu_addr);
     }
     lru_cache.Touch(image.lru_index, frame_tick);
 }
 
 template <class P>
 void TextureCache<P>::PrepareImageView(ImageViewId image_view_id, bool is_modification,
-                                       bool invalidate) {
+                                       bool invalidate, ShadowKind shadow_kind) {
     if (!image_view_id) {
         return;
     }
@@ -2555,7 +2615,7 @@ void TextureCache<P>::PrepareImageView(ImageViewId image_view_id, bool is_modifi
     if (image_view.IsBuffer()) {
         return;
     }
-    PrepareImage(image_view.image_id, is_modification, invalidate);
+    PrepareImage(image_view.image_id, is_modification, invalidate, shadow_kind);
 }
 
 template <class P>

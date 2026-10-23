@@ -5,8 +5,12 @@
 
 #include <array>
 #include <atomic>
+#include <bitset>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <shared_mutex>
+#include <utility>
 
 #include <boost/container/static_vector.hpp>
 
@@ -45,6 +49,8 @@ class Maxwell3D;
 } // namespace Tegra
 
 namespace Vulkan {
+struct ControlledAliasCopy;
+enum class ControlledAliasPhase { Prepared, Parked, Submitted, Complete, Refused, Unknown };
 
 struct FramebufferTextureInfo;
 
@@ -83,7 +89,25 @@ public:
                               Tegra::MaxwellDeviceMemoryManager& device_memory_,
                               const Device& device_, MemoryAllocator& memory_allocator_,
                               StateTracker& state_tracker_, Scheduler& scheduler_);
+    friend struct Core::SchedulerTestAccess;
     ~RasterizerVulkan() override;
+
+    /// GPU-owner isolated-footprint adapter only. External producer/mapping/allocator
+    /// exclusion is a caller precondition, not an ordinary-game eligibility certificate.
+    /// Captures existing representations; never creates/uploads or changes dirty trackers.
+    [[nodiscard]] std::shared_ptr<ControlledAliasCopy> BeginControlledAliasCopy(
+        DAddr source, DAddr destination, u32 size);
+    [[nodiscard]] ControlledAliasPhase PollControlledAliasCopy(
+        const std::shared_ptr<ControlledAliasCopy>& operation);
+    struct StorageWriteObservation {
+        bool capture_valid;
+        std::vector<Scheduler::Write> writes;
+        bool physical_coverage_complete;
+    };
+    // Explicit GPU-owner diagnostics. No physical authority or eligibility certificate.
+    bool SetControlledStorageWriteObservation(bool enabled);
+    [[nodiscard]] std::shared_ptr<Scheduler::PrivateProducerDomain> CreatePrivateProducerDomain(u32 replicas=3,u64 size=64);
+    [[nodiscard]] std::optional<StorageWriteObservation> GetControlledStorageWriteObservation();
 
     void Shutdown() override;
 
@@ -131,6 +155,73 @@ public:
     u64 GetTextureMemoryUsage() const;
     u64 GetStagingMemoryUsage() const;
 
+    /// Explicit GPU-owner controlled endpoint. Ordinary game routing remains unenrolled.
+    using ControlledRegistrationPtr = BufferCache::ControlledRegistrationPtr;
+    using ControlledCpuWritePtr = BufferCache::ControlledCpuWritePtr;
+    /// Explicit isolated-footprint handoff only. A successful enqueue is not acceptance or
+    /// completion. Never wait for it while retaining CPU/PTE/cache locks or producer duties.
+    [[nodiscard]] bool QueueControlledCpuWriteRequest(
+        const ControlledRegistrationPtr&, const Core::Memory::ControlledCpuWriteRequestPtr&);
+    [[nodiscard]] ControlledCpuWritePtr BeginControlledCpuWriteRequest(
+        const ControlledRegistrationPtr& operation,
+        const Core::Memory::ControlledCpuWriteRequestPtr& request) {
+        return buffer_cache.BeginControlledCpuWriteRequest(operation, request);
+    }
+    [[nodiscard]] Core::Memory::ControlledCpuWriteRequest::Phase AdvanceControlledCpuWriteRequest(
+        const ControlledCpuWritePtr&);
+    [[nodiscard]] ControlledCpuWritePtr BeginControlledCpuWrite(
+        const ControlledRegistrationPtr& operation, const Core::Memory::PreparedCpuPage& view,
+        u64 address, u64 size) {
+        return buffer_cache.BeginControlledCpuWrite(operation, view, address, size);
+    }
+    [[nodiscard]] BufferCache::ControlledCpuWrite::Phase PollControlledCpuWrite(
+        const ControlledCpuWritePtr& transaction) {
+        return buffer_cache.PollControlledCpuWrite(transaction);
+    }
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult CommitControlledCpuWrite8(
+        const ControlledCpuWritePtr&, Core::Memory::Memory&, u8);
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult CommitControlledCpuWrite16(
+        const ControlledCpuWritePtr&, Core::Memory::Memory&, u16);
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult CommitControlledCpuWrite32(
+        const ControlledCpuWritePtr&, Core::Memory::Memory&, u32);
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult CommitControlledCpuWrite64(
+        const ControlledCpuWritePtr&, Core::Memory::Memory&, u64);
+    [[nodiscard]] ControlledRegistrationPtr BeginControlledBufferRegistration(
+        DAddr address, u32 size, std::span<const Core::Memory::PreparedCpuPage> views) {
+        return buffer_cache.BeginControlledFirstRegistration(address, size, views);
+    }
+    [[nodiscard]] BufferCache::ControlledRegistration::Phase PollControlledBufferRegistration(
+        const ControlledRegistrationPtr& operation) {
+        return buffer_cache.PollControlledRegistration(operation);
+    }
+    [[nodiscard]] bool RefreshControlledBufferRegistration(
+        const ControlledRegistrationPtr& operation) {
+        return buffer_cache.BeginControlledRefresh(operation);
+    }
+    bool RetireControlledTransfersAfterDeviceIdle() {
+        // One preflight covers both layers. Cache pins/readback allocations must
+        // survive a scheduler refusal just as the checked submission owners do.
+        if (!scheduler.RetireCheckedWritesAfterDeviceIdle()) return false;
+        buffer_cache_runtime.RetireControlledTransfersAfterDeviceIdle();
+        return true;
+    }
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult WriteControlledCached8(
+        const ControlledRegistrationPtr&, Core::Memory::Memory&,
+        const Core::Memory::PreparedCpuPage&, Common::PhysicalRegistrationBundle::CachedWrite&,
+        Common::ProcessAddress, u8);
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult WriteControlledCached16(
+        const ControlledRegistrationPtr&, Core::Memory::Memory&,
+        const Core::Memory::PreparedCpuPage&, Common::PhysicalRegistrationBundle::CachedWrite&,
+        Common::ProcessAddress, u16);
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult WriteControlledCached32(
+        const ControlledRegistrationPtr&, Core::Memory::Memory&,
+        const Core::Memory::PreparedCpuPage&, Common::PhysicalRegistrationBundle::CachedWrite&,
+        Common::ProcessAddress, u32);
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult WriteControlledCached64(
+        const ControlledRegistrationPtr&, Core::Memory::Memory&,
+        const Core::Memory::PreparedCpuPage&, Common::PhysicalRegistrationBundle::CachedWrite&,
+        Common::ProcessAddress, u64);
+
     bool AccelerateConditionalRendering() override;
     bool AccelerateSurfaceCopy(const Tegra::Engines::Fermi2D::Surface& src,
                                const Tegra::Engines::Fermi2D::Surface& dst,
@@ -152,6 +243,13 @@ public:
                                                             u32 pixel_stride);
 
 private:
+    bool RunBufferCacheCpuWrite(DAddr addr, u64 size, bool check_gpu_writes = false,
+                                bool unmap = false);
+    // nullopt means preservation was not confirmed. The contained bool retains
+    // the legacy deferred-dirty decision; false is a successful clean result.
+    // Normal host context only; do not call from an NCE signal handler.
+    std::optional<bool> TryRunBufferCacheCpuWrite(DAddr addr, u64 size, bool check_gpu_writes,
+                                                bool unmap);
     static constexpr size_t MAX_TEXTURES = 192;
     static constexpr size_t MAX_IMAGES = 48;
     static constexpr size_t MAX_IMAGE_VIEWS = MAX_TEXTURES + MAX_IMAGES;
@@ -161,12 +259,34 @@ private:
     /// Returns the pipeline the draw was recorded with, or nullptr when it was skipped
     template <typename Func>
     GraphicsPipeline* PrepareDraw(bool is_indexed, Func&&);
+    template <typename Command>
+    void RecordShaderStorageWrite(Command&& command) {
+        if (!observe_storage_writes) {
+            scheduler.Record(std::forward<Command>(command));
+            return;
+        }
+        std::function<bool(vk::CommandBuffer)> observed_command;
+        try {
+            observed_command = command;
+        } catch (...) {
+            MarkStorageObservationIncomplete();
+            scheduler.Record(std::forward<Command>(command));
+            return;
+        }
+        // Once recording starts, exceptions must propagate without replaying.
+        RecordObservedShaderStorageWrite(std::move(observed_command));
+    }
+    void RecordObservedShaderStorageWrite(std::function<bool(vk::CommandBuffer)> command);
+    void MarkStorageObservationIncomplete();
 
     /// Performs the pipeline's vertex pointer stores, instance_count is empty for indirect draws
     void PerformVertexPointerStores(const GraphicsPipeline& pipeline, bool is_indexed,
                                     std::optional<u32> instance_count);
 
     void FlushWork();
+
+    /// Once a frame: decides whether finished passes are submitted to the host GPU early.
+    void UpdatePassEndSubmit();
 
     void UpdateDynamicStates();
 
@@ -213,23 +333,48 @@ private:
     BlitImageHelper blit_image;
     RenderPassCache render_pass_cache;
 
+    // Declared before caches so their borrowed diagnostic pointer dies first.
+    std::unique_ptr<VideoCommon::PhysicalShadow> physical_shadow;
+
+    void ReportPhysicalShadow() noexcept;
+
     TextureCacheRuntime texture_cache_runtime;
     TextureCache texture_cache;
     BufferCacheRuntime buffer_cache_runtime;
     BufferCache buffer_cache;
+    std::vector<std::shared_ptr<ControlledAliasCopy>> controlled_alias_copies;
+    bool observe_storage_writes{};
+    bool storage_observation_incomplete{};
+    std::vector<Scheduler::Write> observed_storage_writes;
+    std::shared_ptr<VideoCommon::PhysicalWriteCoverage> storage_write_coverage;
+    const std::shared_ptr<const u8> controlled_alias_owner{std::make_shared<const u8>(0)};
     QueryCacheRuntime query_cache_runtime;
     QueryCache query_cache;
     PipelineCache pipeline_cache;
     AccelerateDMA accelerate_dma;
     FenceManager fence_manager;
 
-    vk::Event wfi_event;
+
+    /// Past-stride vertex layouts already logged by UpdateVertexInput, by guest type and size
+    std::bitset<512> reported_vertex_layouts;
 
     boost::container::static_vector<u32, MAX_IMAGE_VIEWS> image_view_indices;
     std::array<VideoCommon::ImageViewId, MAX_IMAGE_VIEWS> image_view_ids;
     boost::container::static_vector<VkSampler, MAX_TEXTURES> sampler_handles;
 
     u32 draw_counter = 0;
+    /// Draws recorded since the last submission to the host GPU, and the tick of that submission.
+    u32 draws_since_submit = 0;
+    u64 last_submit_tick = 0;
+    /// Whether finished passes are submitted early, and what decides it: the share of the last
+    /// frames this thread spent running (in 1/1024, starts saturated so the answer is "no"
+    /// until it has been measured) and the share below which it is switched on.
+    bool submit_at_pass_end = false;
+    [[maybe_unused]] s64 gpu_thread_busy = 1024;
+    [[maybe_unused]] s64 busy_to_turn_on = 819; // 80% of 1024
+    [[maybe_unused]] u32 frames_off = 0;
+    [[maybe_unused]] s64 last_frame_wall_ns = 0;
+    [[maybe_unused]] s64 last_frame_cpu_ns = 0;
 
     std::shared_mutex shutdown_mutex;
     std::atomic_bool is_shutting_down{false};

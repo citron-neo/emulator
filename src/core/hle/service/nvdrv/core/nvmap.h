@@ -174,7 +174,7 @@ private:
      * @brief Unmaps and frees the SMMU memory region a handle is mapped to
      * @note Both `unmap_queue_lock` and `handle_description.mutex` MUST be locked when calling this
      */
-    void UnmapHandle(Handle& handle_description);
+    [[nodiscard]] bool UnmapHandle(Handle& handle_description);
 
     /**
      * @brief Removes a handle from the map taking its dupes into account

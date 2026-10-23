@@ -164,7 +164,7 @@ Result IndirectStorage::OperatePerEntry(s64 offset, s64 size, F func) {
     R_SUCCEED_IF(size == 0);
 
     // Get the table offsets.
-    BucketTree::Offsets table_offsets;
+    BucketTree::Offsets table_offsets{};
     R_TRY(m_table.GetOffsets(std::addressof(table_offsets)));
 
     // Validate arguments.

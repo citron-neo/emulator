@@ -1,0 +1,194 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <thread>
+#include <vector>
+#include "common/owned_retirement.h"
+#include "core/hle/service/nvnflinger/ui/graphic_buffer.h"
+#include "core/hle/service/nvnflinger/status.h"
+using namespace std::chrono_literals;
+#define LOG_DEBUG(...) ((void)0)
+#define LOG_ERROR(...) ((void)0)
+void Require(bool value,const char* why){if(!value){std::cerr<<"FAIL "<<why<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Gate{std::mutex lock;std::condition_variable cv;bool ready=false;
+    void Set(){std::scoped_lock l{lock};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{lock};Require(cv.wait_for(l,5s,[&]{return ready;}),"rendezvous timeout");}};
+struct ObservedMutex{std::mutex actual;std::atomic<bool> held=false;
+    void lock(){actual.lock();held=true;}void unlock(){held=false;actual.unlock();}};
+struct Token{bool alive=true;};
+namespace Service::Nvidia::NvCore {
+using SessionId=int;
+struct Handle{std::mutex mutex;bool allocated=true;SessionId session_id=1;u32 id=1;};
+struct NvMap{
+    std::shared_ptr<Handle> handle=std::make_shared<Handle>();
+    int duplicated=0,pinned=0,unpinned=0,freed=0;bool zero_pin=false,throw_pin=false,fail_free=false;
+    std::function<void()> pin_hook;std::function<void()> retire_hook;
+    auto GetHandle(u32 id){return id==1?handle:nullptr;}
+    void DuplicateHandle(u32,bool){++duplicated;}
+    u64 PinHandle(u32,bool){++pinned;if(pin_hook)pin_hook();if(throw_pin)throw 7;return zero_pin?0:4096;}
+    void UnpinHandle(u32){if(retire_hook)retire_hook();++unpinned;}
+    std::optional<int> FreeHandle(u32,bool){++freed;if(fail_free)return {};return 1;}
+};
+struct Container {
+    struct Backing{std::shared_ptr<Token> token;bool OwnerAlive()const{return token&&token->alive;}};
+    struct SessionLifetime{Backing backing;std::shared_ptr<Token> process;};
+    NvMap file;std::shared_ptr<Token> backing=std::make_shared<Token>(),process=std::make_shared<Token>();
+    auto& GetNvMapFile(){return file;}
+    std::optional<SessionLifetime> RetainSession(SessionId){if(!backing||!process)return {};return SessionLifetime{{backing},process};}
+};
+}
+namespace Service::Nvidia {
+struct Module:std::enable_shared_from_this<Module>{
+    std::shared_ptr<Common::ProducerDrain> domain=std::make_shared<Common::ProducerDrain>();
+    std::shared_ptr<Common::OwnedRetirementQueue> retirements=std::make_shared<Common::OwnedRetirementQueue>(domain);
+    NvCore::Container container;int admissions=0;
+    auto TryEnterDispatch(){++admissions;return domain->EnterCold();}
+    auto RetirementQueue(){return retirements;}
+    Common::OwnedRetirementQueue::Owner PrepareGraphicBufferRetirement(u32,const Common::ProducerDrain::Entry&);
+};
+@FACTORY@
+}
+@GRAPHIC@
+namespace Service::android {
+namespace BufferQueueDefs{constexpr s32 NUM_BUFFER_SLOTS=4;}
+struct Fence{static Fence NoFence(){return {};}};
+enum class BufferState{Free,Acquired};
+struct Slot{std::shared_ptr<GraphicBuffer> graphic_buffer;Fence fence;u64 frame_number=0;bool is_preallocated=false;
+    BufferState buffer_state=BufferState::Free;bool needs_cleanup_on_release=false,acquire_called=false;};
+struct BufferQueueCore{
+    ObservedMutex mutex;bool is_abandoned=false,buffer_has_been_queued=false;
+    std::shared_ptr<int> consumer_listener=std::make_shared<int>(1);std::vector<int> queue;
+    std::array<Slot,4> slots;int override_max_buffer_count=0,signals=0;
+    u32 default_width=1,default_height=1;PixelFormat default_buffer_format{};
+    void SignalDequeueCondition(){++signals;}
+    void FreeBufferLocked(s32);void FreeAllBuffersLocked();s32 GetPreallocatedBufferCountLocked()const;
+};
+struct BufferQueueConsumer{
+    std::shared_ptr<BufferQueueCore> core;Status Disconnect();
+};
+struct ConsumerBase{
+    std::shared_ptr<BufferQueueConsumer> consumer;std::mutex mutex;bool is_abandoned=false;std::array<Slot,4> slots;
+    void Abandon();void AbandonLocked();void FreeBufferLocked(s32);
+    Status AcquireBuffer(auto* item,std::chrono::nanoseconds,bool){
+        if(is_abandoned||!slots[0].graphic_buffer)return Status::NoInit;
+        item->graphic_buffer=slots[0].graphic_buffer;item->swap_interval=1;return Status::NoError;
+    }
+    void ReleaseBuffer(const auto&,Fence){}
+};
+struct Event{int signals=0;void Signal(){++signals;}};
+struct BufferQueueProducer{
+    std::shared_ptr<Nvidia::Module> nvdrv;std::shared_ptr<BufferQueueCore> core;std::array<Slot,4>& slots;
+    Event event;Event* buffer_wait_event=&event;
+    BufferQueueProducer(std::shared_ptr<Nvidia::Module> n,std::shared_ptr<BufferQueueCore> c):nvdrv{std::move(n)},core{std::move(c)},slots{core->slots}{}
+    Status SetPreallocatedBuffer(s32,const std::shared_ptr<NvGraphicBuffer>&);
+};
+@CONSUMER@
+@PRODUCER@
+}
+namespace Service::Nvnflinger {
+struct Layer{
+    std::shared_ptr<android::ConsumerBase> buffer_item_consumer;s32 consumer_id=1;
+    @LAYER_DESTRUCTOR@
+};
+struct Stack{std::vector<std::shared_ptr<Layer>> layers;auto FindLayer(s32 id){for(auto& l:layers)if(l->consumer_id==id)return l;return std::shared_ptr<Layer>{};}};
+struct Display{u64 id=1;Stack stack;};
+struct SurfaceFlinger{
+    struct Layers{std::vector<std::shared_ptr<Layer>> layers;}m_layers;
+    std::vector<Display> m_displays;
+    struct Server{std::map<s32,std::shared_ptr<void>> binders;void UnregisterBinder(s32 id){binders.erase(id);}}m_server;
+    void DestroyLayer(s32);void DestroyBufferQueue(s32,s32);void RemoveDisplay(u64);
+};
+using ConsumerId=s32;
+s32 NormalizeSwapInterval(float*,s32 n){return std::max(1,n);}
+struct HardwareComposer{
+    struct BufferItem{std::shared_ptr<android::GraphicBuffer> graphic_buffer;s32 swap_interval=1;};
+    struct Framebuffer{BufferItem item;u64 release_frame_number=0;bool is_acquired=false;};
+    enum class CacheStatus{NoBufferAvailable,BufferAcquired,CachedBufferReused};
+    std::map<s32,Framebuffer> m_framebuffers;
+    bool TryAcquireFramebufferLocked(Layer&,Framebuffer&);CacheStatus CacheFramebufferLocked(Layer&,ConsumerId);
+    void RemoveLayerLocked(Display&,ConsumerId);
+};
+@SURFACE@
+@CACHE@
+}
+using namespace Service::android;
+struct Fixture{
+    std::shared_ptr<Service::Nvidia::Module> module=std::make_shared<Service::Nvidia::Module>();
+    std::shared_ptr<BufferQueueCore> core=std::make_shared<BufferQueueCore>();
+    std::shared_ptr<BufferQueueProducer> borrowed=std::make_shared<BufferQueueProducer>(module,core);
+    std::shared_ptr<ConsumerBase> consumer=std::make_shared<ConsumerBase>();
+    Service::Nvnflinger::SurfaceFlinger surface;Service::Nvnflinger::HardwareComposer composer;
+    Fixture(){consumer->consumer=std::make_shared<BufferQueueConsumer>(BufferQueueConsumer{core});
+        auto layer=std::make_shared<Service::Nvnflinger::Layer>();layer->buffer_item_consumer=consumer;
+        surface.m_layers.layers.push_back(layer);Service::Nvnflinger::Display d;d.stack.layers.push_back(layer);surface.m_displays.push_back(std::move(d));
+        surface.m_server.binders.emplace(1,consumer->consumer);surface.m_server.binders.emplace(2,borrowed);}
+    auto Descriptor(){auto d=std::make_shared<NvGraphicBuffer>();d->buffer_id=1;d->width=32;d->height=16;return d;}
+    auto& file(){return module->container.file;}
+    void Warm(){surface.DestroyLayer(1);surface.DestroyBufferQueue(1,2);surface.RemoveDisplay(1);Require(core->is_abandoned,"warm layer failed to abandon queue");}
+    void Original(){Require(borrowed->SetPreallocatedBuffer(0,Descriptor())==Status::NoError,"original slot setup failed");}
+};
+void Closed(){Fixture f;f.Original();f.Warm();const int duplicates=f.file().duplicated;const int signals=f.core->signals,events=f.borrowed->event.signals;
+    auto result=f.borrowed->SetPreallocatedBuffer(0,f.Descriptor());
+    Require(result==Status::NoInit&&!f.core->slots[0].graphic_buffer,"borrowed producer republished abandoned slot");
+    Require(f.file().duplicated==duplicates,"closed queue acquired new backing effects");
+    Require(f.core->signals==signals&&f.borrowed->event.signals==events,"closed refusal signaled publication");}
+void Late(const std::string& mode){Fixture f;Gate prepared,release;
+    const bool deferred=mode=="deferred",failure=mode=="free-failure";
+    const bool cached=mode=="cached-late";std::weak_ptr<GraphicBuffer> original;
+    if(cached){f.Original();original=f.core->slots[0].graphic_buffer;f.consumer->slots[0].graphic_buffer=f.core->slots[0].graphic_buffer;
+        f.composer.CacheFramebufferLocked(*f.surface.m_layers.layers[0],1);}
+    std::weak_ptr<Token> backing=f.module->container.backing,process=f.module->container.process;
+    f.file().zero_pin=mode=="pin-zero";f.file().throw_pin=mode=="pin-throw";f.file().fail_free=failure;
+    f.file().pin_hook=[&]{Require(!f.core->mutex.held,"core lock held across backing preparation");prepared.Set();release.Wait();};
+    f.file().retire_hook=[&]{Require(!f.core->mutex.held,"candidate retirement ran under core lock");};
+    Status result=Status::BadValue;std::thread writer([&]{result=f.borrowed->SetPreallocatedBuffer(0,f.Descriptor());});prepared.Wait();
+    f.Warm();const int signals=f.core->signals,events=f.borrowed->event.signals;
+    const auto width=f.core->default_width;const auto frame=f.core->slots[0].frame_number;
+    if(deferred)f.module->domain->Seal();
+    f.module->container.backing.reset();f.module->container.process.reset();
+    release.Set();writer.join();
+    Require(!f.core->slots[0].graphic_buffer,"prepared candidate published after abandonment");
+    const bool pin_failure=mode=="pin-zero"||mode=="pin-throw";
+    Require(result==(pin_failure?Status::WouldBlock:Status::NoInit),"candidate refusal status lost effect boundary");
+    Require(f.core->signals==signals&&f.borrowed->event.signals==events&&f.core->default_width==width&&f.core->slots[0].frame_number==frame,"refused candidate changed queue metadata");
+    if(cached){Require(!original.expired()&&!backing.expired()&&f.file().unpinned==1&&f.file().duplicated==2,"refused candidate damaged cached original owner");
+        Service::Nvnflinger::Display gone;f.composer.RemoveLayerLocked(gone,1);
+        Require(original.expired()&&backing.expired()&&process.expired()&&f.file().unpinned==2,"cached original owner did not retire separately");}
+    else if(deferred){Require(!backing.expired()&&!process.expired()&&f.file().unpinned==0&&f.file().freed==0&&!f.module->retirements->Drain(),"cancelled candidate lost retained backing owners");}
+    else if(pin_failure){Require(!backing.expired()&&!process.expired()&&!f.module->domain->TryEnter()&&f.file().unpinned==0&&f.file().freed==0,"failed preparation released uncertain owners");}
+    else if(failure){Require(!backing.expired()&&!process.expired()&&!f.module->domain->TryEnter(),"failed candidate retirement granted success authority");
+        Require(!f.module->retirements->Drain()&&f.file().unpinned==1&&f.file().freed==1,"failed candidate cleanup replayed effects");}
+    else Require(backing.expired()&&process.expired()&&f.file().duplicated==1&&f.file().unpinned==1&&f.file().freed==1,"unpublished candidate retirement was not exact");
+}
+void Normal(){Fixture f;f.Original();Require(f.core->default_width==32&&f.core->override_max_buffer_count==1&&f.borrowed->event.signals==1,"normal publication semantics changed");
+    Require(f.borrowed->SetPreallocatedBuffer(0,{})==Status::NoError&&f.core->slots[0].graphic_buffer,"empty descriptor support lost");
+    Require(f.file().unpinned==1&&f.file().freed==1,"replacement did not retire old owner");f.Warm();}
+void BadSlot(){Fixture f;Require(f.borrowed->SetPreallocatedBuffer(-1,f.Descriptor())==Status::BadValue&&f.borrowed->SetPreallocatedBuffer(4,{})==Status::BadValue&&f.module->admissions==0,"invalid slot acquired ownership");f.Warm();}
+void GlobalClose(){Fixture f;f.Original();auto old=f.core->slots[0].graphic_buffer;f.module->domain->Seal();
+    Require(f.borrowed->SetPreallocatedBuffer(0,f.Descriptor())==Status::WouldBlock&&f.core->slots[0].graphic_buffer==old&&f.file().duplicated==1,"global refusal destroyed existing slot");f.Warm();}
+void Cache(bool cached){Fixture f;f.Original();std::weak_ptr<GraphicBuffer> original=f.core->slots[0].graphic_buffer;
+    if(cached){f.consumer->slots[0].graphic_buffer=f.core->slots[0].graphic_buffer;
+        auto& layer=*f.surface.m_layers.layers[0];f.composer.CacheFramebufferLocked(layer,1);f.composer.CacheFramebufferLocked(layer,1);}
+    f.Warm();Require(!f.core->slots[0].graphic_buffer,"warm cleanup left original core slot");
+    if(cached){Require(!original.expired()&&f.file().unpinned==0,"cached framebuffer failed to retain original backing");
+        Service::Nvnflinger::Display gone;f.composer.RemoveLayerLocked(gone,1);Require(original.expired()&&f.file().unpinned==1,"cached removal did not retire exact owner");}
+    else Require(original.expired()&&f.file().unpinned==1,"uncached slot unexpectedly retained");
+    bool native_drained=false;Require(!native_drained,"native marker unexpectedly completed");
+    // Characterization only: CPU owner retirement may precede native completion.
+}
+int main(int argc,char** argv){Require(argc==2,"missing case");std::string c=argv[1];
+    if(c=="closed")Closed();else if(c=="normal")Normal();else if(c=="bad-slot")BadSlot();else if(c=="global-close")GlobalClose();
+    else if(c=="cache"||c=="uncached")Cache(c=="cache");else Late(c);
+    std::cout<<"PASS abandoned slot "<<c<<'\n';}

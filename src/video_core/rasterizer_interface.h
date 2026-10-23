@@ -116,7 +116,8 @@ public:
     /// Sync memory between guest and host.
     virtual void InvalidateGPUCache() = 0;
 
-    /// Unmap memory range
+    /// Unmap memory range. UnmapFailure means callback cancellation/failure;
+    /// callers must retain mapping owners. Return alone is not device completion.
     virtual void UnmapMemory(DAddr addr, u64 size) = 0;
 
     /// Remap GPU memory range. This means underneath backing memory changed

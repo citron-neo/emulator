@@ -1,13 +1,17 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <cinttypes>
 #include <cstring>
+#include <iterator>
 #include <memory>
+#include <optional>
 
 #include "common/assert.h"
 #include "common/logging.h"
 #include "common/signal_chain.h"
+#include "core/arm/debug.h"
 #include "core/arm/nce/arm_nce.h"
 #include "core/arm/nce/interpreter_visitor.h"
 #include "core/arm/nce/patcher.h"
@@ -140,7 +144,7 @@ void* ArmNce::RestoreGuestContext(void* raw_context) {
     // Retrieve the host floating point state.
     auto* fpctx = GetFloatingPointState(host_ctx);
     if (fpctx == nullptr) {
-        UNREACHABLE_MSG("NCE cannot restore guest context without FPSIMD signal state");
+        std::unreachable(); // NCE cannot restore guest context without FPSIMD signal state
     }
 
     // Save host callee-saved registers.
@@ -172,7 +176,7 @@ void ArmNce::SaveGuestContext(GuestContext* guest_ctx, void* raw_context) {
     // Retrieve the host floating point state.
     auto* fpctx = GetFloatingPointState(host_ctx);
     if (fpctx == nullptr) {
-        UNREACHABLE_MSG("NCE cannot save guest context without FPSIMD signal state");
+        std::unreachable(); // NCE cannot save guest context without FPSIMD signal state
     }
 
     // Save all guest registers except tpidr_el0.
@@ -200,16 +204,67 @@ void ArmNce::SaveGuestContext(GuestContext* guest_ctx, void* raw_context) {
     host_ctx.regs[0] = guest_ctx->esr_el1.exchange(0);
 }
 
+// Logs an access NCE could not service, with the guest call stack, so the log points at the first
+// bad access instead of at whatever fails later because of it.
+static void ReportUnhandledAccess(const char* kind, const char* outcome, const mcontext_t& host_ctx,
+                                  u64 fault_addr, u32 instruction, size_t core_index,
+                                  Kernel::KThread* thread) {
+    LOG_CRITICAL(Core_ARM,
+                 "Unhandled NCE {} abort: pc={:#x}, fault_addr={:#x}, instruction={:#010x}, {}, "
+                 "core={}, thread_id={:#x}, sp={:#x}, lr={:#x}, pstate={:#x}",
+                 kind, host_ctx.pc, fault_addr, instruction, outcome, core_index,
+                 thread != nullptr ? thread->GetThreadId() : 0, host_ctx.sp, host_ctx.regs[30],
+                 static_cast<u64>(host_ctx.pstate));
+    LOG_CRITICAL(Core_ARM,
+                 "NCE guest registers: x0={:#x}, x1={:#x}, x2={:#x}, x3={:#x}, x4={:#x}, "
+                 "x5={:#x}, x6={:#x}, x7={:#x}",
+                 host_ctx.regs[0], host_ctx.regs[1], host_ctx.regs[2], host_ctx.regs[3],
+                 host_ctx.regs[4], host_ctx.regs[5], host_ctx.regs[6], host_ctx.regs[7]);
+    LOG_CRITICAL(Core_ARM,
+                 "NCE guest registers: x8={:#x}, x9={:#x}, x10={:#x}, x11={:#x}, x12={:#x}, "
+                 "x13={:#x}, x14={:#x}, x15={:#x}",
+                 host_ctx.regs[8], host_ctx.regs[9], host_ctx.regs[10], host_ctx.regs[11],
+                 host_ctx.regs[12], host_ctx.regs[13], host_ctx.regs[14], host_ctx.regs[15]);
+    LOG_CRITICAL(Core_ARM,
+                 "NCE guest registers: x16={:#x}, x17={:#x}, x18={:#x}, x19={:#x}, x20={:#x}, "
+                 "x21={:#x}, x22={:#x}, x23={:#x}",
+                 host_ctx.regs[16], host_ctx.regs[17], host_ctx.regs[18], host_ctx.regs[19],
+                 host_ctx.regs[20], host_ctx.regs[21], host_ctx.regs[22], host_ctx.regs[23]);
+    LOG_CRITICAL(Core_ARM,
+                 "NCE guest registers: x24={:#x}, x25={:#x}, x26={:#x}, x27={:#x}, x28={:#x}, "
+                 "x29={:#x}, x30={:#x}",
+                 host_ctx.regs[24], host_ctx.regs[25], host_ctx.regs[26], host_ctx.regs[27],
+                 host_ctx.regs[28], host_ctx.regs[29], host_ctx.regs[30]);
+
+    Kernel::KProcess* const process = thread != nullptr ? thread->GetOwnerProcess() : nullptr;
+    if (process == nullptr) {
+        return;
+    }
+    Kernel::Svc::ThreadContext ctx{};
+    std::copy_n(std::begin(host_ctx.regs), ctx.r.size(), ctx.r.begin());
+    ctx.fp = host_ctx.regs[29];
+    ctx.lr = host_ctx.regs[30];
+    ctx.sp = host_ctx.sp;
+    ctx.pc = host_ctx.pc;
+    ctx.pstate = static_cast<u32>(host_ctx.pstate);
+    for (const BacktraceEntry& entry : GetBacktraceFromContext(process, ctx)) {
+        LOG_CRITICAL(Core_ARM, "NCE backtrace: {} {:#x} (offset {:#x}) {}", entry.module,
+                     entry.address, entry.offset, entry.name);
+    }
+}
+
 bool ArmNce::HandleFailedGuestFault(GuestContext* guest_ctx, void* raw_info, void* raw_context) {
     auto& host_ctx = static_cast<ucontext_t*>(raw_context)->uc_mcontext;
     auto* info = static_cast<siginfo_t*>(raw_info);
+    ArmNce* const parent = guest_ctx->parent;
 
     // We can't handle the access, so determine why we crashed.
-    const bool is_prefetch_abort = host_ctx.pc == reinterpret_cast<u64>(info->si_addr);
+    const u64 fault_addr = reinterpret_cast<u64>(info->si_addr);
+    const bool is_prefetch_abort = host_ctx.pc == fault_addr;
 
-    // For data aborts, skip the instruction and return to guest code.
-    // This preserves the historical NCE behavior while branch relocation fallback is tested.
     if (!is_prefetch_abort) {
+        // Retain the exact guest-wrapper compatibility recovery before the new
+        // generic interpreter fallback. The two have different X0/PC semantics.
         // Some guest object wrappers guard a pointer with CBZ immediately before loading its
         // type field. A packed handle can incorrectly reach this path as a non-null pointer. If
         // this exact sequence faults, follow the wrapper's own null-object return path.
@@ -239,40 +294,40 @@ bool ArmNce::HandleFailedGuestFault(GuestContext* guest_ctx, void* raw_info, voi
             }
         }
 
-        host_ctx.pc += 4;
+        // Do what dynarmic does for the same access: it goes through Core::Memory, where an
+        // unmapped read returns 0 and an unmapped write is dropped. The one-instruction
+        // interpreter used for alignment faults runs the access through Core::Memory too, so
+        // NCE and dynarmic behave alike. Only an instruction it cannot decode is skipped.
+        // Either way the access is reported: it is a bug somewhere, and continuing hides where.
+        u32 instruction{};
+        std::memcpy(&instruction, reinterpret_cast<const void*>(host_ctx.pc), sizeof(instruction));
+        auto* const fpctx = GetFloatingPointState(host_ctx);
+        const std::optional<u64> next_pc =
+            fpctx != nullptr ? MatchAndExecuteOneInstruction(
+                                   guest_ctx->system->ApplicationMemory(), &host_ctx, fpctx)
+                             : std::nullopt;
+
+        constexpr u32 MaxDataAbortReports = 16;
+        if (parent->m_reported_data_aborts < MaxDataAbortReports) {
+            ++parent->m_reported_data_aborts;
+            ReportUnhandledAccess("data",
+                                  next_pc ? "emulated through Core::Memory"
+                                          : "not decodable, skipped",
+                                  host_ctx, fault_addr, instruction, parent->m_core_index,
+                                  parent->m_running_thread);
+            if (parent->m_reported_data_aborts == MaxDataAbortReports) {
+                LOG_CRITICAL(Core_ARM, "Further unhandled NCE data aborts on core {} not reported",
+                             parent->m_core_index);
+            }
+        }
+
+        host_ctx.pc = next_pc.value_or(host_ctx.pc + 4);
         return true;
     }
 
     // This is a prefetch abort.
-    LOG_CRITICAL(Core_ARM, "Unhandled NCE prefetch abort: pc={:#x}, fault_addr={:#x}",
-                 host_ctx.pc, reinterpret_cast<u64>(info->si_addr));
-    const auto* const running_thread = guest_ctx->parent->m_running_thread;
-    LOG_CRITICAL(Core_ARM,
-                 "NCE prefetch abort context: core={}, thread_id={:#x}, sp={:#x}, lr={:#x}, "
-                 "pstate={:#x}",
-                 guest_ctx->parent->m_core_index,
-                 running_thread != nullptr ? running_thread->GetThreadId() : 0, host_ctx.sp,
-                 host_ctx.regs[30], static_cast<u64>(host_ctx.pstate));
-    LOG_CRITICAL(Core_ARM,
-                 "NCE guest registers: x0={:#x}, x1={:#x}, x2={:#x}, x3={:#x}, x4={:#x}, "
-                 "x5={:#x}, x6={:#x}, x7={:#x}",
-                 host_ctx.regs[0], host_ctx.regs[1], host_ctx.regs[2], host_ctx.regs[3],
-                 host_ctx.regs[4], host_ctx.regs[5], host_ctx.regs[6], host_ctx.regs[7]);
-    LOG_CRITICAL(Core_ARM,
-                 "NCE guest registers: x8={:#x}, x9={:#x}, x10={:#x}, x11={:#x}, x12={:#x}, "
-                 "x13={:#x}, x14={:#x}, x15={:#x}",
-                 host_ctx.regs[8], host_ctx.regs[9], host_ctx.regs[10], host_ctx.regs[11],
-                 host_ctx.regs[12], host_ctx.regs[13], host_ctx.regs[14], host_ctx.regs[15]);
-    LOG_CRITICAL(Core_ARM,
-                 "NCE guest registers: x16={:#x}, x17={:#x}, x18={:#x}, x19={:#x}, x20={:#x}, "
-                 "x21={:#x}, x22={:#x}, x23={:#x}",
-                 host_ctx.regs[16], host_ctx.regs[17], host_ctx.regs[18], host_ctx.regs[19],
-                 host_ctx.regs[20], host_ctx.regs[21], host_ctx.regs[22], host_ctx.regs[23]);
-    LOG_CRITICAL(Core_ARM,
-                 "NCE guest registers: x24={:#x}, x25={:#x}, x26={:#x}, x27={:#x}, x28={:#x}, "
-                 "x29={:#x}, x30={:#x}",
-                 host_ctx.regs[24], host_ctx.regs[25], host_ctx.regs[26], host_ctx.regs[27],
-                 host_ctx.regs[28], host_ctx.regs[29], host_ctx.regs[30]);
+    ReportUnhandledAccess("prefetch", "thread stops", host_ctx, fault_addr, 0, parent->m_core_index,
+                          parent->m_running_thread);
     guest_ctx->esr_el1.fetch_or(static_cast<u64>(HaltReason::PrefetchAbort));
 
     // Forcibly mark the context as locked. We are still running.
@@ -280,7 +335,7 @@ bool ArmNce::HandleFailedGuestFault(GuestContext* guest_ctx, void* raw_info, voi
     // - If we lose the race, then SignalInterrupt will send us a signal we are masking,
     //   and it will do nothing when it is unmasked, as we have already left guest code.
     // - If we win the race, then SignalInterrupt will wait for us to unlock first.
-    auto& thread_params = guest_ctx->parent->m_running_thread->GetNativeExecutionParameters();
+    auto& thread_params = parent->m_running_thread->GetNativeExecutionParameters();
     thread_params.lock.store(SpinLockLocked);
 
     // Return to host.
@@ -292,7 +347,7 @@ bool ArmNce::HandleGuestAlignmentFault(GuestContext* guest_ctx, void* raw_info, 
     auto& host_ctx = static_cast<ucontext_t*>(raw_context)->uc_mcontext;
     auto* fpctx = GetFloatingPointState(host_ctx);
     if (fpctx == nullptr) {
-        UNREACHABLE_MSG("NCE cannot handle guest alignment fault without FPSIMD signal state");
+        std::unreachable(); // NCE cannot handle guest alignment fault without FPSIMD signal state
     }
     auto& memory = guest_ctx->system->ApplicationMemory();
 

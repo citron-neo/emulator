@@ -83,6 +83,20 @@ public:
                            });
     }
 
+    /// Publish a controlled store without changing PTE tags/cache reference counts. All
+    /// managers must already exist from registration; no allocation or device callback here.
+    [[nodiscard]] bool MarkRegionAsCpuModifiedRetainingTracking(VAddr address, u64 size) {
+        if (!size || address >= (1ULL << MAX_CPU_PAGE_BITS) ||
+            size > (1ULL << MAX_CPU_PAGE_BITS) - address) return false;
+        const auto last = (address + size - 1) >> HIGHER_PAGE_BITS;
+        for (auto page = address >> HIGHER_PAGE_BITS; page <= last; ++page)
+            if (!top_tier[page]) return false;
+        IteratePages<false>(address, size, [](Manager* manager, u64 offset, size_t length) {
+            manager->MarkCpuModifiedRetainingTracking(manager->GetCpuAddr() + offset, length);
+        });
+        return true;
+    }
+
     /// Unmark region as CPU modified, notifying the device_tracker about this change
     void UnmarkRegionAsCpuModified(VAddr dirty_cpu_addr, u64 query_size) {
         IteratePages<true>(dirty_cpu_addr, query_size,

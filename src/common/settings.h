@@ -476,6 +476,13 @@ struct Values {
                                                                   AstcRecompression::Bc3,
                                                                   "astc_recompression",
                                                                   Category::RendererAdvanced};
+    SwitchableSetting<BindlessTextureLimit, true> bindless_texture_limit{
+        linkage,
+        BindlessTextureLimit::Default,
+        BindlessTextureLimit::Default,
+        BindlessTextureLimit::Limit8,
+        "bindless_texture_limit",
+        Category::RendererAdvanced};
 
     SwitchableSetting<bool> async_presentation{linkage,
 #ifdef ANDROID
@@ -486,6 +493,23 @@ struct Values {
                                                "async_presentation", Category::RendererAdvanced};
     SwitchableSetting<bool> renderer_force_max_clock{linkage, false, "force_max_clock",
                                                      Category::RendererAdvanced};
+    // Experimental shared guest backing. Android defaults on for device validation;
+    // actual mapping eligibility and synchronization still decide the fast path.
+    SwitchableSetting<bool> use_uma_zero_copy{linkage,
+#ifdef ANDROID
+                                             true,
+#else
+                                             false,
+#endif
+                                             "use_uma_zero_copy", Category::RendererAdvanced};
+    // Startup-only CPU backing experiment. No Vulkan direct mapping is enabled by this.
+    SwitchableSetting<bool> use_lazy_guest_backing{linkage, false, "use_lazy_guest_backing",
+                                                  Category::RendererAdvanced};
+    SwitchableSetting<bool> guest_chunk_import_diagnostics{
+        linkage, false, "guest_chunk_import_diagnostics", Category::RendererAdvanced};
+    // Observation-only physical geometry/producer coverage; no coherency decisions.
+    SwitchableSetting<bool> physical_coherency_shadow{
+        linkage, false, "physical_coherency_shadow", Category::RendererAdvanced};
     SwitchableSetting<bool> use_reactive_flushing{linkage,
 #ifdef ANDROID
                                                   false,
@@ -703,8 +727,7 @@ struct Values {
     Setting<bool> dump_shaders{
         linkage, false, "dump_shaders", Category::DebuggingGraphics, Specialization::Default,
         false};
-    Setting<bool> dump_macros{
-        linkage, false, "dump_macros", Category::DebuggingGraphics, Specialization::Default, false};
+    Setting<bool> dump_macros{linkage, false, "dump_macros", Category::DebuggingGraphics};
     Setting<bool> enable_fs_access_log{linkage, false, "enable_fs_access_log", Category::Debugging};
     Setting<bool> reporting_services{
         linkage, false, "reporting_services", Category::Debugging, Specialization::Default, false};
@@ -776,6 +799,9 @@ void UpdateGPUAccuracy();
 bool IsGPULevelExtreme();
 bool IsGPULevelLow();
 bool IsGPULevelHigh();
+
+/// Maximum length of dynamically indexed bindless texture arrays in translated shaders.
+u32 BindlessTextureLimitValue();
 bool IsGPULevelNormal();
 
 bool IsFastmemEnabled();

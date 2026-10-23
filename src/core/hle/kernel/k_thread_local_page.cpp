@@ -37,13 +37,17 @@ Result KThreadLocalPage::Initialize(KernelCore& kernel, KProcess* process) {
     return ResultSuccess;
 }
 
-Result KThreadLocalPage::Finalize() {
+Result KThreadLocalPage::Finalize(
+    const Core::Memory::ControlledMappingPublication::Teardown* teardown) {
     // Get the physical address of the page.
     KPhysicalAddress phys_addr{};
-    ASSERT(m_owner->GetPageTable().GetPhysicalAddress(std::addressof(phys_addr), m_virt_addr));
+    [[maybe_unused]] const auto get_physical_address_result =
+        m_owner->GetPageTable().GetPhysicalAddress(std::addressof(phys_addr), m_virt_addr);
+    assert(get_physical_address_result);
 
     // Unmap the page.
-    R_TRY(m_owner->GetPageTable().UnmapPages(this->GetAddress(), 1, KMemoryState::ThreadLocal));
+    R_TRY(m_owner->GetPageTable().UnmapPages(this->GetAddress(), 1, KMemoryState::ThreadLocal,
+                                           teardown));
 
     // Free the page.
     KPageBuffer::Free(*m_kernel, KPageBuffer::FromPhysicalAddress(m_kernel->System(), phys_addr));

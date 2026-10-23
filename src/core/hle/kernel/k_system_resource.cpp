@@ -42,7 +42,8 @@ Result KSecureSystemResource::Initialize(size_t size, KResourceLimit* resource_l
     KPhysicalAddress resource_paddr =
         KPageTable::GetHeapPhysicalAddress(m_kernel, m_resource_address);
     auto* resource =
-        m_kernel.System().DeviceMemory().GetPointer<KPageTableManager::RefCount>(resource_paddr);
+        m_kernel.System().DeviceMemory().GetPointer<KPageTableManager::RefCount>(resource_paddr,
+                                                                              m_resource_size);
 
     // Initialize slab heaps.
     m_dynamic_page_manager.Initialize(m_resource_address + rc_size, m_resource_size - rc_size,

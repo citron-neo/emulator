@@ -13,6 +13,9 @@
 #include "common/scratch_buffer.h"
 #include "common/typed_address.h"
 #include "core/guest_memory.h"
+#include "core/controlled_cpu_page.h"
+#include "core/controlled_mapping_publication.h"
+#include "core/managed_guest_writes.h"
 #include "core/hle/result.h"
 
 namespace Common {
@@ -22,6 +25,8 @@ struct PageTable;
 
 namespace Core {
 class System;
+struct SchedulerTestAccess;
+struct SystemTestAccess;
 class GPUDirtyMemoryManager;
 } // namespace Core
 
@@ -55,13 +60,15 @@ enum : u64 {
 /// Central class that handles all memory operations and state.
 class Memory {
 public:
-    explicit Memory(Core::System& system);
+    enum class MappingPublicationMode { Untracked, Controlled };
+    explicit Memory(Core::System& system,
+                    MappingPublicationMode mappings = MappingPublicationMode::Untracked);
     ~Memory();
 
     Memory(const Memory&) = delete;
     Memory& operator=(const Memory&) = delete;
 
-    Memory(Memory&&) = default;
+    Memory(Memory&&);
     Memory& operator=(Memory&&) = delete;
 
     /**
@@ -75,6 +82,98 @@ public:
      * @param process The process to use the page table of.
      */
     void SetCurrentPageTable(Kernel::KProcess& process);
+
+    /// Cold preparation only, on the process/memory owner thread with process, PageTable and
+    /// HostMemory alive. No store, callbacks, registration or DMA admission is activated.
+    [[nodiscard]] std::optional<PreparedCpuPage> PrepareControlledCpuPage(
+        Common::ProcessAddress page_address) const;
+
+    /// Explicit, bounded prepared-VA stores; no automatic activation in ordinary Write APIs.
+    /// Refusals have no effects and MUST NOT fall back to legacy writes under admission.
+    /// This fast entry refuses cached/debug pages. The cached counterpart below additionally
+    /// requires qualified aliases, completed registration and any necessary preservation.
+    [[nodiscard]] PreparedCpuWriteResult WritePrepared8(const PreparedCpuPage& page,
+                                                        Common::ProcessAddress addr, u8 data);
+    [[nodiscard]] PreparedCpuWriteResult WritePrepared16(const PreparedCpuPage& page,
+                                                         Common::ProcessAddress addr, u16 data);
+    [[nodiscard]] PreparedCpuWriteResult WritePrepared32(const PreparedCpuPage& page,
+                                                         Common::ProcessAddress addr, u32 data);
+    [[nodiscard]] PreparedCpuWriteResult WritePrepared64(const PreparedCpuPage& page,
+                                                         Common::ProcessAddress addr, u64 data);
+
+    /// Explicit cached counterpart; the controlled cache owner supplies admission and must
+    /// publish the successful store to every qualified device alias before releasing it.
+    [[nodiscard]] PreparedCpuWriteResult
+    WritePreparedCached8(const PreparedCpuPage& page,
+                         Common::PhysicalRegistrationBundle::CachedWrite& write,
+                         Common::ProcessAddress addr, u8 data);
+    [[nodiscard]] PreparedCpuWriteResult
+    WritePreparedCached16(const PreparedCpuPage& page,
+                          Common::PhysicalRegistrationBundle::CachedWrite& write,
+                          Common::ProcessAddress addr, u16 data);
+    [[nodiscard]] PreparedCpuWriteResult
+    WritePreparedCached32(const PreparedCpuPage& page,
+                          Common::PhysicalRegistrationBundle::CachedWrite& write,
+                          Common::ProcessAddress addr, u32 data);
+    [[nodiscard]] PreparedCpuWriteResult
+    WritePreparedCached64(const PreparedCpuPage& page,
+                          Common::PhysicalRegistrationBundle::CachedWrite& write,
+                          Common::ProcessAddress addr, u64 data);
+
+    /// Cold CPU-owner preparation, before effects and outside sys-core/PTE/cache guards.
+    /// Copies the scalar and retains immutable physical/context identity; no physical admission,
+    /// store or GPU wait. A managed owner entry covers snapshot/pinning through registry publish.
+    /// Only single-page cached targets qualify. Caller keeps process/Memory alive at entry;
+    /// this does not authorize concurrent object destruction or arbitrary guest exclusion.
+    [[nodiscard]] ControlledCpuWriteRequestPtr PrepareControlledWrite8(Common::ProcessAddress, u8);
+    [[nodiscard]] ControlledCpuWriteRequestPtr PrepareControlledWrite16(Common::ProcessAddress, u16);
+    [[nodiscard]] ControlledCpuWriteRequestPtr PrepareControlledWrite32(Common::ProcessAddress, u32);
+    [[nodiscard]] ControlledCpuWriteRequestPtr PrepareControlledWrite64(Common::ProcessAddress, u64);
+    /// Owner teardown only, before process PTE finalization or Memory reset/destruction.
+    /// Closes CPU store/preparation visits, without waiting for GPU requests to finish.
+    void SealControlledCpuWrites();
+    /// Constructor-enrolled outer entries only. No all-process/raw/service/GPU closure.
+    /// Caller retains Memory, System and target PageTable owners at initial API entry.
+    [[nodiscard]] auto TryCloseControlledMappings(u32 poll_budget = 64) const {
+        return mapping_publications.TryClose(poll_budget);
+    }
+    /// Join entered mapping publications before external process/PTE destruction.
+    /// Terminal for an enrolled Memory, including across Reset/move. No later adoption.
+    void SealControlledMappings();
+    using MappingTeardown = ControlledMappingPublication::Teardown;
+    /// Explicit owner-only unmap after normal entry retirement. Never reopens admission.
+    void UnmapRegionForTeardown(Common::PageTable& page_table, Common::ProcessAddress base,
+                                u64 size, bool separate_heap, const MappingTeardown& entry);
+    void ValidateMappingTeardown(const MappingTeardown& entry) const {
+        mapping_publications.ValidateTeardown(entry);
+    }
+    void ValidateMappingTeardown(const MappingTeardown* entry) const {
+        mapping_publications.ValidateTeardown(entry);
+    }
+    // Existing owner-bound preparation and stores only; ordinary Memory::Write/bulk,
+    // escaped pointers, services and native stores are NOT enrolled by this API.
+    [[nodiscard]] auto TryCloseControlledStores(u32 poll_budget=64) const {
+        return controlled_owner->TryCloseManagedStores(poll_budget);
+    }
+    /// KProcess slab finalization does not invoke Memory's destructor. Call after closing
+    /// execution and finalizing process mappings, to release the context/owner explicitly.
+    void Finalize();
+
+    /// GPU-owner continuation only, AFTER preservation and admission. Invokes the actual
+    /// ordinary Write8/16/32/64 with one bounded thread-local capability; every refusal is
+    /// returned without legacy callbacks/fallback. Caller retains admission through publication.
+    [[nodiscard]] PreparedCpuWriteResult WriteOrdinaryControlled8(
+        const PreparedCpuPage&, Common::PhysicalRegistrationBundle::CachedWrite&,
+        Common::ProcessAddress, u8);
+    [[nodiscard]] PreparedCpuWriteResult WriteOrdinaryControlled16(
+        const PreparedCpuPage&, Common::PhysicalRegistrationBundle::CachedWrite&,
+        Common::ProcessAddress, u16);
+    [[nodiscard]] PreparedCpuWriteResult WriteOrdinaryControlled32(
+        const PreparedCpuPage&, Common::PhysicalRegistrationBundle::CachedWrite&,
+        Common::ProcessAddress, u32);
+    [[nodiscard]] PreparedCpuWriteResult WriteOrdinaryControlled64(
+        const PreparedCpuPage&, Common::PhysicalRegistrationBundle::CachedWrite&,
+        Common::ProcessAddress, u64);
 
     /**
      * Maps an allocated buffer onto a region of the emulated process address space.
@@ -140,6 +239,8 @@ public:
      * @returns The pointer to the given address, if the address is valid.
      *          If the address is not valid, nullptr will be returned.
      */
+    /// Synchronize host instruction cache after guest code updates (including NCE).
+    void SyncInstructionCache(Common::ProcessAddress vaddr, std::size_t size);
     u8* GetPointer(Common::ProcessAddress vaddr);
     u8* GetPointerSilent(Common::ProcessAddress vaddr);
 
@@ -417,8 +518,14 @@ public:
      * @param src_addr  The source virtual address to begin copying the data from.
      * @param size      The size of the data to copy, in bytes.
      *
-     * @post The range [dest_addr, size) within the process' address space contains the
-     *       same data within the range [src_addr, size).
+     * The source is fully snapshotted before writing the destination, including
+     * physical overlap through different virtual aliases. Callers must keep
+     * mappings stable; this is not an atomic CPU/GPU access transaction.
+     *
+     * @return True only if all reads and writes succeeded. Known mapping holes
+     *         and snapshot allocation failure are rejected before destination
+     *         copy stores. A later failure/remap or exception may leave partial
+     *         destination changes; false does not promise rollback.
      */
     bool CopyBlock(Common::ProcessAddress dest_addr, Common::ProcessAddress src_addr,
                    std::size_t size);
@@ -493,7 +600,18 @@ public:
     bool InvalidateSeparateHeap(void* fault_address);
 
 private:
+    friend struct Core::SystemTestAccess;
+    friend class Kernel::KProcess;
+    [[nodiscard]] MappingTeardown BeginMappingTeardown() const {
+        return mapping_publications.BeginTeardown();
+    }
+    friend struct Core::SchedulerTestAccess;
+    [[nodiscard]] ControlledCpuWriteRequestPtr PrepareControlledWrite(
+        Common::ProcessAddress, ControlledCpuWriteRequest::Value);
     Core::System& system;
+    ManagedGuestWrites managed_writes;
+    std::shared_ptr<CpuWriteOwner> controlled_owner{std::make_shared<CpuWriteOwner>(this)};
+    ControlledMappingPublication mapping_publications;
 
     struct Impl;
     std::unique_ptr<Impl> impl;

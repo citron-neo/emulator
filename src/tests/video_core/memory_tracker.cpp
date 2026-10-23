@@ -58,6 +58,24 @@ private:
 
 using MemoryTracker = VideoCommon::MemoryTrackerBase<RasterizerInterface>;
 
+TEST_CASE("Controlled CPU publication retains balanced page protection", "[video_core]") {
+    RasterizerInterface rasterizer;
+    auto tracker = std::make_unique<MemoryTracker>(rasterizer);
+    REQUIRE_FALSE(tracker->MarkRegionAsCpuModifiedRetainingTracking(c, PAGE));
+    tracker->UnmarkRegionAsCpuModified(c, PAGE);
+    REQUIRE(rasterizer.Count(c) == 1);
+    REQUIRE(tracker->MarkRegionAsCpuModifiedRetainingTracking(c + 7, 1));
+    REQUIRE(tracker->IsRegionCpuModified(c, PAGE));
+    REQUIRE(rasterizer.Count(c) == 1);
+    u64 uploaded = 0;
+    tracker->ForEachUploadRange(c, PAGE, [&](u64, u64 size) { uploaded += size; });
+    REQUIRE(uploaded == PAGE);
+    REQUIRE_FALSE(tracker->IsRegionCpuModified(c, PAGE));
+    REQUIRE(rasterizer.Count(c) == 1); // refresh must not double-register the retained tag
+    tracker->MarkRegionAsCpuModified(c, PAGE);
+    REQUIRE(rasterizer.Count(c) == 0); // ordinary untracking still releases exactly one reference
+}
+
 TEST_CASE("MemoryTracker: Small region", "[video_core]") {
     RasterizerInterface rasterizer;
     std::unique_ptr<MemoryTracker> memory_track(std::make_unique<MemoryTracker>(rasterizer));

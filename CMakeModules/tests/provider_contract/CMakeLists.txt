@@ -1,0 +1,48 @@
+cmake_minimum_required(VERSION 3.22)
+project(ProviderContract NONE)
+
+option(CANONICAL_PROVIDER "Provider already exports canonical targets" OFF)
+set(ANDROID TRUE)
+set(ARCHITECTURE_arm64 TRUE)
+
+if (CANONICAL_PROVIDER)
+    add_library(Opus::opus INTERFACE IMPORTED GLOBAL)
+    add_library(sirit::sirit INTERFACE IMPORTED GLOBAL)
+    add_library(adrenotools::adrenotools INTERFACE IMPORTED GLOBAL)
+    add_library(FFmpeg::FFmpeg INTERFACE IMPORTED GLOBAL)
+else()
+    add_library(opus INTERFACE)
+    add_library(sirit INTERFACE)
+    add_library(adrenotools INTERFACE)
+    add_library(mock_codec INTERFACE)
+    set(FFmpeg_LIBRARIES mock_codec)
+    set(FFmpeg_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+    set(FFmpeg_LDFLAGS "LINKER:--as-needed")
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/../../DependencyTargets.cmake")
+citron_resolve_ffmpeg_target()
+# Repeated normalization must accept existing targets.
+include("${CMAKE_CURRENT_LIST_DIR}/../../DependencyTargets.cmake")
+citron_resolve_ffmpeg_target()
+
+foreach(dependency Opus::opus sirit::sirit adrenotools::adrenotools FFmpeg::FFmpeg)
+    if (NOT TARGET "${dependency}")
+        message(FATAL_ERROR "Missing canonical target: ${dependency}")
+    endif()
+endforeach()
+
+if (CANONICAL_PROVIDER)
+    if (TARGET sirit OR TARGET adrenotools OR TARGET citron_ffmpeg)
+        message(FATAL_ERROR "Canonical provider was overwritten with a fallback")
+    endif()
+else()
+    get_target_property(_libraries citron_ffmpeg INTERFACE_LINK_LIBRARIES)
+    get_target_property(_includes citron_ffmpeg INTERFACE_INCLUDE_DIRECTORIES)
+    get_target_property(_options citron_ffmpeg INTERFACE_LINK_OPTIONS)
+    if (NOT _libraries STREQUAL "mock_codec" OR
+        NOT _includes STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}" OR
+        NOT _options STREQUAL "LINKER:--as-needed")
+        message(FATAL_ERROR "FFmpeg adapter lost provider usage requirements")
+    endif()
+endif()

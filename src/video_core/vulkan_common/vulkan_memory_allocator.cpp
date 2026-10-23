@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <optional>
 #include <utility>
@@ -56,7 +57,7 @@ struct Range {
         return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
     }
-    ASSERT_MSG(false, "Invalid memory usage={}", usage);
+    assert(false && "Invalid memory usage={}" && (void(usage), true));
     return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 }
 
@@ -129,7 +130,7 @@ public:
 
     void Free(u64 begin) {
         const auto it = std::ranges::find(commits, begin, &Range::begin);
-        ASSERT_MSG(it != commits.end(), "Invalid commit");
+        assert(it != commits.end() && "Invalid commit");
         commits.erase(it);
         if (commits.empty()) {
             // Do not call any code involving 'this' after this call, the object will be destroyed
@@ -156,7 +157,7 @@ private:
     }
 
     [[nodiscard]] std::optional<u64> FindFreeRegion(u64 size, u64 alignment) noexcept {
-        ASSERT(std::has_single_bit(alignment));
+        assert(std::has_single_bit(alignment));
         const u64 alignment_log2 = std::countr_zero(alignment);
         std::optional<u64> candidate;
         u64 iterator = 0;
@@ -241,6 +242,26 @@ MemoryAllocator::MemoryAllocator(const Device& device_)
             }
         });
     }
+
+    // Unified memory: the CPU writes buffer cache buffers directly instead of staging.
+    // The memory types are logged once because which types a driver exposes decides this.
+    constexpr VkMemoryPropertyFlags unified_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    bool has_unified_type = false;
+    for (u32 i = 0; i < properties.memoryTypeCount; ++i) {
+        const VkMemoryType& type = properties.memoryTypes[i];
+        LOG_INFO(Render_Vulkan, "Memory type {}: heap={} flags=0x{:x}", i, type.heapIndex,
+                 static_cast<u32>(type.propertyFlags));
+        if ((valid_memory_types & (1u << i)) != 0 &&
+            (type.propertyFlags & unified_flags) == unified_flags) {
+            has_unified_type = true;
+        }
+    }
+    has_unified_memory = device.IsIntegrated() && has_unified_type;
+    LOG_INFO(Render_Vulkan,
+             "Unified memory buffers: {} (integrated={}, coherent device local type={})",
+             has_unified_memory ? "on" : "off", device.IsIntegrated(), has_unified_type);
 }
 
 MemoryAllocator::~MemoryAllocator() = default;
@@ -265,17 +286,46 @@ vk::Image MemoryAllocator::CreateImage(const VkImageCreateInfo& ci) const {
     VkImage handle{};
     VmaAllocation allocation{};
 
-    vk::Check(vmaCreateImage(allocator, &ci, &alloc_ci, &handle, &allocation, nullptr));
+    const VkResult result =
+        vmaCreateImage(allocator, &ci, &alloc_ci, &handle, &allocation, nullptr);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR(Render_Vulkan,
+                  "Image allocation failed: result={}, extent={}x{}x{}, layers={}, mips={}, "
+                  "format={}, samples={}, usage={:#x}, flags={:#x}",
+                  static_cast<s32>(result), ci.extent.width, ci.extent.height, ci.extent.depth,
+                  ci.arrayLayers, ci.mipLevels, static_cast<u32>(ci.format),
+                  static_cast<u32>(ci.samples), ci.usage, ci.flags);
+        std::array<VmaBudget, VK_MAX_MEMORY_HEAPS> budgets{};
+        vmaGetHeapBudgets(allocator, budgets.data());
+        const auto memory_props = device.GetPhysical().GetMemoryProperties().memoryProperties;
+        for (u32 index = 0; index < memory_props.memoryHeapCount; ++index) {
+            const auto& budget = budgets[index];
+            LOG_ERROR(Render_Vulkan,
+                      "Image allocation heap {}: size={}, usage={}, budget={}, block_bytes={}, "
+                      "allocation_bytes={}",
+                      index, memory_props.memoryHeaps[index].size, budget.usage, budget.budget,
+                      budget.statistics.blockBytes, budget.statistics.allocationBytes);
+        }
+    }
+    vk::Check(result);
 
     return vk::Image(handle, *device.GetLogical(), allocator, allocation,
                      device.GetDispatchLoader());
 }
 
 vk::Buffer MemoryAllocator::CreateBuffer(const VkBufferCreateInfo& ci, MemoryUsage usage) const {
+    // Host-visible buffers must be coherent: the staging pool writes and reads its mappings
+    // without vmaFlush/vmaInvalidate. Every implementation has a HOST_VISIBLE |
+    // HOST_COHERENT type (Vulkan spec, memory heaps), so this never leaves a buffer without one.
+    const VkMemoryPropertyFlags required_flags =
+        usage == MemoryUsage::DeviceLocal
+            ? VkMemoryPropertyFlags{0}
+            : VkMemoryPropertyFlags{VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
     const VmaAllocationCreateInfo alloc_ci = {
         .flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT | MemoryUsageVmaFlags(usage),
         .usage = MemoryUsageVma(usage),
-        .requiredFlags = 0,
+        .requiredFlags = required_flags,
         .preferredFlags = MemoryUsagePreferredVmaFlags(usage),
         .memoryTypeBits = usage == MemoryUsage::Stream ? 0u : valid_memory_types,
         .pool = VK_NULL_HANDLE,
@@ -297,6 +347,38 @@ vk::Buffer MemoryAllocator::CreateBuffer(const VkBufferCreateInfo& ci, MemoryUsa
     const bool is_coherent = property_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
     return vk::Buffer(handle, *device.GetLogical(), allocator, allocation, mapped_data, is_coherent,
+                      device.GetDispatchLoader());
+}
+
+vk::Buffer MemoryAllocator::CreateUnifiedBuffer(const VkBufferCreateInfo& ci) const {
+    if (!has_unified_memory) {
+        return {};
+    }
+    // HOST_ACCESS_SEQUENTIAL_WRITE: the CPU only writes these (guest memory is copied in), never
+    // reads them back. MAPPED keeps the mapping for the buffer's whole life.
+    const VmaAllocationCreateInfo alloc_ci = {
+        .flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                 VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+        .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        .preferredFlags = 0,
+        .memoryTypeBits = valid_memory_types,
+        .pool = VK_NULL_HANDLE,
+        .pUserData = nullptr,
+        .priority = 0.f,
+    };
+
+    VkBuffer handle{};
+    VmaAllocationInfo alloc_info{};
+    VmaAllocation allocation{};
+    if (vmaCreateBuffer(allocator, &ci, &alloc_ci, &handle, &allocation, &alloc_info) !=
+        VK_SUCCESS) {
+        return {};
+    }
+    u8* const data = static_cast<u8*>(alloc_info.pMappedData);
+    const std::span<u8> mapped_data = data ? std::span<u8>{data, ci.size} : std::span<u8>{};
+    return vk::Buffer(handle, *device.GetLogical(), allocator, allocation, mapped_data, true,
                       device.GetDispatchLoader());
 }
 
@@ -346,7 +428,7 @@ bool MemoryAllocator::TryAllocMemory(VkMemoryPropertyFlags flags, u32 type_mask,
 
 void MemoryAllocator::ReleaseMemory(MemoryAllocation* alloc) {
     const auto it = std::ranges::find(allocations, alloc, &std::unique_ptr<MemoryAllocation>::get);
-    ASSERT(it != allocations.end());
+    assert(it != allocations.end());
     allocations.erase(it);
 }
 
@@ -381,7 +463,7 @@ VkMemoryPropertyFlags MemoryAllocator::MemoryPropertyFlags(u32 type_mask,
         // Remove device local, if it's not supported by the requested resource
         return MemoryPropertyFlags(type_mask, flags & ~VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     }
-    ASSERT_MSG(false, "No compatible memory types found");
+    assert(false && "No compatible memory types found");
     return 0;
 }
 

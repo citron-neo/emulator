@@ -105,6 +105,9 @@ public:
                            TextureCache& texture_cache, VideoCore::ShaderNotify& shader_notify_);
     ~PipelineCache();
 
+    /// Drain compilation/serialization while their shader notifier and device owners live.
+    void DrainWorkers();
+
     [[nodiscard]] GraphicsPipeline* CurrentGraphicsPipeline();
 
     [[nodiscard]] ComputePipeline* CurrentComputePipeline();

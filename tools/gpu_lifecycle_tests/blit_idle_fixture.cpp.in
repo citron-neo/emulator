@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <functional>
+#include <iostream>
+#include <mutex>
+#include <queue>
+#include <stdexcept>
+#include <stop_token>
+#include <string>
+#include <thread>
+#include <utility>
+#include <vector>
+#include "common/terminal_fail_stop.h"
+using namespace std::chrono_literals;
+using VkResult=int;constexpr int VK_SUCCESS=0;
+void Require(bool value,const char* why){if(!value){std::cerr<<"FAIL "<<why<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Gate{std::mutex mutex;std::condition_variable cv;bool ready=false;
+    void Set(){std::scoped_lock l{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{mutex};Require(cv.wait_for(l,5s,[&]{return ready;}),"gate timeout");}};
+struct Choice{std::mutex mutex;std::condition_variable cv;int value=0;
+    void Set(int n){std::scoped_lock l{mutex};if(!value)value=n;cv.notify_all();}
+    int Wait(){std::unique_lock l{mutex};Require(cv.wait_for(l,5s,[&]{return value!=0;}),"choice timeout");return value;}};
+struct ObservedMutex{std::mutex mutex;std::atomic<bool> held=false;
+    void lock(){mutex.lock();held=true;}void unlock(){held=false;mutex.unlock();}};
+namespace Common{
+void SetCurrentThreadName(const char*){}
+template<class C,class L,class P>void CondvarWait(C& cv,L& lock,std::stop_token token,P pred){cv.wait(lock,token,pred);}
+}
+namespace vk{struct CommandBuffer{};struct Exception:std::exception{int GetResult()const{return -4;}};}
+struct Trace{
+    std::string fault_mode,fault_stage;int idle_result=0;bool late=false,check_lock=false;
+    std::atomic<bool> finish=false,recording_done=true,copy_done=true,native_done=false;
+    std::atomic<int> submissions=0,idle_calls=0;Gate copy_entered,copy_release,recording_tail;Choice progress;
+    void Fault(const char* stage){if(fault_stage!=stage)return;if(fault_mode=="vk")throw vk::Exception{};throw std::runtime_error("fixture failure");}
+};
+namespace Vulkan{
+struct Scheduler{
+    Trace& trace;ObservedMutex submit_mutex;std::vector<std::function<void(vk::CommandBuffer)>> records;std::thread recording;
+    explicit Scheduler(Trace& t):trace{t}{}
+    ~Scheduler(){if(recording.joinable()){trace.recording_tail.Set();recording.join();}}
+    void Record(std::function<void(vk::CommandBuffer)> f){records.push_back(std::move(f));}
+    void Finish(){Require(!submit_mutex.held,"submission lock held across worker drainage");trace.Fault("finish");trace.finish=true;
+        if(records.empty())return;
+        trace.recording_done=false;auto work=std::move(records);
+        recording=std::thread([this,work=std::move(work)]{for(auto& f:work)f({});trace.recording_tail.Wait();trace.recording_done=true;});
+        trace.copy_entered.Wait();
+        // Rendering timeline completion can precede the separate present copy.
+    }
+    void WaitWorker(){Require(!submit_mutex.held,"submission lock held across worker drainage");trace.Fault("recording_drain");
+        trace.recording_tail.Set();if(recording.joinable())recording.join();}
+};
+struct Frame{};
+struct PresentManager{
+    Trace& trace;Scheduler& scheduler;bool use_present_thread;
+    std::queue<Frame*> present_queue;std::condition_variable_any frame_cv;
+    std::mutex queue_mutex,swapchain_mutex;std::jthread present_thread;
+    PresentManager(Trace& t,Scheduler& s,bool async):trace{t},scheduler{s},use_present_thread{async}{
+        if(async)present_thread=std::jthread([this](std::stop_token token){PresentThread(token);});}
+    ~PresentManager(){if(present_thread.joinable()){present_thread.request_stop();frame_cv.notify_all();present_thread.join();}}
+    void Present(Frame*);void WaitPresent();void PresentThread(std::stop_token);
+    void ObservePresentWait(){trace.Fault("presentation_drain");if(trace.late&&trace.finish)trace.progress.Set(1);}
+    void CopyToSwapchain(Frame*){if(trace.late){trace.copy_entered.Set();trace.copy_release.Wait();}
+        std::scoped_lock l{scheduler.submit_mutex};++trace.submissions;trace.copy_done=true;}
+    void ReleaseRenderFrame(Frame*){}
+};
+@PRESENT@
+struct Device{
+    struct Logical{Trace& trace;ObservedMutex& submit;
+        int WaitIdle(){trace.progress.Set(2);++trace.idle_calls;trace.Fault("native_idle");
+            Require(!trace.late||(trace.recording_done&&trace.copy_done),"idle preceded final recording or presentation work");
+            if(trace.check_lock)Require(submit.held,"native idle was not serialized with submissions");
+            if(trace.idle_result==0){trace.native_done=true;}
+            return trace.idle_result;}
+    }logical;
+    Device(Trace& t,Scheduler& s):logical{t,s.submit_mutex}{}auto& GetLogical(){return logical;}
+};
+struct BlitScreen{Scheduler& scheduler;PresentManager& present_manager;Device& device;void WaitIdle();};
+@IDLE@
+}
+void ExitMarker(){std::cerr<<"ATEXIT_HANDLER\n";}
+struct DestructionMarker{~DestructionMarker(){std::cerr<<"DESTROY protected-resource marker\n";}};
+int main(int argc,char** argv){Require(argc==2,"missing case");std::string mode=argv[1];Trace trace;
+    trace.check_lock=@CHECK_LOCK@;
+    if(mode.starts_with("result-"))trace.idle_result=std::stoi(mode.substr(7));
+    if(mode.starts_with("vk-")||mode.starts_with("host-")){const auto cut=mode.find('-');trace.fault_mode=mode.substr(0,cut);trace.fault_stage=mode.substr(cut+1);}
+    trace.late=mode=="late";trace.copy_done=!trace.late;
+    Vulkan::Scheduler scheduler{trace};Vulkan::PresentManager present{trace,scheduler,mode!="sync"};Vulkan::Device device{trace,scheduler};Vulkan::BlitScreen blit{scheduler,present,device};Vulkan::Frame frame;
+    DestructionMarker protected_resource;
+    std::atexit(ExitMarker);
+    if(mode=="sync")present.Present(&frame);
+    if(trace.late){present.Present(&frame);std::thread waiter([&]{blit.WaitIdle();Require(trace.native_done,"native completion missing");});
+        const int phase=trace.progress.Wait();Require(phase==1,"idle preceded final recording or presentation work");
+        Require(!trace.native_done,"idle returned before active present copy");trace.copy_release.Set();waiter.join();
+        Require(trace.submissions==1&&trace.recording_done&&trace.copy_done,"final present work missing");}
+    else {blit.WaitIdle();if(mode=="repeat")blit.WaitIdle();}
+    Require(trace.native_done,"native idle failure authorized resource release");
+    std::cout<<"DISPOSE resource-recreation marker\nPASS blit idle "<<mode<<'\n';
+}

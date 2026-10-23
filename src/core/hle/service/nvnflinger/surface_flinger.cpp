@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2024 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <exception>
+
+#include "common/scope_exit.h"
 #include "core/core.h"
 #include "core/hle/service/nvdrv/devices/nvdisp_disp0.h"
 #include "core/hle/service/nvdrv/nvdrv_interface.h"
@@ -35,14 +38,28 @@ void SurfaceFlinger::RemoveDisplay(u64 display_id) {
 
 bool SurfaceFlinger::ComposeDisplay(s32* out_swap_interval, f32* out_compose_speed_scale,
                                     u64 display_id) {
+    // This direct device route bypasses Module::Ioctl. Count before display or
+    // device borrows, through synchronous composition and output publication.
+    auto owner = nvdrv;
+    auto dispatch = owner->TryEnterDispatch();
+    if (!dispatch) {
+        return false;
+    }
+    const auto exception_depth = std::uncaught_exceptions();
+    SCOPE_EXIT {
+        if (std::uncaught_exceptions() > exception_depth) owner->QuarantineDispatch();
+    };
     auto* const display = this->FindDisplay(display_id);
     if (!display || !display->stack.HasLayers()) {
         return false;
     }
+    auto device = owner->GetDevice<Nvidia::Devices::nvdisp_disp0>(disp_fd);
+    if (!device) {
+        return false;
+    }
 
     *out_swap_interval =
-        m_composer.ComposeLocked(out_compose_speed_scale, *display,
-                                 *nvdrv->GetDevice<Nvidia::Devices::nvdisp_disp0>(disp_fd));
+        m_composer.ComposeLocked(out_compose_speed_scale, *display, *device);
     return true;
 }
 
@@ -129,9 +146,8 @@ void SurfaceFlinger::SetLayerIsOverlay(s32 consumer_binder_id, bool is_overlay) 
 }
 
 void SurfaceFlinger::CreateBufferQueue(s32* out_consumer_binder_id, s32* out_producer_binder_id) {
-    auto& nvmap = nvdrv->GetContainer().GetNvMapFile();
     auto core = std::make_shared<android::BufferQueueCore>();
-    auto producer = std::make_shared<android::BufferQueueProducer>(m_context, core, nvmap);
+    auto producer = std::make_shared<android::BufferQueueProducer>(m_context, core, nvdrv);
     auto consumer = std::make_shared<android::BufferQueueConsumer>(core);
 
     *out_consumer_binder_id = m_server.RegisterBinder(std::move(consumer));

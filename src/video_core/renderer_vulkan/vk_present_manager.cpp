@@ -134,7 +134,21 @@ PresentManager::PresentManager(const vk::Instance& instance_,
     }
 }
 
-PresentManager::~PresentManager() = default;
+PresentManager::~PresentManager() {
+    Shutdown();
+}
+
+void PresentManager::Shutdown() {
+    if (!present_thread.joinable()) {
+        return;
+    }
+    // The recording worker can enqueue Present closures, so its host work must
+    // be drained by the renderer first. WaitPresent includes the last active frame.
+    WaitPresent();
+    present_thread.request_stop();
+    frame_cv.notify_all();
+    present_thread.join();
+}
 
 Frame* PresentManager::GetRenderFrame() {
     // Bound the whole Mailbox async pipeline before another frame can enter present_queue. Waiting

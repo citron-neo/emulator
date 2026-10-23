@@ -58,7 +58,8 @@ u32 DynamicDescriptorSizeShift(const IR::U32& dynamic_offset) {
 
 u32 DynamicDescriptorCount(u32 base_offset, u32 size_shift, u32 max_descriptors) {
     const u32 descriptor_limit{std::max(1U, max_descriptors)};
-    const u32 max_cbuf_bytes{16 * descriptor_limit};
+    // Guest constant buffers are 64 KiB regardless of the host's descriptor-array cap.
+    constexpr u32 max_cbuf_bytes{0x10000};
     if (size_shift >= 31 || base_offset >= max_cbuf_bytes) {
         return 1;
     }
@@ -542,11 +543,10 @@ std::optional<ConstBufferAddr> TryGetConstBuffer(const IR::Inst* inst, Environme
         .secondary_offset = 0,
         .secondary_shift_left = 0,
         .dynamic_offset = dynamic_offset,
-        .count =
-            DynamicDescriptorCount(base_offset, size_shift,
-                                   std::min({DESCRIPTOR_MAX_COUNT,
-                                             std::max(sampled_limit, storage_limit),
-                                             resource_limit})),
+        .count = DynamicDescriptorCount(
+            base_offset, size_shift,
+            std::min({DESCRIPTOR_MAX_COUNT, std::max(sampled_limit, storage_limit), resource_limit,
+                      std::max(1U, host_info.max_bindless_array_length)})),
         .has_secondary = false,
     };
 }
@@ -709,7 +709,9 @@ void PatchImageSampleImplicitLod(IR::Block& block, IR::Inst& inst) {
     IR::IREmitter ir{block, IR::Block::InstructionList::s_iterator_to(inst)};
     const auto info{inst.Flags<IR::TextureInstInfo>()};
     const IR::Value coord(inst.Arg(1));
-    const IR::Value handle(ir.Imm32(0));
+    // Use the descriptor index the texture pass resolved for the sample, so the size query
+    // targets the same descriptor (and image type) as the sample itself.
+    const IR::Value handle(inst.Arg(0));
     const IR::U32 lod{ir.Imm32(0)};
     const IR::U1 skip_mips{ir.Imm1(true)};
     const IR::Value texture_size = ir.ImageQueryDimension(handle, lod, skip_mips, info);
@@ -799,6 +801,7 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
         const auto& cbuf{texture_inst.cbuf};
         auto flags{inst->Flags<IR::TextureInstInfo>()};
         bool is_multisample{false};
+        bool patch_rect_sample{false};
         switch (inst->GetOpcode()) {
         case IR::Opcode::ImageQueryDimensions:
             flags.type.Assign(ReadTextureType(env, cbuf));
@@ -809,7 +812,8 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
                 break;
             }
             if (ReadTextureType(env, cbuf) == TextureType::Color2DRect) {
-                PatchImageSampleImplicitLod(*texture_inst.block, *texture_inst.inst);
+                // Patched below, once the descriptor index has been assigned
+                patch_rect_sample = true;
             }
             break;
         case IR::Opcode::ImageFetch:
@@ -932,6 +936,10 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
                 0, ir.UMin(ir.ShiftRightLogical(cbuf.dynamic_offset, shift), ir.Imm32(count - 1)));
         } else {
             inst->SetArg(0, IR::Value{});
+        }
+
+        if (patch_rect_sample) {
+            PatchImageSampleImplicitLod(*texture_inst.block, *texture_inst.inst);
         }
 
         if (!host_info.support_snorm_render_buffer && inst->GetOpcode() == IR::Opcode::ImageFetch &&

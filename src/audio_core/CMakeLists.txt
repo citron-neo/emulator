@@ -284,8 +284,7 @@ if (ANDROID)
         sink/oboe_sink.h
     )
 
-    # FIXME: this port seems broken, it cannot be imported with find_package(oboe REQUIRED)
-    target_link_libraries(audio_core PRIVATE "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib/liboboe.a")
+    target_link_libraries(audio_core PRIVATE oboe::oboe)
     target_compile_definitions(audio_core PRIVATE HAVE_OBOE)
 endif()
 

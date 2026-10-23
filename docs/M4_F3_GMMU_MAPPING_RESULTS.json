@@ -1,0 +1,89 @@
+{
+  "baseline_commit": "c5f33fad9bd08509f43af8644e2dbf2b26af978a",
+  "baseline_expected_failure": "FAIL closed NV mapping reported success",
+  "positive_repeats": 3,
+  "operation_variants": 10,
+  "per_repeat_retention_pauses": 35,
+  "additional_cases": [
+    "Remap AS mutex wait and Entry retention",
+    "exception guard release",
+    "two-entry remap crossing Close and newcomer refusal before AS lock"
+  ],
+  "executed_controls": [
+    "AllocateSpace-ignored-refusal",
+    "AllocateSpace-early-release",
+    "FreeSpace-ignored-refusal",
+    "FreeSpace-early-release",
+    "Remap-ignored-refusal",
+    "Remap-early-release",
+    "MapBufferEx-ignored-refusal",
+    "MapBufferEx-early-release",
+    "UnmapBuffer-ignored-refusal",
+    "UnmapBuffer-early-release",
+    "Remap-missing-lock",
+    "missing-owner-join"
+  ],
+  "source_hash_entries_checked": 24,
+  "unique_inputs_checked": 16,
+  "sha256": {
+    "src/video_core/gpu.cpp": "f4016909612046c2201932baa248b343c21a9020277c0498673fef7e9f1712da",
+    "src/video_core/gpu.h": "1337d726f0f46376ee258f26db9147d061ed606278d2b7875fb90ecf75936f29",
+    "src/video_core/memory_manager.cpp": "14ec64220d1f57d42518a79159407b98f9acb6f624c3d2530e552d330eb576a4",
+    "src/video_core/memory_manager.h": "6cd1f92b4aad423193e8a099c2ae4c759afd0a9d9b48b66318f8b0c07dddeba5",
+    "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+    "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+    "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.cpp": "0b13227566b96215362d4f06d3fe5f4f2e7c71037a948b9f3417a0a10df80b2e",
+    "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+    "tools/gpu_lifecycle_tests/run_tests.py": "c085bb76634eec3556ee50254d00faba889d1d62211395010493115142850203",
+    "tools/gpu_lifecycle_tests/run_address_space_mapping_tests.py": "52427c954d42335dfc4c78c0007bd097c2df774b76fb0b20b89a3aac827cd5ec",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.cpp": "b147fb98d6b71bd0a094e815dba87c9f27a538dc7d0f4b271f86d397e1845c74",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+    "src/core/hle/service/nvdrv/nvdrv.cpp": "3a72c654320190ad39b788bba5728768d62baa0d1e64165177d16cb9a1ef7cf0",
+    "src/video_core/control/channel_state.cpp": "e7374891fdca91d9f095b5c5882b267988943ba160852d77d77c01ad15a24311",
+    "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+    "tools/physical_coherency_tests/run_windows_production_checks.py": "1aeddbe7843d880a275928a54390093aa668cdc9a4ed6a07a5f11a43c0b84402"
+  },
+  "fixture_cpp_sha256": "ec0814c29276386e5ce682950fcfa535172f04b4b79bef2c88c139dd2aaf646f",
+  "compiler": "g++ (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+  "production_objects": [
+    {
+      "source": "src/video_core/gpu.cpp",
+      "sha256": "f4016909612046c2201932baa248b343c21a9020277c0498673fef7e9f1712da",
+      "object_sha256": "db327d28bffed56be97b20973b5d3687d64deb38d9d2e97c56d53723e220e676",
+      "object_size": 148343
+    },
+    {
+      "source": "src/video_core/memory_manager.cpp",
+      "sha256": "14ec64220d1f57d42518a79159407b98f9acb6f624c3d2530e552d330eb576a4",
+      "object_sha256": "e7d43a600f4564c8de037eef8cdc3051c2cc78884d62a546919e117b79b830b8",
+      "object_size": 131257
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.cpp",
+      "sha256": "0b13227566b96215362d4f06d3fe5f4f2e7c71037a948b9f3417a0a10df80b2e",
+      "object_sha256": "2c5408cacb246c8646f896e4119fd4297b780cc578e529f2d9189397022b53b5",
+      "object_size": 165707
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/devices/nvhost_gpu.cpp",
+      "sha256": "b147fb98d6b71bd0a094e815dba87c9f27a538dc7d0f4b271f86d397e1845c74",
+      "object_sha256": "fa1cdf31e334ba757dd0cc0f6ab98aeae8fe871465ce4e2cb326c559e2fff655",
+      "object_size": 82124
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/nvdrv.cpp",
+      "sha256": "3a72c654320190ad39b788bba5728768d62baa0d1e64165177d16cb9a1ef7cf0",
+      "object_sha256": "44a23db8dac09c8c9a3a105b91a271440105364abb892751d47561f4d1eb89d3",
+      "object_size": 172075
+    },
+    {
+      "source": "src/video_core/control/channel_state.cpp",
+      "sha256": "e7374891fdca91d9f095b5c5882b267988943ba160852d77d77c01ad15a24311",
+      "object_sha256": "9103c8f1af4995d8c04ffd132daac572e2006a7b70323a80aed8f44a57e9f3eb",
+      "object_size": 4963
+    }
+  ],
+  "no_compiler_diagnostics": true,
+  "workflow_source_only_sha256": "68a849948a08d55976d5212f3feef775ed53d6783b30f0886a1fdd22097958f6",
+  "boundary": "Controlled actual-body NV/GMMU lifetime tests; allocator/nvmap, table operations and renderer/worker are fixtures. Six actual Windows production COFF objects, no app link or native Vulkan/Linux/Android/device claim. Direct GMMU entry and callback cancellation/completion remain open. GuestBackingAdmission Unknown; main unchanged."
+}

@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <cstring>
+#include <type_traits>
 #include <utility>
 
 #include "common/alignment.h"
@@ -19,6 +20,7 @@
 #include "video_core/control/channel_state.h"
 #include "video_core/gpu.h"
 #include "video_core/memory_manager.h"
+#include "video_core/unmap_failure.h"
 #include "video_core/rasterizer_interface.h"
 
 namespace Service::Nvidia::Devices {
@@ -100,6 +102,7 @@ NvResult nvhost_as_gpu::AllocAsEx(IoctlAllocAsEx& params) {
         return NvResult::InvalidState;
     }
 
+    VM pending_vm;
     if (params.big_page_size) {
         if (!std::has_single_bit(params.big_page_size)) {
             LOG_ERROR(Service_NVDRV, "Non power-of-2 big page size: 0x{:X}!", params.big_page_size);
@@ -111,43 +114,61 @@ NvResult nvhost_as_gpu::AllocAsEx(IoctlAllocAsEx& params) {
             return NvResult::BadValue;
         }
 
-        vm.big_page_size = params.big_page_size;
-        vm.big_page_size_bits = static_cast<u32>(std::countr_zero(params.big_page_size));
+        pending_vm.big_page_size = params.big_page_size;
+        pending_vm.big_page_size_bits = static_cast<u32>(std::countr_zero(params.big_page_size));
 
-        vm.va_range_start = params.big_page_size << VM::VA_START_SHIFT;
+        pending_vm.va_range_start = params.big_page_size << VM::VA_START_SHIFT;
     }
 
     // If this is unspecified then default values should be used
     if (params.va_range_start) {
-        vm.va_range_start = params.va_range_start;
-        vm.va_range_split = params.va_range_split;
-        vm.va_range_end = params.va_range_end;
+        pending_vm.va_range_start = params.va_range_start;
+        pending_vm.va_range_split = params.va_range_split;
+        pending_vm.va_range_end = params.va_range_end;
     }
 
-    const u64 max_big_page_bits = Common::Log2Ceil64(vm.va_range_end);
+    const u64 max_big_page_bits = Common::Log2Ceil64(pending_vm.va_range_end);
 
-    const auto start_pages{static_cast<u32>(vm.va_range_start >> VM::PAGE_SIZE_BITS)};
-    const auto end_pages{static_cast<u32>(vm.va_range_split >> VM::PAGE_SIZE_BITS)};
-    vm.small_page_allocator = std::make_shared<VM::Allocator>(start_pages, end_pages);
+    const auto start_pages{static_cast<u32>(pending_vm.va_range_start >> VM::PAGE_SIZE_BITS)};
+    const auto end_pages{static_cast<u32>(pending_vm.va_range_split >> VM::PAGE_SIZE_BITS)};
+    pending_vm.small_page_allocator = std::make_shared<VM::Allocator>(start_pages, end_pages);
 
-    const auto start_big_pages{static_cast<u32>(vm.va_range_split >> vm.big_page_size_bits)};
+    const auto start_big_pages{
+        static_cast<u32>(pending_vm.va_range_split >> pending_vm.big_page_size_bits)};
     const auto end_big_pages{
-        static_cast<u32>((vm.va_range_end - vm.va_range_split) >> vm.big_page_size_bits)};
-    vm.big_page_allocator = std::make_unique<VM::Allocator>(start_big_pages, end_big_pages);
+        static_cast<u32>((pending_vm.va_range_end - pending_vm.va_range_split) >>
+                         pending_vm.big_page_size_bits)};
+    pending_vm.big_page_allocator = std::make_unique<VM::Allocator>(start_big_pages, end_big_pages);
 
-    gmmu = std::make_shared<Tegra::MemoryManager>(system, max_big_page_bits, vm.va_range_split,
-                                                  vm.big_page_size_bits, VM::PAGE_SIZE_BITS);
-    system.GPU().InitAddressSpace(*gmmu);
-    vm.initialised = true;
+    auto pending_gmmu = std::make_shared<Tegra::MemoryManager>(
+        system, max_big_page_bits, pending_vm.va_range_split, pending_vm.big_page_size_bits,
+        VM::PAGE_SIZE_BITS);
+    auto publication = system.GPU().InitAddressSpace(*pending_gmmu);
+    if (!publication) {
+        return NvResult::InvalidState;
+    }
+    pending_vm.initialised = true;
+    static_assert(std::is_nothrow_move_assignable_v<VM>);
+    gmmu = std::move(pending_gmmu);
+    vm = std::move(pending_vm);
 
     return NvResult::Success;
 }
 
 NvResult nvhost_as_gpu::AllocateSpace(IoctlAllocSpace& params) {
+    auto publication = system.GPU().AcquireChannelBinding();
+    if (!publication) {
+        return NvResult::InvalidState;
+    }
+
     LOG_DEBUG(Service_NVDRV, "called, pages={:X}, page_size={:X}, flags={:X}", params.pages,
               params.page_size, params.flags);
 
     std::scoped_lock lock(mutex);
+
+    if (gmmu && gmmu->HasUnmapFailure()) {
+        return NvResult::InvalidState;
+    }
 
     if (!vm.initialised) {
         return NvResult::BadValue;
@@ -199,6 +220,14 @@ NvResult nvhost_as_gpu::AllocateSpace(IoctlAllocSpace& params) {
 void nvhost_as_gpu::FreeMappingLocked(u64 offset) {
     auto mapping{mapping_map.at(offset)};
 
+    // Sparse mappings shouldn't be fully unmapped, just returned to their sparse state
+    // Only FreeSpace can unmap them fully
+    if (mapping->sparse_alloc) {
+        gmmu->MapSparse(offset, mapping->size, mapping->big_page);
+    } else {
+        gmmu->Unmap(offset, mapping->size);
+    }
+
     if (!mapping->fixed) {
         auto& allocator{mapping->big_page ? *vm.big_page_allocator : *vm.small_page_allocator};
         u32 page_size_bits{mapping->big_page ? vm.big_page_size_bits : VM::PAGE_SIZE_BITS};
@@ -211,35 +240,38 @@ void nvhost_as_gpu::FreeMappingLocked(u64 offset) {
 
     nvmap.UnpinHandle(mapping->handle);
 
-    // Sparse mappings shouldn't be fully unmapped, just returned to their sparse state
-    // Only FreeSpace can unmap them fully
-    if (mapping->sparse_alloc) {
-        gmmu->MapSparse(offset, mapping->size, mapping->big_page);
-    } else {
-        gmmu->Unmap(offset, mapping->size);
-    }
-
     mapping_map.erase(offset);
 }
 
 NvResult nvhost_as_gpu::FreeSpace(IoctlFreeSpace& params) {
+    auto publication = system.GPU().AcquireChannelBinding();
+    if (!publication) {
+        return NvResult::InvalidState;
+    }
+
     LOG_DEBUG(Service_NVDRV, "called, offset={:X}, pages={:X}, page_size={:X}", params.offset,
               params.pages, params.page_size);
 
-    std::scoped_lock lock(mutex);
+    std::unique_lock lock(mutex);
+
+    if (gmmu && gmmu->HasUnmapFailure()) {
+        return NvResult::InvalidState;
+    }
 
     if (!vm.initialised) {
         return NvResult::BadValue;
     }
 
+    bool unmap_started = false;
     try {
-        auto allocation{allocation_map[params.offset]};
+        auto allocation{allocation_map.at(params.offset)};
 
         if (allocation.page_size != params.page_size ||
             allocation.size != (static_cast<u64>(params.pages) * params.page_size)) {
             return NvResult::BadValue;
         }
 
+        unmap_started = true;
         for (const auto& mapping : allocation.mappings) {
             FreeMappingLocked(mapping->offset);
         }
@@ -257,15 +289,41 @@ NvResult nvhost_as_gpu::FreeSpace(IoctlFreeSpace& params) {
         allocator.Free(static_cast<u32>(params.offset >> page_size_bits),
                        static_cast<u32>(allocation.size >> page_size_bits));
         allocation_map.erase(params.offset);
+    } catch (const VideoCommon::UnmapFailure&) {
+        lock.unlock();
+        system.GPU().NotifyShutdown();
+        return NvResult::InvalidState;
     } catch (const std::out_of_range&) {
+        if (unmap_started) {
+            gmmu->QuarantineUnmap();
+            lock.unlock();
+            system.GPU().NotifyShutdown();
+            return NvResult::InvalidState;
+        }
         return NvResult::BadValue;
+    } catch (...) {
+        gmmu->QuarantineUnmap();
+        lock.unlock();
+        system.GPU().NotifyShutdown();
+        return NvResult::InvalidState;
     }
 
     return NvResult::Success;
 }
 
 NvResult nvhost_as_gpu::Remap(std::span<IoctlRemapEntry> entries) {
+    auto publication = system.GPU().AcquireChannelBinding();
+    if (!publication) {
+        return NvResult::InvalidState;
+    }
+
     LOG_DEBUG(Service_NVDRV, "called, num_entries=0x{:X}", entries.size());
+
+    std::scoped_lock lock(mutex);
+
+    if (gmmu && gmmu->HasUnmapFailure()) {
+        return NvResult::InvalidState;
+    }
 
     if (!vm.initialised) {
         return NvResult::BadValue;
@@ -315,6 +373,11 @@ NvResult nvhost_as_gpu::Remap(std::span<IoctlRemapEntry> entries) {
 }
 
 NvResult nvhost_as_gpu::MapBufferEx(IoctlMapBufferEx& params) {
+    auto publication = system.GPU().AcquireChannelBinding();
+    if (!publication) {
+        return NvResult::InvalidState;
+    }
+
     LOG_DEBUG(Service_NVDRV,
               "called, flags={:X}, nvmap_handle={:X}, buffer_offset={}, mapping_size={}"
               ", offset={}",
@@ -322,6 +385,10 @@ NvResult nvhost_as_gpu::MapBufferEx(IoctlMapBufferEx& params) {
               params.offset);
 
     std::scoped_lock lock(mutex);
+
+    if (gmmu && gmmu->HasUnmapFailure()) {
+        return NvResult::InvalidState;
+    }
 
     if (!vm.initialised) {
         return NvResult::BadValue;
@@ -418,24 +485,27 @@ NvResult nvhost_as_gpu::MapBufferEx(IoctlMapBufferEx& params) {
 }
 
 NvResult nvhost_as_gpu::UnmapBuffer(IoctlUnmapBuffer& params) {
+    auto publication = system.GPU().AcquireChannelBinding();
+    if (!publication) {
+        return NvResult::InvalidState;
+    }
+
     LOG_DEBUG(Service_NVDRV, "called, offset=0x{:X}", params.offset);
 
-    std::scoped_lock lock(mutex);
+    std::unique_lock lock(mutex);
+
+    if (gmmu && gmmu->HasUnmapFailure()) {
+        return NvResult::InvalidState;
+    }
 
     if (!vm.initialised) {
         return NvResult::BadValue;
     }
 
+    bool unmap_started = false;
     try {
         auto mapping{mapping_map.at(params.offset)};
-
-        if (!mapping->fixed) {
-            auto& allocator{mapping->big_page ? *vm.big_page_allocator : *vm.small_page_allocator};
-            u32 page_size_bits{mapping->big_page ? vm.big_page_size_bits : VM::PAGE_SIZE_BITS};
-
-            allocator.Free(static_cast<u32>(mapping->offset >> page_size_bits),
-                           static_cast<u32>(mapping->size >> page_size_bits));
-        }
+        unmap_started = true;
 
         // Sparse mappings shouldn't be fully unmapped, just returned to their sparse state
         // Only FreeSpace can unmap them fully
@@ -445,11 +515,34 @@ NvResult nvhost_as_gpu::UnmapBuffer(IoctlUnmapBuffer& params) {
             gmmu->Unmap(params.offset, mapping->size);
         }
 
+        if (!mapping->fixed) {
+            auto& allocator{mapping->big_page ? *vm.big_page_allocator : *vm.small_page_allocator};
+            u32 page_size_bits{mapping->big_page ? vm.big_page_size_bits : VM::PAGE_SIZE_BITS};
+
+            allocator.Free(static_cast<u32>(mapping->offset >> page_size_bits),
+                           static_cast<u32>(mapping->size >> page_size_bits));
+        }
+
         nvmap.UnpinHandle(mapping->handle);
 
         mapping_map.erase(params.offset);
+    } catch (const VideoCommon::UnmapFailure&) {
+        lock.unlock();
+        system.GPU().NotifyShutdown();
+        return NvResult::InvalidState;
     } catch (const std::out_of_range&) {
+        if (unmap_started) {
+            gmmu->QuarantineUnmap();
+            lock.unlock();
+            system.GPU().NotifyShutdown();
+            return NvResult::InvalidState;
+        }
         LOG_WARNING(Service_NVDRV, "Couldn't find region to unmap at 0x{:X}", params.offset);
+    } catch (...) {
+        gmmu->QuarantineUnmap();
+        lock.unlock();
+        system.GPU().NotifyShutdown();
+        return NvResult::InvalidState;
     }
 
     return NvResult::Success;
@@ -458,8 +551,32 @@ NvResult nvhost_as_gpu::UnmapBuffer(IoctlUnmapBuffer& params) {
 NvResult nvhost_as_gpu::BindChannel(IoctlBindChannel& params) {
     LOG_DEBUG(Service_NVDRV, "called, fd={:X}", params.fd);
 
+    auto publication = system.GPU().AcquireChannelBinding();
+    if (!publication) {
+        return NvResult::InvalidState;
+    }
     auto gpu_channel_device = module.GetDevice<nvhost_gpu>(params.fd);
-    gpu_channel_device->channel_state->memory_manager = gmmu;
+    if (!gpu_channel_device || !gpu_channel_device->channel_state) return NvResult::InvalidState;
+    // Serialize the GMMU snapshot with AllocAsEx and replacement with Setup/Submit.
+    // The terminal entry also covers waiting for these service locks.
+    std::shared_ptr<Tegra::MemoryManager> previous;
+    {
+        std::scoped_lock lock(mutex, gpu_channel_device->channel_mutex);
+        if (gmmu && gmmu->HasUnmapFailure()) return NvResult::InvalidState;
+        const auto& channel = *gpu_channel_device->channel_state;
+        const bool same_gmmu_owner = channel.memory_manager && gmmu &&
+                                     channel.memory_manager.get() == gmmu.get() &&
+                                     !channel.memory_manager.owner_before(gmmu) &&
+                                     !gmmu.owner_before(channel.memory_manager);
+        if ((channel.initialized || channel.initialization_failed) && !same_gmmu_owner) {
+            return NvResult::InvalidState;
+        }
+        // The engine constructors keep references to their original GMMU. A
+        // different owner requires a real engine retirement/rebuild protocol.
+        previous = std::exchange(gpu_channel_device->channel_state->memory_manager, gmmu);
+    }
+    // Old mapping retirement may need its own locks. Retire outside the service
+    // locks while the publication entry still excludes renderer teardown.
     return NvResult::Success;
 }
 

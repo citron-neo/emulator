@@ -341,6 +341,12 @@ add_library(core STATIC
     hle/kernel/memory_types.h
     hle/kernel/message_buffer.h
     hle/kernel/physical_core.cpp
+    hle/kernel/process_execution_stop.cpp
+    hle/kernel/process_execution_stop.h
+    hle/kernel/process_cohort_stop.cpp
+    hle/kernel/process_cohort_stop.h
+    hle/kernel/process_owner_roster.cpp
+    hle/kernel/process_owner_roster.h
     hle/kernel/physical_core.h
     hle/kernel/physical_memory.h
     hle/kernel/slab_helpers.h
@@ -1205,6 +1211,10 @@ add_library(core STATIC
     loader/xci.cpp
     loader/xci.h
     memory.cpp
+    controlled_cpu_page.h
+    controlled_mapping_publication.h
+    managed_guest_writes.h
+    managed_host_producer.h
     memory.h
     memory/cheat_engine.cpp
     memory/cheat_engine.h
@@ -1342,3 +1352,7 @@ endif()
 citron_configure_lto(core)
 
 create_target_directory_groups(core)
+
+if(CITRON_TESTS)
+    target_compile_definitions(core PRIVATE CITRON_SCHEDULER_TESTS)
+endif()

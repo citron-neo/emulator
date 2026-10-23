@@ -2,8 +2,11 @@
 // SPDX-FileCopyrightText: Copyright 2023 merryhime <https://mary.rs>
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/bit_cast.h"
+#include <atomic>
+
+
 #include "core/arm/nce/interpreter_visitor.h"
+#include "core/memory.h"
 
 namespace Core {
 

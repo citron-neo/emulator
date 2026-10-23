@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <exception>
 #include <random>
 
+#include "common/scope_exit.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/k_system_resource.h"
@@ -28,9 +30,12 @@ Result AllocateSharedBufferMemory(std::unique_ptr<Kernel::KPageGroup>* out_page_
     // Allocate memory for the system shared buffer.
     auto& kernel = system.Kernel();
 
-    // Hold a temporary page group reference while we try to map it.
-    auto pg = std::make_unique<Kernel::KPageGroup>(
+    // Publish the descriptor under the manager lock BEFORE allocation/fill.
+    // The prepared uncertain-owner record retains the manager/pool even if a
+    // partially effectful allocator or raw initializer fails or throws.
+    *out_page_group = std::make_unique<Kernel::KPageGroup>(
         kernel, std::addressof(kernel.GetSystemSystemResource().GetBlockInfoManager()));
+    auto& pg = *out_page_group;
 
     // Allocate memory from secure pool.
     R_TRY(kernel.MemoryManager().AllocateAndOpen(
@@ -40,16 +45,13 @@ Result AllocateSharedBufferMemory(std::unique_ptr<Kernel::KPageGroup>* out_page_
 
     // Fill the output data with red.
     for (auto& block : *pg) {
-        u32* start = system.DeviceMemory().GetPointer<u32>(block.GetAddress());
-        u32* end = system.DeviceMemory().GetPointer<u32>(block.GetAddress() + block.GetSize());
+        u32* start = system.DeviceMemory().GetPointer<u32>(block.GetAddress(), block.GetSize());
+        u32* end = start + block.GetSize() / sizeof(u32);
 
         for (; start < end; start++) {
             *start = 0xFF0000FF;
         }
     }
-
-    // Return the mapped page group.
-    *out_page_group = std::move(pg);
 
     // We succeeded.
     R_SUCCEED();
@@ -137,25 +139,22 @@ Result AllocateHandleForBuffer(u32* out_handle, Nvidia::Module& nvdrv, Nvidia::D
                                Common::ProcessAddress buffer, u32 size) {
     // Get the nvmap device.
     auto nvmap = nvdrv.GetDevice<Nvidia::Devices::nvmap>(nvmap_fd);
-    ASSERT(nvmap != nullptr);
+    R_UNLESS(nvmap != nullptr, VI::ResultOperationFailed);
 
     // Create a handle.
     R_TRY(CreateNvMapHandle(out_handle, *nvmap, size));
 
-    // Ensure we maintain a clean state on failure.
-    ON_RESULT_FAILURE {
-        R_ASSERT(FreeNvMapHandle(*nvmap, *out_handle, nvmap_fd));
-    };
-
+    // Failure may have already changed the handle/mapping. The prepared owner
+    // bundle retains the prefix; do not speculate about rollback or replay.
     // Assign the allocated memory to the handle.
     R_RETURN(AllocNvMapHandle(*nvmap, *out_handle, buffer, size, nvmap_fd));
 }
 
-void FreeHandle(u32 handle, Nvidia::Module& nvdrv, Nvidia::DeviceFD nvmap_fd) {
+Result FreeHandle(u32 handle, Nvidia::Module& nvdrv, Nvidia::DeviceFD nvmap_fd) {
     auto nvmap = nvdrv.GetDevice<Nvidia::Devices::nvmap>(nvmap_fd);
-    ASSERT(nvmap != nullptr);
+    R_UNLESS(nvmap != nullptr, VI::ResultOperationFailed);
 
-    R_ASSERT(FreeNvMapHandle(*nvmap, handle, nvmap_fd));
+    R_RETURN(FreeNvMapHandle(*nvmap, handle, nvmap_fd));
 }
 
 constexpr auto SharedBufferBlockLinearFormat = android::PixelFormat::Rgba8888;
@@ -189,7 +188,7 @@ constexpr SharedMemoryPoolLayout SharedBufferPoolLayout = [] {
     return layout;
 }();
 
-void MakeGraphicBuffer(android::BufferQueueProducer& producer, u32 slot, u32 handle) {
+Result MakeGraphicBuffer(android::BufferQueueProducer& producer, u32 slot, u32 handle) {
     auto buffer = std::make_shared<android::NvGraphicBuffer>();
     buffer->width = SharedBufferWidth;
     buffer->height = SharedBufferHeight;
@@ -198,7 +197,9 @@ void MakeGraphicBuffer(android::BufferQueueProducer& producer, u32 slot, u32 han
     buffer->external_format = SharedBufferBlockLinearFormat;
     buffer->buffer_id = handle;
     buffer->offset = slot * SharedBufferSlotSize;
-    ASSERT(producer.SetPreallocatedBuffer(slot, buffer) == android::Status::NoError);
+    R_UNLESS(producer.SetPreallocatedBuffer(slot, buffer) == android::Status::NoError,
+             VI::ResultOperationFailed);
+    R_SUCCEED();
 }
 
 } // namespace
@@ -212,11 +213,34 @@ SharedBufferManager::~SharedBufferManager() = default;
 Result SharedBufferManager::CreateSession(Kernel::KProcess* owner_process, u64* out_buffer_id,
                                           u64* out_layer_handle, u64 display_id,
                                           bool enable_blending) {
-    std::scoped_lock lk{m_guard};
+    auto dispatch = m_nvdrv->TryEnterDispatch();
+    R_UNLESS(dispatch, VI::ResultOperationFailed);
+    auto container_owner = m_container.weak_from_this().lock();
+    R_UNLESS(container_owner, VI::ResultOperationFailed);
 
-    // Ensure we haven't already created.
+    // Prepare every retaining allocation before the first physical/map/device
+    // effect. A numeric session ID alone cannot own a failed creation prefix.
+    auto owners = std::make_shared<SharedBufferOwners>();
+    owners->module = m_nvdrv;
+    owners->process = m_nvdrv->RetainProcessLifetime(owner_process, *dispatch);
+    R_UNLESS(owners->process, VI::ResultOperationFailed);
+    owners->container = container_owner;
+    auto retention = Common::OwnedRetirementQueue::Prepare([owners] {
+        return false; // Uncertain VI effects are retained, never replayed.
+    });
+    std::scoped_lock lk{m_guard};
     const u64 aruid = owner_process->GetProcessId();
     R_UNLESS(!m_sessions.contains(aruid), VI::ResultPermissionDenied);
+    auto [it, was_emplaced] = m_sessions.emplace(aruid, SharedBufferSession{});
+    auto& session = it->second;
+    session.owners = std::move(owners);
+    session.retention = std::move(retention);
+    SCOPE_EXIT {
+        if (session.status != SharedBufferSession::Status::Ready) {
+            session.status = SharedBufferSession::Status::Unknown;
+            m_nvdrv->RetirementQueue()->Quarantine(std::move(session.retention));
+        }
+    };
 
     // Allocate memory for the shared buffer if needed.
     if (!m_buffer_page_group) {
@@ -235,13 +259,10 @@ Result SharedBufferManager::CreateSession(Kernel::KProcess* owner_process, u64* 
     R_TRY(MapSharedBufferIntoProcessAddressSpace(std::addressof(map_address), m_buffer_page_group,
                                                  owner_process, m_system));
 
-    // Create new session.
-    auto [it, was_emplaced] = m_sessions.emplace(aruid, SharedBufferSession{});
-    auto& session = it->second;
-
     auto& container = m_nvdrv->GetContainer();
     session.session_id = container.OpenSession(owner_process);
     session.nvmap_fd = m_nvdrv->Open("/dev/nvmap", session.session_id);
+    R_UNLESS(session.nvmap_fd != Nvidia::INVALID_NVDRV_FD, VI::ResultOperationFailed);
 
     // Create an nvmap handle for the buffer and assign the memory to it.
     R_TRY(AllocateHandleForBuffer(std::addressof(session.buffer_nvmap_handle), *m_nvdrv,
@@ -253,14 +274,20 @@ Result SharedBufferManager::CreateSession(Kernel::KProcess* owner_process, u64* 
                                        std::addressof(session.layer_id), display_id));
 
     // Configure blending.
-    R_ASSERT(m_container.SetLayerBlending(session.layer_id, enable_blending));
+    R_TRY(m_container.SetLayerBlending(session.layer_id, enable_blending));
 
     // Get the producer and set preallocated buffers.
     std::shared_ptr<android::BufferQueueProducer> producer;
     R_TRY(m_container.GetLayerProducerHandle(std::addressof(producer), session.layer_id));
-    MakeGraphicBuffer(*producer, 0, session.buffer_nvmap_handle);
-    MakeGraphicBuffer(*producer, 1, session.buffer_nvmap_handle);
+    R_UNLESS(producer, VI::ResultOperationFailed);
+    session.owners->producer = producer;
+    session.owners->live_producer = producer;
+    R_TRY(MakeGraphicBuffer(*producer, 0, session.buffer_nvmap_handle));
+    R_TRY(MakeGraphicBuffer(*producer, 1, session.buffer_nvmap_handle));
 
+    session.status = SharedBufferSession::Status::Ready;
+    session.owners->producer.reset(); // Binder/layer owns healthy slots.
+    session.owners->container.reset(); // No self-cycle for a healthy session.
     // Assign outputs.
     *out_buffer_id = m_buffer_id;
     *out_layer_handle = session.layer_id;
@@ -270,35 +297,45 @@ Result SharedBufferManager::CreateSession(Kernel::KProcess* owner_process, u64* 
 }
 
 void SharedBufferManager::DestroySession(Kernel::KProcess* owner_process) {
-    std::scoped_lock lk{m_guard};
-
-    if (m_buffer_id == 0) {
-        return;
-    }
-
+    auto dispatch = m_nvdrv->TryEnterDispatch();
+    auto container_owner = m_container.weak_from_this().lock();
+    std::unique_lock lk{m_guard};
+    if (m_buffer_id == 0) return;
     const u64 aruid = owner_process->GetProcessId();
     const auto it = m_sessions.find(aruid);
-    if (it == m_sessions.end()) {
-        return;
-    }
-
+    if (it == m_sessions.end()) return;
     auto& session = it->second;
+    if (session.status != SharedBufferSession::Status::Ready) return;
 
-    // Destroy the layer.
-    m_container.DestroyStrayLayer(session.layer_id);
+    // Re-anchor the whole VI provider/pool before effects or closed retirement.
+    // Ready sessions were created only with a valid shared Container owner;
+    // the normal facade contract retains that owner through this call.
+    session.owners->container = container_owner;
+    session.owners->producer = session.owners->live_producer.lock();
+    session.status = SharedBufferSession::Status::Unknown;
+    auto uncertain = SCOPE_GUARD {
+        m_nvdrv->RetirementQueue()->Quarantine(std::move(session.retention));
+    };
+    if (!dispatch || !session.owners->container) return;
 
-    // Close nvmap handle.
-    FreeHandle(session.buffer_nvmap_handle, *m_nvdrv, session.nvmap_fd);
+    if (R_FAILED(m_container.DestroyStrayLayer(session.layer_id))) return;
+    // Preserve the ordinary prefix order: release completed layer/slot owners
+    // before freeing its external handle and closing the nvmap session.
+    session.owners->producer.reset();
+    if (R_FAILED(FreeHandle(session.buffer_nvmap_handle, *m_nvdrv, session.nvmap_fd))) return;
+    // Close has its own admission. Closure can win after the prefix above:
+    // refusal retains that prefix and never closes/erases its session owners.
+    if (m_nvdrv->Close(session.nvmap_fd) != Nvidia::NvResult::Success) return;
+    m_nvdrv->GetContainer().CloseSession(session.session_id);
 
-    // Close nvmap device.
-    m_nvdrv->Close(session.nvmap_fd);
-
-    // Close session.
-    auto& container = m_nvdrv->GetContainer();
-    container.CloseSession(session.session_id);
-
-    // Erase.
+    uncertain.Cancel();
+    auto completed = std::move(session);
     m_sessions.erase(it);
+    lk.unlock();
+    // Final Process/backing/provider capture release may reenter lifecycle
+    // code. Keep it counted, but never perform it under the manager mutex.
+    completed.retention.reset();
+    completed.owners.reset();
 }
 
 Result SharedBufferManager::GetSharedBufferMemoryHandleId(u64* out_buffer_size,
@@ -311,6 +348,8 @@ Result SharedBufferManager::GetSharedBufferMemoryHandleId(u64* out_buffer_size,
     R_UNLESS(m_buffer_id > 0, VI::ResultNotFound);
     R_UNLESS(buffer_id == m_buffer_id, VI::ResultNotFound);
     R_UNLESS(m_sessions.contains(applet_resource_user_id), VI::ResultNotFound);
+    R_UNLESS(m_sessions.at(applet_resource_user_id).status == SharedBufferSession::Status::Ready,
+             VI::ResultNotFound);
 
     *out_pool_layout = SharedBufferPoolLayout;
     *out_buffer_size = SharedBufferSize;
@@ -400,14 +439,36 @@ Result SharedBufferManager::GetSharedFrameBufferAcquirableEvent(Kernel::KReadabl
 }
 
 Result SharedBufferManager::WriteAppletCaptureBuffer(bool* out_was_written, s32* out_layer_index) {
+    // This raw physical writer does not pass through managed Memory stores or
+    // Module::Ioctl. Keep its synchronous capture/store/projection body counted.
+    auto dispatch = m_nvdrv->TryEnterDispatch();
+    R_UNLESS(dispatch, VI::ResultOperationFailed);
+    const auto exception_depth = std::uncaught_exceptions();
+    SCOPE_EXIT {
+        if (std::uncaught_exceptions() > exception_depth) m_nvdrv->QuarantineDispatch();
+    };
+
+    Kernel::KPageGroup* page_group{};
+    {
+        std::scoped_lock lk{m_guard};
+        R_UNLESS(m_buffer_page_group && m_buffer_id != 0, VI::ResultOperationFailed);
+        // Pool publication is serialized with CreateSession. Once published,
+        // this descriptor is not replaced or reset until manager destruction;
+        // callers must retain the existing manager/System facade lifetime.
+        page_group = m_buffer_page_group.get();
+    }
+    // Never hold the manager publication lock across a synchronous GPU wait.
     std::vector<u8> capture_buffer(m_system.GPU().GetAppletCaptureBuffer());
+    // Includes shutdown cancellation. Do not clear a valid pool or fabricate a
+    // successful capture when the GPU supplied no image.
+    R_UNLESS(!capture_buffer.empty(), VI::ResultOperationFailed);
     Common::ScratchBuffer<u32> scratch;
 
     // TODO: this could be optimized
     s64 e = -1280 * 768 * 4;
-    for (auto& block : *m_buffer_page_group) {
-        u8* start = m_system.DeviceMemory().GetPointer<u8>(block.GetAddress());
-        u8* end = m_system.DeviceMemory().GetPointer<u8>(block.GetAddress() + block.GetSize());
+    for (auto& block : *page_group) {
+        u8* start = m_system.DeviceMemory().GetPointer<u8>(block.GetAddress(), block.GetSize());
+        u8* end = start + block.GetSize();
 
         for (; start < end; start++) {
             *start = 0;

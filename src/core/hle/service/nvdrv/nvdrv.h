@@ -7,11 +7,16 @@
 #include <functional>
 #include <list>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "common/common_types.h"
+#include "common/producer_drain.h"
+#include "common/owned_retirement.h"
+#include "common/terminal_ingress.h"
 #include "core/hle/service/kernel_helpers.h"
 #include "core/hle/service/nvdrv/core/container.h"
 #include "core/hle/service/nvdrv/nvdata.h"
@@ -23,6 +28,7 @@ class System;
 
 namespace Kernel {
 class KEvent;
+class KProcess;
 }
 
 namespace Service::Nvidia {
@@ -54,7 +60,7 @@ private:
     std::list<Devices::nvhost_ctrl*> on_signal;
 };
 
-class Module final {
+class Module final : public std::enable_shared_from_this<Module> {
 public:
     explicit Module(Core::System& system_);
     ~Module();
@@ -87,12 +93,32 @@ public:
 
     NvResult QueryEvent(DeviceFD fd, u32 event_id, Kernel::KEvent*& event);
 
+    struct SessionRetirement {
+        std::shared_ptr<std::optional<NvCore::SessionId>> published;
+        Common::OwnedRetirementQueue::Owner record;
+    };
+    auto TryEnterDispatch() const { return dispatch_domain->EnterCold(); }
+    // An admitted direct device operation may already have changed its prefix.
+    // Seal before its entry exits; ordinary returned errors need not quarantine.
+    void QuarantineDispatch() const noexcept { dispatch_domain->Seal(); }
+    std::shared_ptr<NvCore::Container::SessionLifetime> RetainProcessLifetime(
+        Kernel::KProcess* process, const Common::ProducerDrain::Entry&);
+    std::optional<SessionRetirement> PrepareSessionRetirement(Kernel::KProcess* process,
+                                               const Common::ProducerDrain::Entry&);
+    Common::OwnedRetirementQueue::Owner PrepareGraphicBufferRetirement(
+        u32 handle, const Common::ProducerDrain::Entry&);
+    std::shared_ptr<Common::OwnedRetirementQueue> RetirementQueue() const { return retirements; }
+
     NvCore::Container& GetContainer() {
         return container;
     }
 
 private:
     friend class EventInterface;
+
+    const std::shared_ptr<Common::ProducerDrain> dispatch_domain;
+    std::shared_ptr<Common::OwnedRetirementQueue> retirements;
+    Core::System& system;
 
     /// Manages syncpoints on the host
     NvCore::Container container;
@@ -108,7 +134,14 @@ private:
 
     EventInterface events_interface;
 
-    std::unordered_map<std::string, std::function<FilesContainerType::iterator(DeviceFD)>> builders;
+    struct OpenResult {
+        FilesContainerType::iterator file;
+        std::optional<Common::TerminalIngress::Entry> publication;
+        OpenResult(FilesContainerType::iterator file_) : file{file_} {}
+        OpenResult(FilesContainerType::iterator file_, Common::TerminalIngress::Entry&& entry)
+            : file{file_}, publication{std::move(entry)} {}
+    };
+    std::unordered_map<std::string, std::function<OpenResult(DeviceFD)>> builders;
 };
 
 void LoopProcess(Core::System& system);

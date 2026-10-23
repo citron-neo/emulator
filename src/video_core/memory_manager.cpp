@@ -15,6 +15,8 @@
 #include "video_core/memory_manager.h"
 #include "video_core/rasterizer_interface.h"
 #include "video_core/renderer_base.h"
+#include "video_core/rasterizer_binding_state.h"
+#include "video_core/unmap_failure.h"
 
 namespace Tegra {
 using Tegra::Memory::GuestMemoryFlags;
@@ -54,7 +56,72 @@ MemoryManager::MemoryManager(Core::System& system_, u64 address_space_bits_,
     : MemoryManager(system_, system_.Host1x().MemoryManager(), address_space_bits_, split_address_,
                     big_page_bits_, page_bits_) {}
 
-MemoryManager::~MemoryManager() = default;
+MemoryManager::~MemoryManager() {
+    mapping_lifetime.Invalidate(); // invalidate retained stamps before freeing tables
+}
+
+PhysicalResolveResult MemoryManager::ResolvePhysicalRanges(GPUVAddr address, u64 size,
+                                                         PhysicalResolveTiming* timing) const {
+    const auto gpu_lock = [&] {
+        Common::MappingTimer timer{timing ? &timing->gpu_lock_wait_ns : nullptr};
+        return AcquireMappingRead();
+    }();
+    return memory.ReadPhysicalMappingSnapshot(
+        [&](auto device_epoch, u64 device_generation, auto backing, u64 backing_size,
+            const auto& physical_address) {
+            Common::MappingTimer timer{timing ? &timing->walk_ns : nullptr};
+            MappingStamp stamp{mapping_lifetime.Get(), std::move(device_epoch), GetID(),
+                               MapGeneration(), device_generation, std::move(backing), backing_size};
+            return Detail::ResolvePhysicalRangesLocked(
+                std::move(stamp), address, size, address_space_size, page_size, Core::DEVICE_PAGESIZE,
+                [this](GPUVAddr gpu) { return GpuToCpuAddress(gpu); }, physical_address);
+        }, timing ? &timing->device_lock_wait_ns : nullptr);
+}
+
+std::optional<PhysicalAccessPlan> MemoryManager::PinPhysicalRanges(GPUVAddr address, u64 size) const {
+    const auto snapshot = ResolvePhysicalRanges(address, size);
+    return PhysicalAccessPlan::BuildWithPins(snapshot, [this, &snapshot](u64 offset, u64 length) {
+        return memory.PinGuestPhysicalRange(offset, length, snapshot.stamp.backing);
+    });
+}
+
+std::optional<PhysicalCopyPlan> MemoryManager::PinPhysicalCopyRanges(
+    GPUVAddr source, u64 source_size, GPUVAddr destination, u64 destination_size) const {
+    const auto source_snapshot = ResolvePhysicalRanges(source, source_size);
+    const auto destination_snapshot = ResolvePhysicalRanges(destination, destination_size);
+    const auto& stamp = source_snapshot.stamp;
+    const auto& destination_stamp = destination_snapshot.stamp;
+    // A single GPU-then-device lock pair must protect both final validations. Reject unrelated
+    // owners rather than attempting a second lock order or mixing backing allocations.
+    if (stamp.gpu_address_space != destination_stamp.gpu_address_space ||
+        stamp.device_address_space != destination_stamp.device_address_space ||
+        stamp.backing != destination_stamp.backing) {
+        return std::nullopt;
+    }
+    auto source_plan = PhysicalAccessPlan::BuildWithPins(
+        source_snapshot, [this, &stamp](u64 offset, u64 length) {
+            return memory.PinGuestPhysicalRange(offset, length, stamp.backing);
+        });
+    if (!source_plan) {
+        return std::nullopt;
+    }
+    auto destination_plan = PhysicalAccessPlan::BuildWithPins(
+        destination_snapshot, [this, &destination_stamp](u64 offset, u64 length) {
+            return memory.PinGuestPhysicalRange(offset, length, destination_stamp.backing);
+        });
+    if (!destination_plan) {
+        return std::nullopt;
+    }
+    // Source may have changed while the destination was materialized. Check BOTH snapshots
+    // after all pins, with no callbacks/allocation under these locks. Pins retire after locks.
+    const auto gpu_lock = std::unique_lock{stamp.gpu_address_space->mutex};
+    const auto device_lock = std::unique_lock{stamp.device_address_space->mutex};
+    if (!Detail::MappingStampCurrentLocked(stamp) ||
+        !Detail::MappingStampCurrentLocked(destination_stamp)) {
+        return std::nullopt;
+    }
+    return PhysicalCopyPlan{std::move(*source_plan), std::move(*destination_plan)};
+}
 
 template <bool is_big_page>
 MemoryManager::EntryType MemoryManager::GetEntry(size_t position) const {
@@ -106,9 +173,36 @@ inline void MemoryManager::SetBigPageContinuous(size_t big_page_index, bool valu
         (~(1ULL << sub_index) & continuous_mask) | (value ? 1ULL << sub_index : 0);
 }
 
+template <bool is_big_page, MemoryManager::EntryType entry_type>
+void MemoryManager::NotifyMappingChange(GPUVAddr gpu_addr, size_t size) {
+    const u64 granularity = is_big_page ? big_page_size : page_size;
+    for (u64 offset = 0; offset < size; offset += granularity) {
+        const GPUVAddr current = gpu_addr + offset;
+        bool changed;
+        {
+            const auto read = AcquireMappingRead();
+            changed = GetEntry<is_big_page>(current) != entry_type;
+        }
+        if (changed) {
+            // Readers hold renderer cache locks. Never wait for those locks
+            // with a page-table mutation in progress or its lock held.
+            rasterizer->ModifyGPUMemory(unique_identifier, current, granularity);
+        }
+    }
+}
+
 template <MemoryManager::EntryType entry_type>
 GPUVAddr MemoryManager::PageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr dev_addr, size_t size,
                                     PTEKind kind) {
+    // Bumped before and after the change, so a layout query that overlaps it is never cached
+    // as current.
+    map_generation.fetch_add(1, std::memory_order_acq_rel);
+    struct GenerationBump {
+        std::atomic<u64>& generation;
+        ~GenerationBump() {
+            generation.fetch_add(1, std::memory_order_acq_rel);
+        }
+    } generation_bump{map_generation};
     [[maybe_unused]] u64 remaining_size{size};
     if constexpr (entry_type == EntryType::Mapped) {
         if (!page_table.ReserveRange(gpu_addr, size)) {
@@ -117,11 +211,7 @@ GPUVAddr MemoryManager::PageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr de
     }
     for (u64 offset{}; offset < size; offset += page_size) {
         const GPUVAddr current_gpu_addr = gpu_addr + offset;
-        [[maybe_unused]] const auto current_entry_type = GetEntry<false>(current_gpu_addr);
         SetEntry<false>(current_gpu_addr, entry_type);
-        if (current_entry_type != entry_type) {
-            rasterizer->ModifyGPUMemory(unique_identifier, current_gpu_addr, page_size);
-        }
         if constexpr (entry_type == EntryType::Mapped) {
             const DAddr current_dev_addr = dev_addr + offset;
             const auto index = PageEntryIndex<false>(current_gpu_addr);
@@ -130,21 +220,29 @@ GPUVAddr MemoryManager::PageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr de
         }
         remaining_size -= page_size;
     }
-    kind_map.Map(gpu_addr, gpu_addr + size, kind);
+    {
+        std::unique_lock<std::mutex> lock(guard);
+        kind_map.Map(gpu_addr, gpu_addr + size, kind);
+    }
     return gpu_addr;
 }
 
 template <MemoryManager::EntryType entry_type>
 GPUVAddr MemoryManager::BigPageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr dev_addr,
                                        size_t size, PTEKind kind) {
+    // Bumped before and after the change, so a layout query that overlaps it is never cached
+    // as current.
+    map_generation.fetch_add(1, std::memory_order_acq_rel);
+    struct GenerationBump {
+        std::atomic<u64>& generation;
+        ~GenerationBump() {
+            generation.fetch_add(1, std::memory_order_acq_rel);
+        }
+    } generation_bump{map_generation};
     [[maybe_unused]] u64 remaining_size{size};
     for (u64 offset{}; offset < size; offset += big_page_size) {
         const GPUVAddr current_gpu_addr = gpu_addr + offset;
-        [[maybe_unused]] const auto current_entry_type = GetEntry<true>(current_gpu_addr);
         SetEntry<true>(current_gpu_addr, entry_type);
-        if (current_entry_type != entry_type) {
-            rasterizer->ModifyGPUMemory(unique_identifier, current_gpu_addr, big_page_size);
-        }
         if constexpr (entry_type == EntryType::Mapped) {
             const DAddr current_dev_addr = dev_addr + offset;
             const auto index = PageEntryIndex<true>(current_gpu_addr);
@@ -180,22 +278,58 @@ GPUVAddr MemoryManager::BigPageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr
     return gpu_addr;
 }
 
-void MemoryManager::BindRasterizer(VideoCore::RasterizerInterface* rasterizer_) {
-    rasterizer = rasterizer_;
+bool MemoryManager::BindRasterizer(VideoCore::RasterizerInterface* rasterizer_) {
+    auto binding = rasterizer_binding.load(std::memory_order_acquire);
+    if (!binding) return false;
+    auto entry = binding->TryBind(rasterizer_);
+    if (!entry) return false;
+    // Enrollment installed the pointer before publishing binding. A public call
+    // only acknowledges that same owner; do not race readers with another store.
+    return true;
+}
+
+bool MemoryManager::AttachRasterizer(std::shared_ptr<RasterizerBindingState> binding) {
+    if (!binding || !binding->Target()) return false;
+    std::scoped_lock lock{rasterizer_binding_mutex};
+    auto current = rasterizer_binding.load(std::memory_order_acquire);
+    if (current) return current == binding;
+    rasterizer = binding->Target();
+    rasterizer_binding.store(std::move(binding), std::memory_order_release);
+    return true;
 }
 
 GPUVAddr MemoryManager::Map(GPUVAddr gpu_addr, DAddr dev_addr, std::size_t size, PTEKind kind,
                             bool is_big_pages) {
+    if (size != 0 && (gpu_addr >= address_space_size || size > address_space_size - gpu_addr)) {
+        LOG_ERROR(HW_GPU, "Mapping outside the GPU address space: {:#x} + {:#x}", gpu_addr, size);
+        return 0;
+    }
+    std::scoped_lock update{mapping_update_guard};
+    if (HasUnmapFailure()) {
+        throw VideoCommon::UnmapFailure{VideoCommon::CallbackOutcome::Failed, true};
+    }
     if (is_big_pages) [[likely]] {
+        NotifyMappingChange<true, EntryType::Mapped>(gpu_addr, size);
+        const auto write = AcquireMappingRead();
         return BigPageTableOp<EntryType::Mapped>(gpu_addr, dev_addr, size, kind);
     }
+    NotifyMappingChange<false, EntryType::Mapped>(gpu_addr, size);
+    const auto write = AcquireMappingRead();
     return PageTableOp<EntryType::Mapped>(gpu_addr, dev_addr, size, kind);
 }
 
 GPUVAddr MemoryManager::MapSparse(GPUVAddr gpu_addr, std::size_t size, bool is_big_pages) {
+    std::scoped_lock update{mapping_update_guard};
+    if (HasUnmapFailure()) {
+        throw VideoCommon::UnmapFailure{VideoCommon::CallbackOutcome::Failed, true};
+    }
     if (is_big_pages) [[likely]] {
+        NotifyMappingChange<true, EntryType::Reserved>(gpu_addr, size);
+        const auto write = AcquireMappingRead();
         return BigPageTableOp<EntryType::Reserved>(gpu_addr, 0, size, PTEKind::INVALID);
     }
+    NotifyMappingChange<false, EntryType::Reserved>(gpu_addr, size);
+    const auto write = AcquireMappingRead();
     return PageTableOp<EntryType::Reserved>(gpu_addr, 0, size, PTEKind::INVALID);
 }
 
@@ -203,15 +337,34 @@ void MemoryManager::Unmap(GPUVAddr gpu_addr, std::size_t size) {
     if (size == 0) {
         return;
     }
-    GetSubmappedRangeImpl<false>(gpu_addr, size, page_stash);
-
-    for (const auto& [map_addr, map_size] : page_stash) {
-        rasterizer->UnmapMemory(map_addr, map_size);
+    std::scoped_lock update{mapping_update_guard};
+    if (HasUnmapFailure()) {
+        throw VideoCommon::UnmapFailure{VideoCommon::CallbackOutcome::Failed, true};
     }
-    page_stash.clear();
+    size_t completed_ranges = 0;
+    try {
+        GetSubmappedRangeImpl<false>(gpu_addr, size, page_stash);
+        for (const auto& [map_addr, map_size] : page_stash) {
+            rasterizer->UnmapMemory(map_addr, map_size);
+            ++completed_ranges;
+        }
+        page_stash.clear();
 
-    BigPageTableOp<EntryType::Free>(gpu_addr, 0, size, PTEKind::INVALID);
-    PageTableOp<EntryType::Free>(gpu_addr, 0, size, PTEKind::INVALID);
+        NotifyMappingChange<true, EntryType::Free>(gpu_addr, size);
+        NotifyMappingChange<false, EntryType::Free>(gpu_addr, size);
+        const auto write = AcquireMappingRead();
+        BigPageTableOp<EntryType::Free>(gpu_addr, 0, size, PTEKind::INVALID);
+        PageTableOp<EntryType::Free>(gpu_addr, 0, size, PTEKind::INVALID);
+    } catch (const VideoCommon::UnmapFailure& failure) {
+        page_stash.clear();
+        unmap_failed.store(true, std::memory_order_release);
+        throw VideoCommon::UnmapFailure{failure.Outcome(),
+                                       failure.PotentialEffects() || completed_ranges != 0};
+    } catch (...) {
+        page_stash.clear();
+        unmap_failed.store(true, std::memory_order_release);
+        throw VideoCommon::UnmapFailure{VideoCommon::CallbackOutcome::Failed, true};
+    }
 }
 
 std::optional<DAddr> MemoryManager::GpuToCpuAddress(GPUVAddr gpu_addr) const {

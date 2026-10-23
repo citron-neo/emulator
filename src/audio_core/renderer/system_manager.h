@@ -10,6 +10,7 @@
 #include <thread>
 
 #include "audio_core/renderer/system.h"
+#include "core/managed_host_producer.h"
 
 namespace Core {
 namespace Timing {
@@ -73,6 +74,7 @@ private:
 
     /// Core system
     Core::System& core;
+    Core::ManagedHostProducer rendering;
     /// List of pointers to managed systems
     std::list<System*> systems{};
     /// Main worker thread for generating command lists

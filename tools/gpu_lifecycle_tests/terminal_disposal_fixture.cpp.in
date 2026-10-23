@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <chrono>
+#include <condition_variable>
+#include <cstdio>
+#include <cstdlib>
+#include <exception>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <stdexcept>
+#include <stop_token>
+#include <string>
+#include <thread>
+#include "common/terminal_fail_stop.h"
+using u64 = unsigned long long;
+constexpr int VK_SUCCESS = 0;
+namespace vk {
+struct Exception : std::exception {
+    int result;
+    explicit Exception(int value) : result{value} {}
+    int GetResult() const { return result; }
+};
+}
+std::string fault, mode;
+int native_result = -4;
+void Mark(const char* text) { std::puts(text); std::fflush(stdout); }
+void Step(const char* text) {
+    Mark(text);
+    if (fault != text) return;
+    if (mode == "vk") throw vk::Exception{native_result};
+    if (mode == "host") throw std::runtime_error{"injected host failure"};
+}
+struct Owner {
+    const char* name;
+    ~Owner() { Mark(name); }
+};
+struct Device {
+    const char* stage;
+    Device& GetLogical() { return *this; }
+    int WaitIdle() { Step(stage); return fault == stage ? native_result : VK_SUCCESS; }
+};
+struct TurboMode {
+    std::jthread m_thread;
+    std::condition_variable_any m_submission_cv;
+    Device m_device{"turbo.native_idle"};
+    void CleanupResources() { Mark("TURBO_DISPOSE_AFTER_IDLE"); }
+    ~TurboMode();
+};
+struct RendererVulkan {
+    Owner lifetime{"DESTROY Renderer"};
+    bool is_shut_down{}, terminal_shutdown_started{};
+    struct Rasterizer {
+        Owner lifetime{"DESTROY Rasterizer"};
+        void Shutdown() { Step("renderer.rasterizer_shutdown"); }
+        bool RetireControlledTransfersAfterDeviceIdle() {
+            Step("renderer.checked_disposal");
+            return fault != "renderer.checked_disposal" || mode != "refuse";
+        }
+    } rasterizer;
+    struct Scheduler {
+        Owner lifetime{"DESTROY Scheduler"};
+        std::mutex submit_mutex;
+        void WaitWorker() { Step("renderer.recording_drain"); }
+        void Shutdown() { Step("renderer.scheduler_join"); }
+        void RegisterOnSubmit(std::function<void()>) { Step("renderer.detach_submit"); }
+        struct Master { void Shutdown() { Step("renderer.completion_join"); } } master;
+        Master& GetMasterSemaphore() { return master; }
+    } scheduler;
+    struct Present { void Shutdown() { Step("renderer.presentation_join"); } } present_manager;
+    std::optional<TurboMode> turbo_mode{std::in_place};
+    Device device{"renderer.native_idle"};
+    struct Stats { int device_epoch{},backing_generation{},active_imports{},imported_logical_bytes{},cache_entries_released{}; };
+    struct Imports { void Close() {} Stats GetStats() { return {}; } };
+    std::unique_ptr<Imports> chunk_import_diagnostics;
+    void Shutdown();
+    ~RendererVulkan();
+};
+template <typename... T> void Log(const T&...) {}
+#define LOG_INFO(category, format, ...) Log(__VA_ARGS__)
+#define LOG_DEBUG(category, format, ...) Log(__VA_ARGS__)
+// @RENDERER_METHODS@
+// @TURBO_DESTRUCTOR@
+struct GPU {
+    struct Impl {
+        Owner lifetime{"DESTROY GPU"};
+        std::unique_ptr<RendererVulkan> renderer = std::make_unique<RendererVulkan>();
+        bool is_shut_down{}, terminal_shutdown_started{};
+        struct Worker { void Stop() { Step("gpu.worker_join"); } } gpu_thread;
+        struct Publishers { void Join() { Step("gpu.owner_join"); } } owner_publications;
+        struct Bindings { void Join() { Step("gpu.binding_join"); } };
+        std::unique_ptr<Bindings> rasterizer_binding = std::make_unique<Bindings>();
+        void NotifyShutdown() { Step("gpu.ingress_close"); }
+        void CloseCompositeRequests() { Step("gpu.composite_join"); }
+        // @GPU_METHODS@
+    };
+    std::unique_ptr<Impl> impl = std::make_unique<Impl>();
+    void NotifyShutdown() { impl->NotifyShutdown(); }
+    void Shutdown();
+};
+// @GPU_FORWARD@
+namespace Network {
+void CancelPendingSocketOperations() { Step("system.socket_close"); }
+void RestartSocketOperations() { Mark("RESTART_SOCKETS"); }
+}
+u64 GetCurrentRSS() { return 0; }
+struct System {
+    struct Impl {
+        std::unique_ptr<GPU> gpu_core = std::make_unique<GPU>();
+        std::unique_ptr<Owner> host1x_core = std::make_unique<Owner>("DESTROY Host1x");
+        struct Backing { Owner lifetime{"DESTROY backing"}; };
+        std::unique_ptr<Backing> device_memory = std::make_unique<Backing>();
+        struct Kernel {
+            Owner lifetime{"DESTROY Kernel"};
+            void SuspendEmulation(bool) { Step("system.execution_stop"); }
+            void CloseServices() { Mark("DISPOSE services"); }
+            void ShutdownCores() { Mark("DISPOSE Process/PageTable"); }
+            void Shutdown() { Mark("DISPOSE Kernel"); }
+        } kernel;
+        bool is_powered_on{}, exit_locked{}, exit_requested{};
+        std::stop_source stop_event;
+        struct Timing {
+            void SyncPause(bool) { Step("system.timing_stop"); }
+            void ClearPendingEvents() { Mark("DISPOSE pending events"); }
+        } core_timing;
+        std::unique_ptr<Owner> cheat_engine, services, service_manager, app_loader, audio_core, perf_stats, debugger;
+        struct Fs { void Reset() {} } fs_controller;
+        struct Cpu { void Shutdown() {} } cpu_manager;
+        struct Arp { void ResetAll() {} } arp_manager;
+        void SetShuttingDown(bool) {}
+        // @SYSTEM_SHUTDOWN@
+    };
+    std::unique_ptr<Impl> impl = std::make_unique<Impl>();
+    ~System();
+};
+// @SYSTEM_DESTRUCTOR@
+struct GlobalOwner { ~GlobalOwner() { Mark("STATIC_DESTRUCTOR"); } } global_owner;
+int main(int argc, char** argv) {
+    if (argc != 5) return 99;
+    const std::string path = argv[1]; fault = argv[2]; mode = argv[3]; native_result = std::stoi(argv[4]);
+    std::atexit([] { Mark("ATEXIT_HANDLER"); });
+    if (path == "explicit" || path == "system-fallback") {
+        System system;
+        if (path == "explicit") system.impl->ShutdownMainProcess();
+    } else if (path == "gpu-fallback") {
+        GPU gpu;
+    } else if (path == "renderer-fallback") {
+        RendererVulkan renderer;
+    } else if (path == "idempotent") {
+        GPU gpu;
+        gpu.Shutdown(); gpu.Shutdown();
+        gpu.impl->renderer->Shutdown();
+    } else if (path == "reentrant-renderer") {
+        RendererVulkan renderer;
+        renderer.terminal_shutdown_started = true;
+    } else if (path == "reentrant-gpu") {
+        GPU gpu;
+        gpu.impl->terminal_shutdown_started = true;
+    } else return 98;
+    Mark("PASS terminal disposal returned safely");
+}

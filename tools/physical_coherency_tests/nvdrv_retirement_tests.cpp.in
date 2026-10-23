@@ -1,0 +1,305 @@
+#include <atomic>
+#include <array>
+#include <deque>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <stdexcept>
+#include "common/owned_retirement.h"
+#include "core/hle/service/nvnflinger/ui/graphic_buffer.h"
+#include "core/hle/service/nvnflinger/status.h"
+using namespace std::chrono_literals;
+void Require(bool ok,const char* why){if(!ok){std::cerr<<"FAIL "<<why<<"\n";std::cerr.flush();std::_Exit(91);}}
+struct Allocation {bool alive=true;std::function<void()> released;~Allocation(){if(released)released();}};
+namespace Common {
+namespace Literals {}
+struct RetainedBackingStorage {
+    std::shared_ptr<Allocation> storage;
+    explicit RetainedBackingStorage(std::shared_ptr<Allocation> value):storage{std::move(value)} {}
+    RetainedBackingStorage(RetainedBackingStorage&&)=default;
+    RetainedBackingStorage& operator=(RetainedBackingStorage&&)=default;
+    bool OwnerAlive() const {return storage && storage->alive;}
+    const auto& Epoch() const{return storage;}
+};
+}
+namespace Kernel {
+struct KProcess {
+    int refs=1,memory=0,closes=0;u64 pid=1;bool fail_close=false;std::function<void()> final;
+    bool Open(){if(!refs)return false;++refs;return true;}
+    void Close(){++closes;if(!--refs){if(final)final();if(fail_close)throw 7;}}
+    u64 GetProcessId() const{return pid;}int& GetMemory(){return memory;}
+};
+template<typename T>struct KScopedAutoObject {
+    T* value{};KScopedAutoObject()=default;
+    KScopedAutoObject(KScopedAutoObject&& other) noexcept:value{std::exchange(other.value,nullptr)} {}
+    KScopedAutoObject& operator=(KScopedAutoObject&& other) noexcept{std::swap(value,other.value);return *this;}
+    ~KScopedAutoObject(){if(value)value->Close();}
+    static std::optional<KScopedAutoObject> TryOpen(T* value){if(!value||!value->Open())return {};KScopedAutoObject out;out.value=value;return out;}
+    T* GetPointerUnsafe() const{return value;}
+    T* ReleasePointerUnsafe(){return std::exchange(value,nullptr);}
+};
+}
+namespace Core {using Asid=unsigned;}
+struct FakeSystem {
+    struct Kernel {std::shared_ptr<Common::ProducerDrain> domain=std::make_shared<Common::ProducerDrain>();const auto& NvdrvDispatchDomain() const{return domain;}} kernel;
+    struct Kernel& Kernel(){return kernel;}
+    struct Buffer {
+        std::shared_ptr<Allocation> storage=std::make_shared<Allocation>();
+        std::optional<Common::RetainedBackingStorage> RetainBackingStorage(){if(!storage)return {};return Common::RetainedBackingStorage{storage};}
+    };
+    struct Memory {Buffer buffer;} memory;
+    Memory& DeviceMemory(){return memory;}
+};
+namespace Service::Nvidia::NvCore {
+struct SessionId {size_t id;};
+@FAILURE_DECL@;
+static std::atomic<ProcessReleaseFailure*> failed_process_releases{nullptr};
+@RELEASE_HELPER@
+struct HeapMapper {std::function<void()> released;~HeapMapper(){if(released)released();}u64 GetRegionStart(){return 4096;}size_t GetRegionSize(){return 4096;}};
+@SESSION_DECL@;
+@SESSION_METHODS@
+struct Handle {std::mutex mutex;bool allocated=true;SessionId session_id{0};u32 id=1;};
+struct NvMap {
+    std::shared_ptr<Handle> handle=std::make_shared<Handle>();int duplicated=0,pinned=0,unpinned=0,freed=0;
+    bool zero_pin=false,throw_pin=false,throw_unpin=false,fail_free=false;
+    std::shared_ptr<Handle> GetHandle(u32 id){return id==1?handle:nullptr;}
+    void DuplicateHandle(u32,bool){++duplicated;}
+    u64 PinHandle(u32,bool){++pinned;if(throw_pin)throw 7;return zero_pin?0:4096;}
+    void UnpinHandle(u32){++unpinned;if(throw_unpin)throw 7;}
+    std::optional<int> FreeHandle(u32,bool){++freed;return fail_free?std::nullopt:std::optional<int>{1};}
+};
+struct Container {
+    @LIFETIME_DECL@;
+    FakeSystem& system;Kernel::KProcess& process;NvMap file;int closed=0;
+    bool throw_close=false;std::function<void()> on_close;
+    Container(FakeSystem& s,Kernel::KProcess& p):system{s},process{p} {}
+    NvMap& GetNvMapFile(){return file;}
+    std::optional<SessionLifetime> RetainSession(SessionId){auto p=Kernel::KScopedAutoObject<Kernel::KProcess>::TryOpen(&process);auto b=system.memory.buffer.RetainBackingStorage();if(!p||!b)return {};return SessionLifetime{std::move(*b),std::move(*p),system.kernel.domain};}
+    void CloseSession(SessionId,bool){++closed;if(on_close)on_close();if(throw_close)throw 7;}
+};
+@LIFETIME_METHODS@
+}
+namespace Service::Nvidia {
+struct Module : std::enable_shared_from_this<Module> {
+    std::shared_ptr<Common::ProducerDrain> dispatch_domain;
+    std::shared_ptr<Common::OwnedRetirementQueue> retirements;FakeSystem& system;NvCore::Container container;
+    Module(FakeSystem& s,Kernel::KProcess& p):dispatch_domain{s.kernel.domain},retirements{std::make_shared<Common::OwnedRetirementQueue>(dispatch_domain)},system{s},container{s,p} {}
+    std::function<void()> destroyed;
+    ~Module(){if(destroyed)destroyed();}
+    struct SessionRetirement {std::shared_ptr<std::optional<NvCore::SessionId>> published;Common::OwnedRetirementQueue::Owner record;};
+    auto TryEnterDispatch(){return dispatch_domain->EnterCold();}
+    NvCore::Container& GetContainer(){return container;}
+    auto RetirementQueue() const{return retirements;}
+@MODULE_METHODS@
+};
+struct NVDRV {
+    std::shared_ptr<Module> nvdrv;std::optional<Module::SessionRetirement> session_retirement;
+    @NVDRV_DESTRUCTOR@
+};
+}
+@GRAPHIC_BODIES@
+namespace Service::android {
+#define LOG_DEBUG(...) ((void)0)
+namespace BufferQueueDefs {constexpr s32 NUM_BUFFER_SLOTS=4;}
+struct Fence {static Fence NoFence(){return {};}};
+struct Slot {Fence fence;std::shared_ptr<GraphicBuffer> graphic_buffer;int frame_number=0;bool is_preallocated=false;};
+struct QueueCore {
+    std::mutex mutex;bool is_abandoned=false;std::array<Slot,4> slots;int override_max_buffer_count=0,signals=0;u32 default_width=0,default_height=0;PixelFormat default_buffer_format{};
+    int GetPreallocatedBufferCountLocked(){return 1;}void SignalDequeueCondition(){++signals;}
+};
+struct Event {int signals=0;void Signal(){++signals;}};
+struct BufferQueueProducer {
+    std::shared_ptr<Nvidia::Module> nvdrv;std::shared_ptr<QueueCore> core=std::make_shared<QueueCore>();
+    std::array<Slot,4>& slots=core->slots;Event event;Event* buffer_wait_event=&event;
+    explicit BufferQueueProducer(std::shared_ptr<Nvidia::Module> owner):nvdrv{std::move(owner)} {}
+@SET_BUFFER@
+};
+}
+using Service::Nvidia::Module;using Service::android::GraphicBuffer;using Service::android::NvGraphicBuffer;
+std::shared_ptr<NvGraphicBuffer> Descriptor(){auto d=std::make_shared<NvGraphicBuffer>();d->buffer_id=1;return d;}
+void GraphicClosed(bool fail) {
+    FakeSystem system;Kernel::KProcess process;auto module=std::make_shared<Module>(system,process);
+    auto entry=module->TryEnterDispatch();auto buffer=GraphicBuffer::TryCreate(module,Descriptor(),*entry);entry.reset();
+    Require(buffer && process.refs==2,"GraphicBuffer lost Process/backing owner");
+    std::weak_ptr<Module> weak=module;std::weak_ptr<Allocation> backing=system.memory.buffer.storage;
+    auto domain=module->dispatch_domain;auto closure=domain->TryClose(64);Require(bool(closure),"graphic close failed");
+    if(fail)module->container.file.throw_unpin=true;
+    module.reset();system.memory.buffer.storage.reset();buffer.reset();
+    Require(!weak.expired() && !backing.expired() && process.refs==2 && weak.lock()->container.file.unpinned==0,
+        "closed GraphicBuffer retirement executed or released owners");
+    Require(closure->ResumeNoEffects(),"graphic resume failed");auto owner=weak.lock();
+    const bool drained=owner->retirements->Drain();
+    if(fail) {
+        Require(!drained && !domain->TryEnter() && !backing.expired() && process.refs==2 && owner->container.file.unpinned==1 && owner->container.file.freed==0,
+            "partial GraphicBuffer retirement released owners or retried");
+        Require(!owner->retirements->Drain() && owner->container.file.unpinned==1,"failed GraphicBuffer retirement replayed");
+    } else {
+        Require(drained && owner->container.file.unpinned==1 && owner->container.file.freed==1 && process.refs==1 && backing.expired(),
+            "GraphicBuffer retirement did not release exact owners once");
+    }
+}
+void GraphicPreparationFailure(bool throwing) {
+    FakeSystem system;Kernel::KProcess process;auto module=std::make_shared<Module>(system,process);
+    module->container.file.zero_pin=!throwing;module->container.file.throw_pin=throwing;
+    auto entry=module->TryEnterDispatch();auto buffer=GraphicBuffer::TryCreate(module,Descriptor(),*entry);entry.reset();
+    Require(!buffer && !module->dispatch_domain->TryEnter() && process.refs==2 && module->container.file.unpinned==0 && module->container.file.freed==0,
+        "failed GraphicBuffer preparation discarded uncertain owners");
+}
+void GraphicFreeFailure() {
+    FakeSystem system;Kernel::KProcess process;auto module=std::make_shared<Module>(system,process);
+    auto entry=module->TryEnterDispatch();auto buffer=GraphicBuffer::TryCreate(module,Descriptor(),*entry);entry.reset();
+    module->container.file.fail_free=true;buffer.reset();
+    Require(!module->dispatch_domain->TryEnter() && process.refs==2 && module->container.file.unpinned==1 && module->container.file.freed==1,
+        "refused GraphicBuffer free released owners");
+    Require(!module->retirements->Drain() && module->container.file.unpinned==1,"partial free repeated unpin");
+}
+void SessionClosed(bool published) {
+    FakeSystem system;Kernel::KProcess process;auto module=std::make_shared<Module>(system,process);
+    auto service=std::make_unique<Service::Nvidia::NVDRV>();service->nvdrv=module;
+    auto entry=module->TryEnterDispatch();service->session_retirement=module->PrepareSessionRetirement(&process,*entry);entry.reset();
+    Require(bool(service->session_retirement),"session preparation failed");
+    if(published)*service->session_retirement->published=Service::Nvidia::NvCore::SessionId{0};
+    auto domain=module->dispatch_domain;auto closure=domain->TryClose(64);Require(bool(closure),"session close failed");
+    std::weak_ptr<Module> weak=module;std::weak_ptr<Allocation> backing=system.memory.buffer.storage;
+    module.reset();system.memory.buffer.storage.reset();service.reset();
+    Require(!weak.expired() && !backing.expired() && process.refs==2 && weak.lock()->container.closed==0,
+        "closed session retirement executed or released owners");
+    Require(closure->ResumeNoEffects(),"session resume failed");auto owner=weak.lock();
+    if(published)Require(owner->retirements->Drain() && owner->container.closed==1 && process.refs==1 && backing.expired(),"published session failed retirement");
+    else Require(!owner->retirements->Drain() && owner->container.closed==0 && process.refs==2 && !backing.expired(),"unknown session was guessed or released");
+}
+void SlotPublication() {
+    FakeSystem system;Kernel::KProcess process;auto module=std::make_shared<Module>(system,process);
+    Service::android::BufferQueueProducer producer{module};
+    auto old=std::make_shared<GraphicBuffer>(1,1,Service::android::PixelFormat{},0);producer.slots[0].graphic_buffer=old;
+    auto closure=module->dispatch_domain->TryClose(64);Require(bool(closure),"slot close failed");
+    Require(producer.SetPreallocatedBuffer(0,Descriptor())==Service::android::Status::WouldBlock && producer.slots[0].graphic_buffer==old && module->container.file.duplicated==0,
+        "refused GraphicBuffer publication destroyed old slot");
+    Require(closure->ResumeNoEffects(),"slot resume failed");module->container.file.zero_pin=true;
+    Require(producer.SetPreallocatedBuffer(0,Descriptor())==Service::android::Status::WouldBlock && producer.slots[0].graphic_buffer==old,
+        "failed GraphicBuffer preparation destroyed old slot");
+}
+void EmptyAndStale() {
+    FakeSystem system;Kernel::KProcess process;auto module=std::make_shared<Module>(system,process);
+    Service::android::BufferQueueProducer producer{module};
+    Require(producer.SetPreallocatedBuffer(0,{})==Service::android::Status::NoError && producer.slots[0].graphic_buffer &&
+        producer.slots[0].graphic_buffer->BufferId()==0 && module->container.file.duplicated==0 && process.refs==1,
+        "empty GraphicBuffer descriptor lost supported behavior");
+    auto entry=module->TryEnterDispatch();auto buffer=GraphicBuffer::TryCreate(module,Descriptor(),*entry);entry.reset();
+    system.memory.buffer.storage->alive=false;buffer.reset();
+    Require(module->container.file.unpinned==0 && module->container.file.freed==0 && process.refs==2 && !module->dispatch_domain->TryEnter(),
+        "stale GraphicBuffer backing permitted owner callbacks");
+}
+void SessionCloseFailure() {
+    FakeSystem system;Kernel::KProcess process;auto module=std::make_shared<Module>(system,process);
+    auto service=std::make_unique<Service::Nvidia::NVDRV>();service->nvdrv=module;
+    auto entry=module->TryEnterDispatch();service->session_retirement=module->PrepareSessionRetirement(&process,*entry);entry.reset();
+    *service->session_retirement->published=Service::Nvidia::NvCore::SessionId{0};module->container.throw_close=true;
+    service.reset();std::weak_ptr<Module> weak=module;std::weak_ptr<Allocation> backing=system.memory.buffer.storage;
+    Require(!module->retirements->Drain() && module->container.closed==1,"partial session close was replayed");
+    module.reset();system.memory.buffer.storage.reset();
+    Require(!weak.expired() && !backing.expired() && process.refs==2 && !weak.lock()->dispatch_domain->TryEnter(),
+        "partial session close released uncertain owners");
+}
+void FinalProviderRelease(bool session) {
+    FakeSystem system;Kernel::KProcess process;auto module=std::make_shared<Module>(system,process);
+    auto domain=module->dispatch_domain;bool counted=false;
+    module->destroyed=[&]{auto closure=domain->TryClose(64);counted=closure && closure->Poll()==Common::ProducerDrain::Result::Pending;};
+    std::weak_ptr<Module> weak=module;std::weak_ptr<Common::OwnedRetirementQueue> queue=module->retirements;
+    auto entry=module->TryEnterDispatch();
+    if(session){
+        auto service=std::make_unique<Service::Nvidia::NVDRV>();service->nvdrv=module;
+        service->session_retirement=module->PrepareSessionRetirement(&process,*entry);
+        *service->session_retirement->published=Service::Nvidia::NvCore::SessionId{0};
+        entry.reset();module.reset();service.reset();
+    }else{
+        auto buffer=GraphicBuffer::TryCreate(module,Descriptor(),*entry);entry.reset();module.reset();buffer.reset();
+    }
+    Require(counted && weak.expired() && queue.expired(),session?
+        "session provider release escaped retirement entry":"GraphicBuffer provider release escaped retirement entry");
+}
+void SessionOwnerOrder() {
+    using namespace Service::Nvidia::NvCore;
+    Kernel::KProcess old_process,new_process;auto old_storage=std::make_shared<Allocation>();auto new_storage=std::make_shared<Allocation>();
+    auto a=Kernel::KScopedAutoObject<Kernel::KProcess>::TryOpen(&old_process);auto b=Kernel::KScopedAutoObject<Kernel::KProcess>::TryOpen(&new_process);
+    Session old{{0},std::move(*a),1,1,Common::RetainedBackingStorage{old_storage}};
+    Session replacement{{1},std::move(*b),2,2,Common::RetainedBackingStorage{new_storage}};
+    std::weak_ptr<Allocation> weak=old_storage;old_storage.reset();old_process.Close();
+    bool legal=false;old.mapper=std::make_unique<HeapMapper>();old.mapper->released=[&]{legal=old_process.refs>0&&!weak.expired();};
+    old=std::move(replacement);
+    Require(legal && old_process.refs==0 && weak.expired(),"session assignment released backing before mapper");
+}
+void ProcessCloseFailure(bool snapshot) {
+    using namespace Service::Nvidia::NvCore;
+    Kernel::KProcess process;auto domain=std::make_shared<Common::ProducerDrain>();auto storage=std::make_shared<Allocation>();std::weak_ptr<Allocation> weak=storage;
+    auto owner=Kernel::KScopedAutoObject<Kernel::KProcess>::TryOpen(&process);process.Close();process.fail_close=true;
+    if(snapshot){
+        std::optional<Container::SessionLifetime> lifetime;
+        lifetime.emplace(Common::RetainedBackingStorage{storage},std::move(*owner),domain);storage.reset();lifetime.reset();
+    }else{
+        auto failure=std::make_unique<ProcessReleaseFailure>();failure->domain=domain;
+        std::optional<Session> session;
+        session.emplace(SessionId{0},std::move(*owner),1,1,Common::RetainedBackingStorage{storage},std::move(failure));storage.reset();session.reset();
+    }
+    Require(!weak.expired() && process.refs==0 && process.closes==2,"failed Process close lost backing or retried zero-ref owner");
+    Require(!domain->TryEnter(),"failed Process close granted admission");
+    auto* record=failed_process_releases.load();
+    Require(record && record->domain==domain && record->process_identity==&process,"failed Process close lost quarantine bookkeeping");
+}
+void StaleProcessSnapshot() {
+    using namespace Service::Nvidia::NvCore;
+    Kernel::KProcess process;auto domain=std::make_shared<Common::ProducerDrain>();auto storage=std::make_shared<Allocation>();std::weak_ptr<Allocation> weak=storage;
+    auto owner=Kernel::KScopedAutoObject<Kernel::KProcess>::TryOpen(&process);process.Close();
+    std::optional<Container::SessionLifetime> lifetime;
+    lifetime.emplace(Common::RetainedBackingStorage{storage},std::move(*owner),domain);
+    storage->alive=false;storage.reset();lifetime.reset();
+    Require(process.closes==1 && process.refs==1 && !weak.expired() && !domain->TryEnter(),"stale Process snapshot dereferenced retired Kernel owner");
+}
+namespace SessionReuse {
+namespace NvCore=Service::Nvidia::NvCore;using NvCore::Session;using NvCore::SessionId;
+using NvCore::ProcessReleaseFailure;
+struct Smmu {int registered=0;Core::Asid RegisterProcess(int*){++registered;return 1;}void Free(u64,size_t){}void UnregisterProcess(Core::Asid){}};
+struct Host1x {FakeSystem& system;Smmu smmu;FakeSystem& System(){return system;}Smmu& MemoryManager(){return smmu;}};
+struct Impl {Host1x host1x;struct File{void UnmapAllHandles(SessionId){}} file;std::deque<Session> sessions;size_t new_ids=0;std::deque<size_t> id_pool;std::mutex session_guard;explicit Impl(FakeSystem& s):host1x{s,{}} {}};
+struct Container {std::unique_ptr<Impl> impl;explicit Container(FakeSystem& s):impl{std::make_unique<Impl>(s)} {}
+    using SessionLifetime=NvCore::Container::SessionLifetime;
+#define LOG_WARNING(...) ((void)0)
+@OPEN_SESSION@
+@CLOSE_SESSION@
+@RETAIN_SESSION@
+};
+bool Unlocked(std::mutex& mutex){return std::async(std::launch::async,[&]{if(!mutex.try_lock())return false;mutex.unlock();return true;}).get();}
+void Test() {
+    FakeSystem system;Kernel::KProcess previous,next;next.pid=2;Container container{system};
+    auto owner=Kernel::KScopedAutoObject<Kernel::KProcess>::TryOpen(&previous);
+    auto storage=std::make_shared<Allocation>();std::weak_ptr<Allocation> weak=storage;
+    container.impl->sessions.emplace_back(SessionId{0},std::move(*owner),1,1,Common::RetainedBackingStorage{storage});
+    container.impl->id_pool.push_back(0);storage.reset();previous.Close();
+    bool mapper_unlocked=false,process_unlocked=false;
+    previous.final=[&]{process_unlocked=Unlocked(container.impl->session_guard);};
+    auto& old=container.impl->sessions[0];old.mapper=std::make_unique<NvCore::HeapMapper>();
+    old.mapper->released=[&]{mapper_unlocked=Unlocked(container.impl->session_guard);};
+    const auto opened=container.OpenSession(&next);
+    Require(mapper_unlocked && process_unlocked && previous.refs==0 && weak.expired(),"session reuse released old owners under session_guard");
+    {auto lease=container.RetainSession(opened);Require(bool(lease),"live session rejected retained owner");}
+    container.CloseSession(opened,true);
+    Require(!container.RetainSession(opened),"retired session admitted a new owner borrow");
+    bool duplicate=false;try{container.CloseSession(opened,true);}catch(const std::runtime_error&){duplicate=true;}
+    Require(duplicate && container.impl->sessions[opened.id].ref_count==0,"duplicate session retirement changed reference accounting");
+    bool invalid=false;try{container.CloseSession({99},true);}catch(const std::runtime_error&){invalid=true;}
+    Require(invalid,"invalid session retirement id was not refused");
+    Kernel::KProcess zero;zero.refs=0;const auto registered=container.impl->host1x.smmu.registered;
+    bool zero_ref=false;try{(void)container.OpenSession(&zero);}catch(const std::runtime_error&){zero_ref=true;}
+    Require(zero_ref && container.impl->host1x.smmu.registered==registered,"session resurrected zero-ref process");
+    // Fail before ASID registration when a backing owner cannot be retained.
+    system.memory.buffer.storage.reset();const auto before=container.impl->host1x.smmu.registered;
+    bool refused=false;try{(void)container.OpenSession(&next);}catch(const std::runtime_error&){refused=true;}
+    Require(refused && container.impl->host1x.smmu.registered==before,"session registered ASID without retained backing");
+}
+}
+int main(){GraphicClosed(false);GraphicClosed(true);GraphicPreparationFailure(false);GraphicPreparationFailure(true);GraphicFreeFailure();
+    SessionClosed(true);SessionClosed(false);SessionCloseFailure();SlotPublication();EmptyAndStale();SessionOwnerOrder();SessionReuse::Test();FinalProviderRelease(false);FinalProviderRelease(true);ProcessCloseFailure(false);ProcessCloseFailure(true);StaleProcessSnapshot();
+    std::cout<<"PASS actual GraphicBuffer/session retirement, retained owners, partial-failure isolation and slot transaction\n";}

@@ -7,12 +7,14 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <thread>
 
 #include "common/fiber.h"
 #include "common/polyfill_thread.h"
 #include "common/thread.h"
 #include "core/hardware_properties.h"
+#include "core/controlled_cpu_page.h"
 
 namespace Common {
 class Event;
@@ -50,6 +52,12 @@ public:
 
     void Initialize();
     void Shutdown();
+
+    /// Explicit guest-fiber consumer. Invoke after releasing all producer/cache/PTE guards.
+    /// Enqueue success is not completion: cancelled/refused/unknown remain distinct actions.
+    /// nullopt means termination or an unsupported/locked context; retain request identity.
+    [[nodiscard]] std::optional<Memory::ControlledCpuWriteRequest::SchedulerAction>
+    AwaitControlledCpuWrite(const Memory::ControlledCpuWriteRequestPtr& request);
 
     std::function<void()> GetGuestActivateFunc() {
         return [this] { GuestActivate(); };

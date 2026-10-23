@@ -10,7 +10,9 @@
 #include <bit>
 #include <cstring>
 #include <mutex>
+#include <new>
 #include <span>
+#include <stdexcept>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -54,6 +56,7 @@ struct Memory::Impl {
     }
 
     void SetCurrentPageTable(Kernel::KProcess& process) {
+        const auto context_change = controlled_context.Change();
         current_page_table = &process.GetPageTable().GetImpl();
 
         if (process.IsApplication() && Settings::IsFastmemEnabled()) {
@@ -64,13 +67,43 @@ struct Memory::Impl {
         buffer = std::addressof(system.DeviceMemory().buffer);
     }
 
+    std::optional<PreparedCpuPage> PrepareControlledCpuPage(
+        Common::ProcessAddress page_address) const {
+        const auto context = controlled_context.state;
+        std::shared_lock context_guard{context->mutex};
+        const auto context_generation = context->generation.load(std::memory_order_acquire);
+        const auto* table = current_page_table;
+        if (!table || system.IsShuttingDown()) return std::nullopt;
+        auto mapping = table->SnapshotMapping(GetInteger(page_address) & 0xffffffffffffULL);
+        if (!mapping || mapping->physical_page < DramMemoryMap::Base) return std::nullopt;
+        context_guard.unlock();
+        // Snapshot lock is already released: materialization/registry preparation is cold and
+        // may allocate. Never carry a PTE lock into HostMemory preparation or GPU callbacks.
+        auto physical = system.DeviceMemory().buffer.PreparePhysicalCpuPage(
+            mapping->physical_page - DramMemoryMap::Base);
+        context_guard.lock();
+        if (!physical || current_page_table != table || !mapping->IsCurrent() ||
+            !context->alive.load(std::memory_order_acquire) ||
+            context->generation.load(std::memory_order_acquire) != context_generation)
+            return std::nullopt;
+        return PreparedCpuPage{std::move(*mapping), std::move(*physical), context,
+                               context_generation};
+    }
+
     void MapMemoryRegion(Common::PageTable& page_table, Common::ProcessAddress base, u64 size,
                          Common::PhysicalAddress target, Common::MemoryPermission perms,
                          bool separate_heap) {
-        ASSERT_MSG((size & CITRON_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
-        ASSERT_MSG((base & CITRON_PAGEMASK) == 0, "non-page aligned base: {:016X}", GetInteger(base));
-        ASSERT_MSG(target >= DramMemoryMap::Base, "Out of bounds target: {:016X}",
-                   GetInteger(target));
+        assert((size & CITRON_PAGEMASK) == 0 && "non-page aligned size: {:016X}" &&
+               (void(size), true));
+        assert((base & CITRON_PAGEMASK) == 0 && "non-page aligned base: {:016X}" &&
+               (void(GetInteger(base)), true));
+        assert(target >= DramMemoryMap::Base && "Out of bounds target: {:016X}" &&
+               (void(GetInteger(target)), true));
+        if (system.DeviceMemory().buffer.IsLazyBacking()) {
+            // Create the entire CPU range before publishing any page-table pointers.
+            system.DeviceMemory().buffer.EnsureBackingRange(
+                GetInteger(target) - DramMemoryMap::Base, size);
+        }
         MapPages(page_table, base / CITRON_PAGESIZE, size / CITRON_PAGESIZE, target,
                  Common::PageType::Memory);
 
@@ -82,8 +115,10 @@ struct Memory::Impl {
 
     void UnmapRegion(Common::PageTable& page_table, Common::ProcessAddress base, u64 size,
                      bool separate_heap) {
-        ASSERT_MSG((size & CITRON_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
-        ASSERT_MSG((base & CITRON_PAGEMASK) == 0, "non-page aligned base: {:016X}", GetInteger(base));
+        assert((size & CITRON_PAGEMASK) == 0 && "non-page aligned size: {:016X}" &&
+               (void(size), true));
+        assert((base & CITRON_PAGEMASK) == 0 && "non-page aligned base: {:016X}" &&
+               (void(GetInteger(base)), true));
         MapPages(page_table, base / CITRON_PAGESIZE, size / CITRON_PAGESIZE, 0,
                  Common::PageType::Unmapped);
 
@@ -94,8 +129,10 @@ struct Memory::Impl {
 
     void ProtectRegion(Common::PageTable& page_table, VAddr vaddr, u64 size,
                        Common::MemoryPermission perms) {
-        ASSERT_MSG((size & CITRON_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
-        ASSERT_MSG((vaddr & CITRON_PAGEMASK) == 0, "non-page aligned base: {:016X}", vaddr);
+        assert((size & CITRON_PAGEMASK) == 0 && "non-page aligned size: {:016X}" &&
+               (void(size), true));
+        assert((vaddr & CITRON_PAGEMASK) == 0 && "non-page aligned base: {:016X}" &&
+               (void(vaddr), true));
 
         if (!current_page_table->fastmem_arena) {
             return;
@@ -207,7 +244,7 @@ struct Memory::Impl {
                 break;
             }
             default:
-                UNREACHABLE();
+                std::unreachable();
             }
 
             page_index++;
@@ -334,26 +371,39 @@ struct Memory::Impl {
 
     bool CopyBlock(Common::ProcessAddress dest_addr, Common::ProcessAddress src_addr,
                    const std::size_t size) {
-        return WalkBlock(
-            dest_addr, size,
-            [&](const std::size_t copy_amount, const Common::ProcessAddress current_vaddr) {
-                LOG_ERROR(HW_Memory,
-                          "Unmapped CopyBlock @ 0x{:016X} (start address = 0x{:016X}, size = {})",
-                          GetInteger(current_vaddr), GetInteger(src_addr), size);
-                ZeroBlock(dest_addr, copy_amount);
-            },
-            [&](const std::size_t copy_amount, const u8* const src_ptr) {
-                WriteBlockImpl<false>(dest_addr, src_ptr, copy_amount);
-            },
-            [&](const Common::ProcessAddress current_vaddr, const std::size_t copy_amount,
-                u8* const host_ptr) {
-                HandleRasterizerDownload(GetInteger(current_vaddr), copy_amount);
-                WriteBlockImpl<false>(dest_addr, host_ptr, copy_amount);
-            },
-            [&](const std::size_t copy_amount) {
-                dest_addr += copy_amount;
-                src_addr += copy_amount;
-            });
+        if (size == 0) {
+            return true;
+        }
+        if (!AddressSpaceContains(*current_page_table, src_addr, size) ||
+            !AddressSpaceContains(*current_page_table, dest_addr, size)) {
+            return false;
+        }
+        // Reject known destination holes before copying anything. This is a
+        // preflight, not a mapping pin: callers must still keep mappings stable.
+        bool destination_mapped = WalkBlock(
+            dest_addr, size, [](std::size_t, Common::ProcessAddress) {},
+            [](std::size_t, u8*) {}, [](Common::ProcessAddress, std::size_t, u8*) {},
+            [](std::size_t) {});
+        if (!destination_mapped) {
+            return false;
+        }
+        // Snapshot the entire logical source before the first destination write.
+        // Virtual disjointness does not imply physical disjointness, including
+        // aliases between different chunks. Per-chunk memmove is insufficient.
+        std::vector<u8> source;
+        try {
+            source.resize(size);
+        } catch (const std::bad_alloc&) {
+            return false;
+        } catch (const std::length_error&) {
+            return false;
+        }
+        if (!ReadBlockImpl<false>(src_addr, source.data(), size)) {
+            return false;
+        }
+        // Preserve WriteBlock's failure indication. An exception from a later
+        // preservation callback propagates; it must not become copy success.
+        return WriteBlockImpl<false>(dest_addr, source.data(), size);
     }
 
     template <typename Callback>
@@ -422,6 +472,7 @@ struct Memory::Impl {
             buffer->Protect(vaddr, size, perm);
         }
 
+        const auto mutation = current_page_table->MutateMappings();
         // Iterate over a contiguous CPU address space, marking/unmarking the region.
         // The region is at a granularity of CPU pages.
 
@@ -432,7 +483,7 @@ struct Memory::Impl {
                 // Switch page type to debug if now debug
                 switch (page_type) {
                 case Common::PageType::Unmapped:
-                    UNREACHABLE_MSG("Attempted to mark unmapped pages as debug");
+                    std::unreachable(); // Attempted to mark unmapped pages as debug
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                 case Common::PageType::DebugMemory:
@@ -442,13 +493,13 @@ struct Memory::Impl {
                     current_page_table->entries[vaddr >> CITRON_PAGEBITS].pointer.Store(0, Common::PageType::DebugMemory);
                     break;
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             } else {
                 // Switch page type to non-debug if now non-debug
                 switch (page_type) {
                 case Common::PageType::Unmapped:
-                    UNREACHABLE_MSG("Attempted to mark unmapped pages as non-debug");
+                    std::unreachable(); // Attempted to mark unmapped pages as non-debug
                     break;
                 case Common::PageType::RasterizerCachedMemory:
                 case Common::PageType::Memory:
@@ -460,7 +511,7 @@ struct Memory::Impl {
                     break;
                 }
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             }
         }
@@ -493,6 +544,7 @@ struct Memory::Impl {
             buffer->Protect(vaddr, size, perm);
         }
 
+        const auto mutation = current_page_table->MutateMappings();
         // Iterate over a contiguous CPU address space, which corresponds to the specified GPU
         // address space, marking the region as un/cached. The region is marked un/cached at a
         // granularity of CPU pages, hence why we iterate on a CPU page basis (note: GPU page size
@@ -517,7 +569,7 @@ struct Memory::Impl {
                     // that this area is already marked as cached.
                     break;
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             } else {
                 // Switch page type to uncached if now uncached
@@ -543,7 +595,7 @@ struct Memory::Impl {
                     break;
                 }
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
             }
         }
@@ -560,17 +612,20 @@ struct Memory::Impl {
      */
     void MapPages(Common::PageTable& page_table, Common::ProcessAddress base_address, u64 size,
                   Common::PhysicalAddress target, Common::PageType type) {
+        const auto mutation = page_table.MutateMappings();
         auto base = GetInteger(base_address);
 
         LOG_DEBUG(HW_Memory, "Mapping {:016X} onto {:016X}-{:016X}", GetInteger(target),
                   base * CITRON_PAGESIZE, (base + size) * CITRON_PAGESIZE);
 
         const auto end = base + size;
-        ASSERT_MSG(end <= page_table.entries.size(), "out of range mapping at {:016X}", base + page_table.entries.size());
+        assert(end <= page_table.entries.size() && "out of range mapping at {:016X}" &&
+               (void(base + page_table.entries.size()), true));
 
         if (!target) {
-            ASSERT_MSG(type != Common::PageType::Memory,
-                       "Mapping memory page without a pointer @ {:016x}", base * CITRON_PAGESIZE);
+            assert(type != Common::PageType::Memory &&
+                   "Mapping memory page without a pointer @ {:016x}" &&
+                   (void(base * CITRON_PAGESIZE), true));
 
             while (base != end) {
                 page_table.entries[base].pointer.Store(0, type);
@@ -586,7 +641,7 @@ struct Memory::Impl {
                 page_table.entries[base].pointer.Store(host_ptr, type);
                 page_table.entries[base].backing_addr = backing;
                 page_table.entries[base].block = orig_base << CITRON_PAGEBITS;
-                ASSERT(page_table.entries[base].pointer.Pointer() && "memory mapping base yield a nullptr within the table");
+                assert(page_table.entries[base].pointer.Pointer() && "memory mapping base yield a nullptr within the table");
                 base += 1;
                 target += CITRON_PAGESIZE;
             }
@@ -605,7 +660,8 @@ struct Memory::Impl {
             } else {
                 switch (Common::PageTable::PageInfo::ExtractType(raw_pointer)) {
                 case Common::PageType::Memory:
-                    ASSERT_MSG(false, "Mapped memory page without a pointer @ 0x{:016X}", vaddr);
+                    assert(false && "Mapped memory page without a pointer @ 0x{:016X}" &&
+                           (void(vaddr), true));
                     return nullptr;
                 case Common::PageType::DebugMemory:
                     return GetPointerFromDebugMemory(vaddr);
@@ -619,7 +675,7 @@ struct Memory::Impl {
                     return nullptr;
                 }
                 default:
-                    UNREACHABLE();
+                    std::unreachable();
                 }
                 return nullptr;
             }
@@ -707,8 +763,36 @@ struct Memory::Impl {
     /// @param vaddr The virtual address to write the data type to.
     /// @tparam T The data type to write to memory.
     template <typename T>
+    inline PreparedCpuWriteResult Write(const PreparedCpuPage& prepared,
+                                        Common::ProcessAddress vaddr, const T data) noexcept
+        requires(std::is_trivially_copyable_v<T>) {
+        // Explicit opt-in only: a refusal is returned without any legacy pointer lookup,
+        // callbacks, store or bypass. Normal Write8/16/32/64 do not supply a prepared view.
+        return prepared.TryStore(controlled_context.state.get(), GetInteger(vaddr), data);
+    }
+
+    template <typename T>
+    inline PreparedCpuWriteResult
+    WriteCached(const PreparedCpuPage& prepared,
+                Common::PhysicalRegistrationBundle::CachedWrite& write,
+                Common::ProcessAddress vaddr, const T data) noexcept {
+        return prepared.TryStoreCached(controlled_context.state.get(), GetInteger(vaddr), data,
+                                       write);
+    }
+
+    template <typename T>
+    [[nodiscard]] bool TryBoundCpuWrite(Common::ProcessAddress vaddr, const T& data) noexcept {
+        if (auto* transaction = ScopedCpuWrite::Current()) [[unlikely]] {
+            transaction->Store(controlled_context.state.get(), GetInteger(vaddr), data);
+            return true; // Includes every refusal: never continue into legacy pointer lookup.
+        }
+        return false;
+    }
+
+    template <typename T>
     inline void Write(Common::ProcessAddress vaddr, const T data) noexcept requires(std::is_trivially_copyable_v<T>) {
         CITRON_PROFILE_MEM_SCOPE("Memory::Write");
+        if (TryBoundCpuWrite(vaddr, data)) [[unlikely]] return;
         auto const addr_c1 = GetInteger(vaddr);
         if constexpr (sizeof(T) <= 1) {
             if (auto const ptr_c1 = GetPointerImpl(addr_c1, [addr_c1] {
@@ -867,6 +951,7 @@ struct Memory::Impl {
     Core::System& system;
     Tegra::MaxwellDeviceMemoryManager* gpu_device_memory{};
     Common::PageTable* current_page_table = nullptr;
+    CpuAccessContextOwner controlled_context;
 
     // Number of threads to use for parallel memory operations
     unsigned int thread_count = 2;
@@ -882,34 +967,120 @@ struct Memory::Impl {
     Common::HostMemory* buffer{};
 };
 
-Memory::Memory(Core::System& system_) : system{system_} {
-    Reset();
-}
-
-Memory::~Memory() = default;
-
-void Memory::Reset() {
+Memory::Memory(Core::System& system_, MappingPublicationMode mappings)
+    : system{system_}, managed_writes{system_.Kernel().ManagedGuestWriteDomain()},
+      mapping_publications{mappings == MappingPublicationMode::Controlled,
+                                          system_.Kernel().ProcessPublicationDomain()} {
     impl = std::make_unique<Impl>(system);
 }
 
+std::optional<PreparedCpuPage> Memory::PrepareControlledCpuPage(
+    Common::ProcessAddress page_address) const {
+    if (!impl) return std::nullopt;
+    return impl->PrepareControlledCpuPage(page_address);
+}
+
+Memory::~Memory() {
+    SealControlledCpuWrites();
+    SealControlledMappings();
+}
+
+Memory::Memory(Memory&& other) : system{other.system}, managed_writes{other.managed_writes} {
+    auto process_publication = other.mapping_publications.BeginProcessOnly();
+    other.SealControlledCpuWrites(); // queued requests never migrate their execution identity
+    other.SealControlledMappings();
+    mapping_publications = std::move(other.mapping_publications);
+    impl = std::move(other.impl);
+}
+
+void Memory::SealControlledCpuWrites() {
+    if (controlled_owner) controlled_owner->Close();
+}
+
+void Memory::SealControlledMappings() {
+    mapping_publications.Retire();
+}
+
+void Memory::Finalize() {
+    SealControlledCpuWrites();
+    SealControlledMappings();
+    impl.reset();
+    controlled_owner.reset(); // Unknown identities retain their sealed gate independently.
+}
+
+ControlledCpuWriteRequestPtr Memory::PrepareControlledWrite(
+    Common::ProcessAddress target, ControlledCpuWriteRequest::Value value) {
+    const u64 address = GetInteger(target) & 0xffffffffffffULL;
+    const auto size = std::visit([](const auto& scalar) { return sizeof(scalar); }, value);
+    if (size > CITRON_PAGESIZE - address % CITRON_PAGESIZE) return {};
+    const auto owner = controlled_owner; // Caller still owns Memory at initial entry.
+    if (!owner) return {};
+    return owner->TryPrepare([&](Memory& memory) -> ControlledCpuWriteRequestPtr {
+        auto page = memory.PrepareControlledCpuPage(address & ~(CITRON_PAGESIZE - 1));
+        if (!page || page->mapping.type != Common::PageType::RasterizerCachedMemory ||
+            !page->IsCurrentForRegistration())
+            return {};
+        return ControlledCpuWriteRequestPtr{
+            new ControlledCpuWriteRequest{std::move(*page), address, std::move(value), owner}};
+    });
+}
+
+ControlledCpuWriteRequestPtr Memory::PrepareControlledWrite8(Common::ProcessAddress address, u8 value) {
+    return PrepareControlledWrite(address, value);
+}
+
+ControlledCpuWriteRequestPtr Memory::PrepareControlledWrite16(Common::ProcessAddress address, u16 value) {
+    return PrepareControlledWrite(address, value);
+}
+
+ControlledCpuWriteRequestPtr Memory::PrepareControlledWrite32(Common::ProcessAddress address, u32 value) {
+    return PrepareControlledWrite(address, value);
+}
+
+ControlledCpuWriteRequestPtr Memory::PrepareControlledWrite64(Common::ProcessAddress address, u64 value) {
+    return PrepareControlledWrite(address, value);
+}
+
+void Memory::Reset() {
+    auto process_publication = mapping_publications.BeginProcessOnly();
+    SealControlledCpuWrites();
+    SealControlledMappings();
+    impl = std::make_unique<Impl>(system);
+    controlled_owner = std::make_shared<CpuWriteOwner>(this);
+}
+
 void Memory::SetCurrentPageTable(Kernel::KProcess& process) {
+    auto publication = mapping_publications.BeginCold();
     impl->SetCurrentPageTable(process);
+    publication.Finish();
 }
 
 void Memory::MapMemoryRegion(Common::PageTable& page_table, Common::ProcessAddress base, u64 size,
                              Common::PhysicalAddress target, Common::MemoryPermission perms,
                              bool separate_heap) {
+    auto publication = mapping_publications.BeginCold();
     impl->MapMemoryRegion(page_table, base, size, target, perms, separate_heap);
+    publication.Finish();
 }
 
 void Memory::UnmapRegion(Common::PageTable& page_table, Common::ProcessAddress base, u64 size,
                          bool separate_heap) {
+    auto publication = mapping_publications.BeginCold();
+    impl->UnmapRegion(page_table, base, size, separate_heap);
+    publication.Finish();
+}
+
+void Memory::UnmapRegionForTeardown(Common::PageTable& page_table, Common::ProcessAddress base,
+                                   u64 size, bool separate_heap, const MappingTeardown& entry) {
+    mapping_publications.ValidateTeardown(entry);
     impl->UnmapRegion(page_table, base, size, separate_heap);
 }
 
 void Memory::ProtectRegion(Common::PageTable& page_table, Common::ProcessAddress vaddr, u64 size,
                            Common::MemoryPermission perms) {
+    auto publication = mapping_publications.BeginCold();
     impl->ProtectRegion(page_table, GetInteger(vaddr), size, perms);
+    publication.Finish();
 }
 
 bool Memory::IsValidVirtualAddress(const Common::ProcessAddress vaddr) const {
@@ -940,6 +1111,37 @@ u8* Memory::GetPointerSilent(Common::ProcessAddress vaddr) {
     return impl->GetPointerSilent(vaddr);
 }
 
+// On the AYN Thor CTR_EL0 reads DIC = 0, IDC = 1, L1Ip = PIPT (read on its Cortex-A510 cores):
+// the instruction cache must be invalidated after code is written. The Linux kernel does it
+// implicitly only when it maps an executable page whose entry is not special (arm64 set_pte_at),
+// and guest memory on a dma_buf backing is mapped with special entries (remap_pfn_range), so
+// for guest code run in place nothing else does it.
+//
+// Maintenance goes through each page's backing pointer, which the backing view always maps
+// read-write, instead of the guest address, which may already be unmapped
+// (KPageTableBase::UnmapCodeMemory asks after unmapping; such pages are skipped). With a PIPT
+// instruction cache any alias of a physical page reaches its lines. __builtin___clear_cache
+// cleans the data cache to the point of unification when IDC is 0 and invalidates the
+// instruction cache when DIC is 0 (compiler-rt clear_cache.c). Without NCE guest code is
+// recompiled, not run in place, so there is nothing to do.
+void Memory::SyncInstructionCache([[maybe_unused]] Common::ProcessAddress vaddr,
+                                  [[maybe_unused]] std::size_t size) {
+#ifdef HAS_NCE
+    const u64 begin = GetInteger(vaddr);
+    const u64 end = begin + size;
+    for (u64 page = begin & ~CITRON_PAGEMASK; page < end; page += CITRON_PAGESIZE) {
+        u8* const backing = impl->GetPointerSilent(page);
+        if (!backing) {
+            continue;
+        }
+        const u64 first = std::max(begin, page);
+        const u64 last = std::min(end, page + CITRON_PAGESIZE);
+        __builtin___clear_cache(reinterpret_cast<char*>(backing + (first - page)),
+                                reinterpret_cast<char*>(backing + (last - page)));
+    }
+#endif
+}
+
 const u8* Memory::GetPointer(Common::ProcessAddress vaddr) const {
     return impl->GetPointer(vaddr);
 }
@@ -961,38 +1163,159 @@ u64 Memory::Read64(const Common::ProcessAddress addr) {
 }
 
 void Memory::Write8(Common::ProcessAddress addr, u8 data) {
+    auto producer = managed_writes.Enter();
     impl->Write<u8>(addr, data);
 }
 
 void Memory::Write16(Common::ProcessAddress addr, u16 data) {
+    auto producer = managed_writes.Enter();
     impl->Write<u16_le>(addr, data);
 }
 
 void Memory::Write32(Common::ProcessAddress addr, u32 data) {
+    auto producer = managed_writes.Enter();
     impl->Write<u32_le>(addr, data);
 }
 
 void Memory::Write64(Common::ProcessAddress addr, u64 data) {
+    auto producer = managed_writes.Enter();
     impl->Write<u64_le>(addr, data);
 }
 
+PreparedCpuWriteResult Memory::WritePrepared8(const PreparedCpuPage& page,
+                                             Common::ProcessAddress addr, u8 data) {
+    auto producer = managed_writes.TryEnter();
+    if constexpr (ManagedGuestWrites::TrackingSupported()) {
+        if (!producer) return PreparedCpuWriteResult::Busy;
+    }
+    return impl->Write<u8>(page, addr, data);
+}
+
+PreparedCpuWriteResult Memory::WritePrepared16(const PreparedCpuPage& page,
+                                              Common::ProcessAddress addr, u16 data) {
+    auto producer = managed_writes.TryEnter();
+    if constexpr (ManagedGuestWrites::TrackingSupported()) {
+        if (!producer) return PreparedCpuWriteResult::Busy;
+    }
+    return impl->Write<u16_le>(page, addr, data);
+}
+
+PreparedCpuWriteResult Memory::WritePrepared32(const PreparedCpuPage& page,
+                                              Common::ProcessAddress addr, u32 data) {
+    auto producer = managed_writes.TryEnter();
+    if constexpr (ManagedGuestWrites::TrackingSupported()) {
+        if (!producer) return PreparedCpuWriteResult::Busy;
+    }
+    return impl->Write<u32_le>(page, addr, data);
+}
+
+PreparedCpuWriteResult Memory::WritePrepared64(const PreparedCpuPage& page,
+                                              Common::ProcessAddress addr, u64 data) {
+    auto producer = managed_writes.TryEnter();
+    if constexpr (ManagedGuestWrites::TrackingSupported()) {
+        if (!producer) return PreparedCpuWriteResult::Busy;
+    }
+    return impl->Write<u64_le>(page, addr, data);
+}
+
+PreparedCpuWriteResult
+Memory::WritePreparedCached8(const PreparedCpuPage& page,
+                             Common::PhysicalRegistrationBundle::CachedWrite& write,
+                             Common::ProcessAddress addr, u8 data) {
+    auto producer = managed_writes.TryEnter();
+    if constexpr (ManagedGuestWrites::TrackingSupported()) {
+        if (!producer) return PreparedCpuWriteResult::Busy;
+    }
+    return impl->WriteCached<u8>(page, write, addr, data);
+}
+
+PreparedCpuWriteResult
+Memory::WritePreparedCached16(const PreparedCpuPage& page,
+                              Common::PhysicalRegistrationBundle::CachedWrite& write,
+                              Common::ProcessAddress addr, u16 data) {
+    auto producer = managed_writes.TryEnter();
+    if constexpr (ManagedGuestWrites::TrackingSupported()) {
+        if (!producer) return PreparedCpuWriteResult::Busy;
+    }
+    return impl->WriteCached<u16_le>(page, write, addr, data);
+}
+
+PreparedCpuWriteResult
+Memory::WritePreparedCached32(const PreparedCpuPage& page,
+                              Common::PhysicalRegistrationBundle::CachedWrite& write,
+                              Common::ProcessAddress addr, u32 data) {
+    auto producer = managed_writes.TryEnter();
+    if constexpr (ManagedGuestWrites::TrackingSupported()) {
+        if (!producer) return PreparedCpuWriteResult::Busy;
+    }
+    return impl->WriteCached<u32_le>(page, write, addr, data);
+}
+
+PreparedCpuWriteResult
+Memory::WritePreparedCached64(const PreparedCpuPage& page,
+                              Common::PhysicalRegistrationBundle::CachedWrite& write,
+                              Common::ProcessAddress addr, u64 data) {
+    auto producer = managed_writes.TryEnter();
+    if constexpr (ManagedGuestWrites::TrackingSupported()) {
+        if (!producer) return PreparedCpuWriteResult::Busy;
+    }
+    return impl->WriteCached<u64_le>(page, write, addr, data);
+}
+
+PreparedCpuWriteResult Memory::WriteOrdinaryControlled8(
+    const PreparedCpuPage& page, Common::PhysicalRegistrationBundle::CachedWrite& write,
+    Common::ProcessAddress addr, u8 data) {
+    ScopedCpuWrite transaction{page, write, impl->controlled_context.state.get(), GetInteger(addr), data};
+    Write8(addr, data);
+    return transaction.Outcome();
+}
+
+PreparedCpuWriteResult Memory::WriteOrdinaryControlled16(
+    const PreparedCpuPage& page, Common::PhysicalRegistrationBundle::CachedWrite& write,
+    Common::ProcessAddress addr, u16 data) {
+    ScopedCpuWrite transaction{page, write, impl->controlled_context.state.get(), GetInteger(addr), u16_le{data}};
+    Write16(addr, data);
+    return transaction.Outcome();
+}
+
+PreparedCpuWriteResult Memory::WriteOrdinaryControlled32(
+    const PreparedCpuPage& page, Common::PhysicalRegistrationBundle::CachedWrite& write,
+    Common::ProcessAddress addr, u32 data) {
+    ScopedCpuWrite transaction{page, write, impl->controlled_context.state.get(), GetInteger(addr), u32_le{data}};
+    Write32(addr, data);
+    return transaction.Outcome();
+}
+
+PreparedCpuWriteResult Memory::WriteOrdinaryControlled64(
+    const PreparedCpuPage& page, Common::PhysicalRegistrationBundle::CachedWrite& write,
+    Common::ProcessAddress addr, u64 data) {
+    ScopedCpuWrite transaction{page, write, impl->controlled_context.state.get(), GetInteger(addr), u64_le{data}};
+    Write64(addr, data);
+    return transaction.Outcome();
+}
+
 bool Memory::WriteExclusive8(Common::ProcessAddress addr, u8 data, u8 expected) {
+    auto producer = managed_writes.Enter();
     return impl->WriteExclusive8(addr, data, expected);
 }
 
 bool Memory::WriteExclusive16(Common::ProcessAddress addr, u16 data, u16 expected) {
+    auto producer = managed_writes.Enter();
     return impl->WriteExclusive16(addr, data, expected);
 }
 
 bool Memory::WriteExclusive32(Common::ProcessAddress addr, u32 data, u32 expected) {
+    auto producer = managed_writes.Enter();
     return impl->WriteExclusive32(addr, data, expected);
 }
 
 bool Memory::WriteExclusive64(Common::ProcessAddress addr, u64 data, u64 expected) {
+    auto producer = managed_writes.Enter();
     return impl->WriteExclusive64(addr, data, expected);
 }
 
 bool Memory::WriteExclusive128(Common::ProcessAddress addr, u128 data, u128 expected) {
+    auto producer = managed_writes.Enter();
     return impl->WriteExclusive128(addr, data, expected);
 }
 
@@ -1020,20 +1343,24 @@ u8* Memory::GetSpan(const VAddr src_addr, const std::size_t size) {
 
 bool Memory::WriteBlock(const Common::ProcessAddress dest_addr, const void* src_buffer,
                         const std::size_t size) {
+    auto producer = managed_writes.Enter();
     return impl->WriteBlock(dest_addr, src_buffer, size);
 }
 
 bool Memory::WriteBlockUnsafe(const Common::ProcessAddress dest_addr, const void* src_buffer,
                               const std::size_t size) {
+    auto producer = managed_writes.Enter();
     return impl->WriteBlockUnsafe(dest_addr, src_buffer, size);
 }
 
 bool Memory::CopyBlock(Common::ProcessAddress dest_addr, Common::ProcessAddress src_addr,
                        const std::size_t size) {
+    auto producer = managed_writes.Enter();
     return impl->CopyBlock(dest_addr, src_addr, size);
 }
 
 bool Memory::ZeroBlock(Common::ProcessAddress dest_addr, const std::size_t size) {
+    auto producer = managed_writes.Enter();
     return impl->ZeroBlock(dest_addr, size);
 }
 
@@ -1054,11 +1381,15 @@ Result Memory::FlushDataCache(Common::ProcessAddress dest_addr, const std::size_
 }
 
 void Memory::RasterizerMarkRegionCached(Common::ProcessAddress vaddr, u64 size, bool cached) {
+    auto publication = mapping_publications.Begin();
     impl->RasterizerMarkRegionCached(GetInteger(vaddr), size, cached);
+    publication.Finish();
 }
 
 void Memory::MarkRegionDebug(Common::ProcessAddress vaddr, u64 size, bool debug) {
+    auto publication = mapping_publications.BeginCold();
     impl->MarkRegionDebug(GetInteger(vaddr), size, debug);
+    publication.Finish();
 }
 
 bool Memory::InvalidateNCE(Common::ProcessAddress vaddr, size_t size) {
@@ -1084,3 +1415,10 @@ bool Memory::InvalidateSeparateHeap(void* fault_address) {
 }
 
 } // namespace Core::Memory
+
+#ifdef CITRON_SCHEDULER_TESTS
+#include "core/scheduler_system_test_access.h"
+std::unique_lock<std::mutex> Core::SystemTestAccess::LockSysCore(Memory::Memory& memory) {
+    return std::unique_lock{memory.impl->sys_core_guard};
+}
+#endif

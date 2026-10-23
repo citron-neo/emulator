@@ -50,6 +50,8 @@ namespace Tegra {
 
 using Maxwell3D = Engines::Maxwell3D;
 
+static void Dump(u64 hash, std::span<const u32> code, bool decompiled = false);
+
 namespace {
 
 bool IsTopologySafe(Maxwell3D::Regs::PrimitiveTopology topology) {
@@ -877,6 +879,31 @@ void MacroInterpreterImpl::Send(Engines::Maxwell3D& maxwell3d, u32 value) {
     if (execution_faulted) {
         return;
     }
+    constexpr u32 rt_start = MAXWELL3D_REG_INDEX(rt);
+    constexpr u32 rt_words = sizeof(Maxwell3D::Regs::RenderTargetConfig) / sizeof(u32);
+    constexpr u32 dimension_word =
+        offsetof(Maxwell3D::Regs::RenderTargetConfig, array_pitch) / sizeof(u32) - 1;
+    const u32 target_method = method_address.address.Value();
+    if (Settings::values.dump_macros.GetValue() && !large_render_target_dumped &&
+        target_method >= rt_start &&
+        target_method < rt_start + Maxwell3D::Regs::NumRenderTargets * rt_words &&
+        (target_method - rt_start) % rt_words == dimension_word && (value & 0xffffU) > 16) {
+        large_render_target_dumped = true;
+        const u64 hash = Common::HashRange(code.begin(), code.end());
+        LOG_WARNING(HW_GPU,
+                    "Large RT macro output: macro=0x{:x}, hash={:016x}, next_pc=0x{:x}, "
+                    "rt={}, value=0x{:x}, shadow_mode={}, parameter_index={}, parameter_count={}, "
+                    "registers=[{:x},{:x},{:x},{:x},{:x},{:x},{:x},{:x}]",
+                    current_method, hash, pc, (target_method - rt_start) / rt_words, value,
+                    static_cast<u32>(maxwell3d.shadow_state.shadow_ram_control),
+                    next_parameter_index, parameters.size(), registers[0], registers[1],
+                    registers[2], registers[3], registers[4], registers[5], registers[6], registers[7]);
+        for (size_t index = 0; index < parameters.size() && index < 64; ++index) {
+            LOG_WARNING(HW_GPU, "Large RT macro parameter: hash={:016x}, index={}, value=0x{:x}",
+                        hash, index, parameters[index]);
+        }
+        Dump(hash, code);
+    }
     if (method_address.address.Value() >= Engines::Maxwell3D::Regs::NUM_REGS &&
         !nested_macro_warning_reported) {
         nested_macro_warning_reported = true;
@@ -1572,7 +1599,7 @@ Macro::Opcode MacroJITx64Impl::GetOpCode() const {
 } // Anonymous namespace
 #endif
 
-static void Dump(u64 hash, std::span<const u32> code, bool decompiled = false) {
+static void Dump(u64 hash, std::span<const u32> code, bool decompiled) {
     const auto base_dir{Common::FS::GetCitronPath(Common::FS::CitronPath::DumpDir)};
     const auto macro_dir{base_dir / "macros"};
     if (!Common::FS::CreateDir(base_dir) || !Common::FS::CreateDir(macro_dir)) {
@@ -1668,10 +1695,10 @@ void MacroEngine::Execute(Engines::Maxwell3D& maxwell3d, u32 method, std::span<c
         } else {
             maxwell3d.RefreshParameters();
         }
-        execute_variant(ci.program);
         if (Settings::values.dump_macros) {
             Dump(ci.hash, macro_code->second, !std::holds_alternative<std::monostate>(ci.program));
         }
+        execute_variant(ci.program);
     }
 }
 

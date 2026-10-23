@@ -66,7 +66,7 @@ public:
     void Stop();
 
     void Signal();
-    void Wait();
+    [[nodiscard]] bool Wait();
 
     void Send(Direction dir, u32 message);
     u32 Receive(Direction dir);

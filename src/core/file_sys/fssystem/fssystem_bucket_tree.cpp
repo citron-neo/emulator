@@ -267,7 +267,7 @@ Result BucketTree::Find(Visitor* visitor, s64 virtual_address) {
     R_UNLESS(virtual_address >= 0, ResultInvalidOffset);
     R_UNLESS(!this->IsEmpty(), ResultOutOfRange);
 
-    BucketTree::Offsets offsets;
+    BucketTree::Offsets offsets{};
     R_TRY(this->GetOffsets(std::addressof(offsets)));
 
     R_TRY(visitor->Initialize(this, offsets));
