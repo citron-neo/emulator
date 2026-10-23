@@ -12,9 +12,9 @@ constexpr size_t VirtualReserveSize = 1ULL << 38;
 constexpr size_t VirtualReserveSize = 1ULL << 39;
 #endif
 
-DeviceMemory::DeviceMemory()
+DeviceMemory::DeviceMemory(std::span<const int> backing_fds)
     : buffer{Kernel::Board::Nintendo::Nx::KSystemControl::Init::GetIntendedMemorySize(),
-             VirtualReserveSize} {}
+             VirtualReserveSize, backing_fds, GuestMemoryChunkSize} {}
 
 DeviceMemory::~DeviceMemory() = default;
 

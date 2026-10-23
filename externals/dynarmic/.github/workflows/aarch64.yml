@@ -1,0 +1,158 @@
+name: AArch64
+
+on: [ push, pull_request ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build_linux:
+    strategy:
+      matrix:
+        platform: [ linux, android ]
+      fail-fast: false
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Install build dependencies
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install
+          gcc-10-aarch64-linux-gnu
+          g++-10-aarch64-linux-gnu
+          ninja-build
+          qemu-user
+
+      - name: Checkout dynarmic repo
+        uses: actions/checkout@v2
+
+      - name: Ccache
+        if: matrix.platform == 'linux'
+        uses: hendrikmuhs/ccache-action@v1.2
+
+      - name: Checkout ext-boost repo
+        uses: actions/checkout@v2
+        with:
+          repository: yuzu-mirror/ext-boost
+          path: externals/ext-boost
+
+      - name: Configure CMake for AArch64 (Linux)
+        if: matrix.platform == 'linux'
+        env:
+          CC: aarch64-linux-gnu-gcc-10
+          CXX: aarch64-linux-gnu-g++-10
+        run: >
+          cmake
+          -B ${{github.workspace}}/build-arm64
+          -DBOOST_INCLUDEDIR=${{github.workspace}}/externals/ext-boost
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          -DDYNARMIC_TESTS_USE_UNICORN=0
+          -DDYNARMIC_USE_LLVM=0
+          -G Ninja
+          
+      - name: Configure CMake for AArch64 (Android)
+        if: matrix.platform == 'android'
+        run: >
+          cmake
+          -B ${{github.workspace}}/build-arm64
+          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          -DANDROID_ABI=arm64-v8a
+          -DANDROID_PLATFORM=29
+          -DBoost_INCLUDE_DIR=${{github.workspace}}/externals/ext-boost
+          -DDYNARMIC_TESTS_USE_UNICORN=0
+          -DDYNARMIC_USE_LLVM=0
+          -G Ninja
+
+      - name: Build AArch64
+        working-directory: ${{github.workspace}}/build-arm64
+        run: cmake --build . --config Release
+
+      - name: Configure CMake for x86_64
+        if: matrix.platform == 'linux'
+        env:
+          CC: gcc-10
+          CXX: g++-10
+        run: >
+          cmake
+          -B ${{github.workspace}}/build-x64
+          -DBOOST_INCLUDEDIR=${{github.workspace}}/externals/ext-boost
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DDYNARMIC_TESTS_USE_UNICORN=0
+          -DDYNARMIC_USE_LLVM=0
+          -G Ninja
+
+      - name: Build x86_64
+        if: matrix.platform == 'linux'
+        working-directory: ${{github.workspace}}/build-x64
+        run: cmake --build . --config Release
+
+      - name: Basic tests
+        if: matrix.platform == 'linux'
+        working-directory: ${{github.workspace}}
+        run: qemu-aarch64 -L /usr/aarch64-linux-gnu ./build-arm64/tests/dynarmic_tests -d yes
+
+      - name: Test against x86_64 implementation (A32, thumb)
+        if: matrix.platform == 'linux'
+        working-directory: ${{github.workspace}}
+        run: |
+          diff <(qemu-aarch64 -L /usr/aarch64-linux-gnu ./build-arm64/tests/dynarmic_test_generator thumb 42 1 100000) <(./build-x64/tests/dynarmic_test_generator thumb 42 1 100000)
+          diff <(qemu-aarch64 -L /usr/aarch64-linux-gnu ./build-arm64/tests/dynarmic_test_generator thumb 42 10 10000) <(./build-x64/tests/dynarmic_test_generator thumb 42 10 10000)
+          diff <(qemu-aarch64 -L /usr/aarch64-linux-gnu ./build-arm64/tests/dynarmic_test_generator thumb 42 100 1000) <(./build-x64/tests/dynarmic_test_generator thumb 42 100 1000)
+
+      - name: Test against x86_64 implementation (A32, arm)
+        if: matrix.platform == 'linux'
+        working-directory: ${{github.workspace}}
+        run: |
+          diff <(qemu-aarch64 -L /usr/aarch64-linux-gnu ./build-arm64/tests/dynarmic_test_generator arm 42 1 100000) <(./build-x64/tests/dynarmic_test_generator arm 42 1 100000)
+          diff <(qemu-aarch64 -L /usr/aarch64-linux-gnu ./build-arm64/tests/dynarmic_test_generator arm 42 10 10000) <(./build-x64/tests/dynarmic_test_generator arm 42 10 10000)
+          diff <(qemu-aarch64 -L /usr/aarch64-linux-gnu ./build-arm64/tests/dynarmic_test_generator arm 42 100 1000) <(./build-x64/tests/dynarmic_test_generator arm 42 100 1000)
+
+      - name: Test against x86_64 implementation (A64)
+        if: matrix.platform == 'linux'
+        working-directory: ${{github.workspace}}
+        run: |
+          diff <(qemu-aarch64 -L /usr/aarch64-linux-gnu ./build-arm64/tests/dynarmic_test_generator a64 42 1 100000) <(./build-x64/tests/dynarmic_test_generator a64 42 1 100000)
+          diff <(qemu-aarch64 -L /usr/aarch64-linux-gnu ./build-arm64/tests/dynarmic_test_generator a64 42 10 10000) <(./build-x64/tests/dynarmic_test_generator a64 42 10 10000)
+          diff <(qemu-aarch64 -L /usr/aarch64-linux-gnu ./build-arm64/tests/dynarmic_test_generator a64 42 100 1000) <(./build-x64/tests/dynarmic_test_generator a64 42 100 1000)
+
+  build_windows:
+    strategy:
+      fail-fast: false
+
+    runs-on: windows-latest
+
+    steps:
+
+      - name: Checkout dynarmic repo
+        uses: actions/checkout@v2
+
+      - name: Checkout ext-boost repo
+        uses: actions/checkout@v2
+        with:
+          repository: yuzu-mirror/ext-boost
+          path: externals/ext-boost
+
+      - name: Setup msvc-arm64 environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_arm64
+
+      - name: Configure CMake for AArch64 (Windows)
+        run: >
+          cmake
+          -B ${{github.workspace}}/build-arm64
+          -DBOOST_INCLUDEDIR=${{github.workspace}}/externals/ext-boost
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          -DDYNARMIC_WARNINGS_AS_ERRORS=0
+          -DDYNARMIC_TESTS_USE_UNICORN=0
+          -DDYNARMIC_USE_LLVM=0
+          -G Ninja
+
+      - name: Build AArch64
+        working-directory: ${{github.workspace}}/build-arm64
+        run: cmake --build . --config Release

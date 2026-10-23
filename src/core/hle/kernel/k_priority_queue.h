@@ -10,7 +10,6 @@
 #include "common/assert.h"
 #include "common/bit_set.h"
 #include "common/common_types.h"
-#include "common/concepts.h"
 
 namespace Kernel {
 
@@ -19,7 +18,7 @@ class KThread;
 template <typename T>
 concept KPriorityQueueAffinityMask = !
 std::is_reference_v<T>&& requires(T& t) {
-                             { t.GetAffinityMask() } -> Common::ConvertibleTo<u64>;
+                             { t.GetAffinityMask() } -> std::convertible_to<u64>;
                              { t.SetAffinityMask(0) };
 
                              { t.GetAffinity(0) } -> std::same_as<bool>;
@@ -45,9 +44,9 @@ std::is_reference_v<T>&& requires(T& t) {
                                  std::remove_cvref_t<decltype(t.GetAffinityMask())>()
                                  } -> KPriorityQueueAffinityMask;
 
-                             { t.GetActiveCore() } -> Common::ConvertibleTo<s32>;
-                             { t.GetPriority() } -> Common::ConvertibleTo<s32>;
-                             { t.IsDummyThread() } -> Common::ConvertibleTo<bool>;
+                             { t.GetActiveCore() } -> std::convertible_to<s32>;
+                             { t.GetPriority() } -> std::convertible_to<s32>;
+                             { t.IsDummyThread() } -> std::convertible_to<bool>;
                          };
 
 template <typename Member, size_t NumCores_, int LowestPriority, int HighestPriority>

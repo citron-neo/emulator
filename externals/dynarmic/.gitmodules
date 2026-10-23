@@ -1,0 +1,18 @@
+[submodule "biscuit"]
+	path = externals/biscuit
+	url = https://github.com/lioncash/biscuit.git
+[submodule "catch"]
+	path = externals/catch
+	url = https://github.com/catchorg/Catch2.git
+[submodule "fmt"]
+	path = externals/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "oaknut"]
+	path = externals/oaknut
+	url = https://github.com/merryhime/oaknut.git
+[submodule "xbyak"]
+	path = externals/xbyak
+	url = https://github.com/herumi/xbyak.git
+[submodule "externals/unordered_dense"]
+	path = externals/unordered_dense
+	url = https://github.com/martinus/unordered_dense

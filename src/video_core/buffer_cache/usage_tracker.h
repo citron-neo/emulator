@@ -3,6 +3,10 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cstring>
+#include <vector>
+
 #include "common/alignment.h"
 #include "common/common_types.h"
 
@@ -21,21 +25,28 @@ public:
 
     void Reset() noexcept {
         std::ranges::fill(pages, 0ULL);
+        last_size = 0;
     }
 
     void Track(u64 offset, u64 size) noexcept {
+        // Usage only ever grows until the next reset, so tracking the same range again is a no-op
+        if (offset == last_offset && size == last_size) {
+            return;
+        }
         const size_t page = offset >> PAGE_SHIFT;
         const size_t page_end = (offset + size) >> PAGE_SHIFT;
         if (page_end < page || page_end >= pages.size()) {
             return;
         }
+        last_offset = offset;
+        last_size = size;
         TrackPage(page, offset, size);
         if (page == page_end) {
             return;
         }
-        for (size_t i = page + 1; i < page_end; i++) {
-            pages[i] = ~u64{0};
-        }
+        // A vertex stream is bound with its whole range on every draw that changes it, which makes
+        // this megabytes of buffer per call. Fill the middle in one go.
+        std::memset(pages.data() + page + 1, 0xFF, (page_end - page - 1) * sizeof(u64));
         const size_t offset_end = offset + size;
         const size_t offset_end_page_aligned = Common::AlignDown(offset_end, PAGE_BYTES);
         TrackPage(page_end, offset_end_page_aligned, offset_end - offset_end_page_aligned);
@@ -80,6 +91,8 @@ private:
 
 private:
     std::vector<u64> pages;
+    u64 last_offset = 0;
+    u64 last_size = 0;
 };
 
 } // namespace VideoCommon

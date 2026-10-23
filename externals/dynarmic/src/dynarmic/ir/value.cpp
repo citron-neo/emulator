@@ -1,0 +1,245 @@
+// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+/* This file is part of the dynarmic project.
+ * Copyright (c) 2016 MerryMage
+ * SPDX-License-Identifier: 0BSD
+ */
+
+#include "dynarmic/ir/value.h"
+
+#include "dynarmic/common/assert.h"
+#include "dynarmic/mcl/bit.hpp"
+
+#include "dynarmic/ir/microinstruction.h"
+#include "dynarmic/ir/opcodes.h"
+#include "dynarmic/ir/type.h"
+
+namespace Dynarmic::IR {
+
+Value::Value(Inst* value)
+        : type(Type::Opaque) {
+    inner.inst = value;
+}
+
+Value::Value(A32::Reg value)
+        : type(Type::A32Reg) {
+    inner.imm_a32regref = value;
+}
+
+Value::Value(A32::ExtReg value)
+        : type(Type::A32ExtReg) {
+    inner.imm_a32extregref = value;
+}
+
+Value::Value(A64::Reg value)
+        : type(Type::A64Reg) {
+    inner.imm_a64regref = value;
+}
+
+Value::Value(A64::Vec value)
+        : type(Type::A64Vec) {
+    inner.imm_a64vecref = value;
+}
+
+Value::Value(bool value)
+        : type(Type::U1) {
+    inner.imm_u1 = value;
+}
+
+Value::Value(u8 value)
+        : type(Type::U8) {
+    inner.imm_u8 = value;
+}
+
+Value::Value(u16 value)
+        : type(Type::U16) {
+    inner.imm_u16 = value;
+}
+
+Value::Value(u32 value)
+        : type(Type::U32) {
+    inner.imm_u32 = value;
+}
+
+Value::Value(u64 value)
+        : type(Type::U64) {
+    inner.imm_u64 = value;
+}
+
+Value::Value(CoprocessorInfo value)
+        : type(Type::CoprocInfo) {
+    inner.imm_coproc = value;
+}
+
+Value::Value(Cond value)
+        : type(Type::Cond) {
+    inner.imm_cond = value;
+}
+
+Value::Value(AccType value)
+        : type(Type::AccType) {
+    inner.imm_acctype = value;
+}
+
+Value Value::EmptyNZCVImmediateMarker() {
+    Value result{};
+    result.type = Type::NZCVFlags;
+    return result;
+}
+
+/// @brief ?
+bool Value::IsIdentity() const noexcept {
+    if (type == Type::Opaque)
+        return inner.inst->GetOpcode() == Opcode::Identity;
+    return false;
+}
+
+bool Value::IsEmpty() const noexcept {
+    return type == Type::Void;
+}
+
+bool Value::IsImmediate() const noexcept {
+    IR::Type current_type = type;
+    IR::Inst const* current_inst = inner.inst;
+    while (current_type == Type::Opaque && current_inst->GetOpcode() == Opcode::Identity) {
+        Value const& arg = current_inst->GetArg(0);
+        current_type = arg.type;
+        current_inst = arg.inner.inst;
+    }
+    return current_type != Type::Opaque;
+}
+
+Type Value::GetType() const noexcept {
+    if (IsIdentity())
+        return inner.inst->GetArg(0).GetType();
+    if (type == Type::Opaque)
+        return inner.inst->GetType();
+    return type;
+}
+
+A32::Reg Value::GetA32RegRef() const {
+    ASSERT(type == Type::A32Reg);
+    return inner.imm_a32regref;
+}
+
+A32::ExtReg Value::GetA32ExtRegRef() const {
+    ASSERT(type == Type::A32ExtReg);
+    return inner.imm_a32extregref;
+}
+
+A64::Reg Value::GetA64RegRef() const {
+    ASSERT(type == Type::A64Reg);
+    return inner.imm_a64regref;
+}
+
+A64::Vec Value::GetA64VecRef() const {
+    ASSERT(type == Type::A64Vec);
+    return inner.imm_a64vecref;
+}
+
+Inst* Value::GetInst() const {
+    ASSERT(type == Type::Opaque);
+    return inner.inst;
+}
+
+Inst* Value::GetInstRecursive() const {
+    ASSERT(type == Type::Opaque);
+    if (IsIdentity())
+        return inner.inst->GetArg(0).GetInstRecursive();
+    return inner.inst;
+}
+
+bool Value::GetU1() const {
+    if (IsIdentity())
+        return inner.inst->GetArg(0).GetU1();
+    ASSERT(type == Type::U1);
+    return inner.imm_u1;
+}
+
+u8 Value::GetU8() const {
+    if (IsIdentity())
+        return inner.inst->GetArg(0).GetU8();
+    ASSERT(type == Type::U8);
+    return inner.imm_u8;
+}
+
+u16 Value::GetU16() const {
+    if (IsIdentity())
+        return inner.inst->GetArg(0).GetU16();
+    ASSERT(type == Type::U16);
+    return inner.imm_u16;
+}
+
+u32 Value::GetU32() const {
+    if (IsIdentity())
+        return inner.inst->GetArg(0).GetU32();
+    ASSERT(type == Type::U32);
+    return inner.imm_u32;
+}
+
+u64 Value::GetU64() const {
+    if (IsIdentity())
+        return inner.inst->GetArg(0).GetU64();
+    ASSERT(type == Type::U64);
+    return inner.imm_u64;
+}
+
+Value::CoprocessorInfo Value::GetCoprocInfo() const {
+    if (IsIdentity())
+        return inner.inst->GetArg(0).GetCoprocInfo();
+    ASSERT(type == Type::CoprocInfo);
+    return inner.imm_coproc;
+}
+
+Cond Value::GetCond() const {
+    if (IsIdentity())
+        return inner.inst->GetArg(0).GetCond();
+    ASSERT(type == Type::Cond);
+    return inner.imm_cond;
+}
+
+AccType Value::GetAccType() const {
+    if (IsIdentity())
+        return inner.inst->GetArg(0).GetAccType();
+    ASSERT(type == Type::AccType);
+    return inner.imm_acctype;
+}
+
+s64 Value::GetImmediateAsS64() const {
+    ASSERT(IsImmediate());
+    switch (GetType()) {
+    case IR::Type::U1:
+        return s64(GetU1());
+    case IR::Type::U8:
+        return s64(mcl::bit::sign_extend<8, u64>(GetU8()));
+    case IR::Type::U16:
+        return s64(mcl::bit::sign_extend<16, u64>(GetU16()));
+    case IR::Type::U32:
+        return s64(mcl::bit::sign_extend<32, u64>(GetU32()));
+    case IR::Type::U64:
+        return s64(GetU64());
+    default:
+        UNREACHABLE();
+    }
+}
+
+u64 Value::GetImmediateAsU64() const {
+    ASSERT(IsImmediate());
+    switch (GetType()) {
+    case IR::Type::U1:
+        return u64(GetU1());
+    case IR::Type::U8:
+        return u64(GetU8());
+    case IR::Type::U16:
+        return u64(GetU16());
+    case IR::Type::U32:
+        return u64(GetU32());
+    case IR::Type::U64:
+        return u64(GetU64());
+    default:
+        UNREACHABLE();
+    }
+}
+
+}  // namespace Dynarmic::IR

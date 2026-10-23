@@ -1,0 +1,46 @@
+name: multiarch
+
+on: [ push, pull_request ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+
+    runs-on: macos-latest
+
+    steps:
+
+      - name: Install build dependencies
+        run: |
+          brew install ninja
+          echo "/usr/local/opt/llvm/bin" >> $GITHUB_PATH
+
+      - name: Checkout dynarmic repo
+        uses: actions/checkout@v2
+
+      - name: Checkout ext-boost repo
+        uses: actions/checkout@v2
+        with:
+          repository: yuzu-mirror/ext-boost
+          path: externals/ext-boost
+
+      - name: Configure CMake
+        run: >
+          cmake
+          -B ${{github.workspace}}/build
+          -DBOOST_INCLUDEDIR=${{github.workspace}}/externals/ext-boost
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          -G Ninja
+
+      - name: Build
+        working-directory: ${{github.workspace}}/build
+        run: cmake --build . --config Release
+
+      - name: Test
+        working-directory: ${{github.workspace}}/build
+        run: ctest --extra-verbose -C ${{env.BUILD_TYPE}}
