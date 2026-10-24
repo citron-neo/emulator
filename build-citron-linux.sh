@@ -76,6 +76,7 @@
 #   --clang-version N     Clang version to use (default: 21)
 #   --container           Build in the reusable Arch container (default: auto)
 #   --native              Do not enter a container
+#   --tarball             Also pack a portable tar.zst (default: off)
 #   --help, -h            Show this message
 #
 # TYPICAL WORKFLOWS:
@@ -184,7 +185,7 @@ if [[ "${_inside_arch}" != 1 && "${_container_mode}" != native ]]; then
     else
         _container_image="${CITRON_ARCH_IMAGE:-ghcr.io/pkgforge-dev/archlinux@sha256:f6fc7e14b0612a355d7ab50efb3cc40010ba28e4766860bd238d313b308f190b}"
         _container_env=( -e CITRON_IN_ARCH_CONTAINER=1 )
-        for _name in CLANG_VERSION BUILD_ROOT JOBS LTO_MODE PGO_MODE UNITY_BUILD DEVEL CPM_SOURCE_CACHE; do
+        for _name in CLANG_VERSION BUILD_ROOT JOBS LTO_MODE PGO_MODE UNITY_BUILD DEVEL CPM_SOURCE_CACHE NO_PACKAGE PACKAGE_TARBALL; do
             if [[ -z "${!_name+x}" ]]; then
                 continue
             fi
@@ -221,6 +222,7 @@ TRACY_BUILD="${TRACY_BUILD:-OFF}"
 TRACY_ALLOC_BUILD="${TRACY_ALLOC_BUILD:-OFF}"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 NO_PACKAGE="${NO_PACKAGE:-false}"
+PACKAGE_TARBALL="${PACKAGE_TARBALL:-0}"
 CPM_SOURCE_CACHE="${CPM_SOURCE_CACHE:-${HOME}/.cache/cpm}"
 CPM_SOURCE_CACHE="${CPM_SOURCE_CACHE/#\~/$HOME}"
 # Uncomment to optimize for this machine's CPU — produces a non-portable binary
@@ -1475,6 +1477,7 @@ build_appimage_stage() {
     DESTDIR="${install_root}" \
     CITRON_QT_PATH="${CITRON_QT_PATH}" \
     CITRON_XCB_PATH="${CITRON_XCB_PATH:-}" \
+    PACKAGE_TARBALL="${PACKAGE_TARBALL:-0}" \
         bash "${SCRIPT_DIR}/AppImageBuilder/package-citron-linux.sh" \
         || error "package-citron-linux.sh failed for ${stage_name}"
 
@@ -1980,6 +1983,8 @@ while [[ $# -gt 0 ]]; do
             CLANG_VERSION="$2"; _set_clang_tools; shift 2 ;;
         --nopackage|--no-package)
             NO_PACKAGE=true; shift ;;
+        --tarball)
+            PACKAGE_TARBALL=1; shift ;;
         --help|-h)
             sed -n '/^# build-citron-linux/,/^# ===/p' "$0" | head -130
             exit 0 ;;

@@ -23,6 +23,7 @@
 #   DEPLOY_PIPEWIRE Bundle PipeWire tree (default: 0)
 #   DEPLOY_GLIBC    Bundle glibc from Arch container (default: 1)
 #   DEPLOY_GTK      Bundle GTK modules (default: 0)
+#   PACKAGE_TARBALL Also pack a portable tar.zst alongside the AppImage (default: 0)
 #   CITRON_QT_PATH  CPM Qt6 prefix
 #   CITRON_XCB_PATH CPM XCB prefix
 
@@ -83,6 +84,9 @@ export DEPLOY_GLIBC="${DEPLOY_GLIBC:-1}"
 # DEPLOY_GTK=0: GTK3 is not bundled. libqgtk3.so is purged in cleanup below to force Qt
 # to use D-Bus libqxdgdesktopportal.so, avoiding host GTK module crashes on GTK distros.
 export DEPLOY_GTK="${DEPLOY_GTK:-0}"
+# PACKAGE_TARBALL=1: also pack a portable tar.zst from the same AppDir tree.
+# Off by default — the AppImage alone is the standard distribution artifact.
+PACKAGE_TARBALL="${PACKAGE_TARBALL:-0}"
 
 # ── CPM over system: steer dependency scan ──────────────────────────────────
 if [ -n "${CITRON_QT_PATH:-}" ] && [ -z "${QT_LOCATION:-}" ]; then
@@ -385,12 +389,18 @@ fi
 # --make-appimage) — a complete, AppRun-runnable, install-free alternative
 # to the AppImage, not a partial copy.
 #
+# Disabled by default (PACKAGE_TARBALL=0); enable with PACKAGE_TARBALL=1
+# (or --tarball in build-citron-linux.sh).  The AppImage is the standard
+# distribution artifact; nobody uses the tarball.
+#
 # AppDir is removed afterward: it has no further purpose once packed, and
 # leaving it in OUTPATH means anything that uploads/copies OUTPATH wholesale
 # (a CI artifact step, say) drags along every loose unpacked library a
 # second time alongside the AppImage that already contains them compressed.
-if [ -d ./AppDir ]; then
+if [ "${PACKAGE_TARBALL:-0}" = "1" ] && [ -d ./AppDir ]; then
     tar -c --zstd -f "${OUTPATH}/${OUTNAME_BASE}.tar.zst" -C ./AppDir .
+    rm -rf ./AppDir
+elif [ -d ./AppDir ]; then
     rm -rf ./AppDir
 fi
 
