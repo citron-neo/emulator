@@ -185,7 +185,7 @@ void QueryCacheBase<Traits>::CounterEnable(QueryType counter_type, bool is_enabl
     size_t index = static_cast<size_t>(counter_type);
     StreamerInterface* streamer = impl->streamers[index];
     if (!streamer) [[unlikely]] {
-        UNREACHABLE();
+        std::unreachable();
         return;
     }
     if (is_enabled) {
@@ -200,7 +200,7 @@ void QueryCacheBase<Traits>::CounterClose(QueryType counter_type) {
     size_t index = static_cast<size_t>(counter_type);
     StreamerInterface* streamer = impl->streamers[index];
     if (!streamer) [[unlikely]] {
-        UNREACHABLE();
+        std::unreachable();
         return;
     }
     streamer->CloseCounter();
@@ -279,7 +279,7 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
             return;
         }
         if (False(query_base->flags & QueryFlagBits::IsFinalValueSynced)) [[unlikely]] {
-            ASSERT(false);
+            assert(false);
             return;
         }
         query_base->value += streamer->GetAmendValue();

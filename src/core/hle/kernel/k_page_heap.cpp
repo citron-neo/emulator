@@ -10,10 +10,10 @@ void KPageHeap::Initialize(KPhysicalAddress address, size_t size,
                            KVirtualAddress management_address, size_t management_size,
                            const size_t* block_shifts, size_t num_block_shifts) {
     // Check our assumptions.
-    ASSERT(Common::IsAligned(GetInteger(address), PageSize));
-    ASSERT(Common::IsAligned(size, PageSize));
-    ASSERT(0 < num_block_shifts && num_block_shifts <= NumMemoryBlockPageShifts);
-    const KVirtualAddress management_end = management_address + management_size;
+    assert(Common::IsAligned(GetInteger(address), PageSize));
+    assert(Common::IsAligned(size, PageSize));
+    assert(0 < num_block_shifts && num_block_shifts <= NumMemoryBlockPageShifts);
+    [[maybe_unused]] const KVirtualAddress management_end = management_address + management_size;
 
     // Set our members.
     m_heap_address = address;
@@ -31,7 +31,7 @@ void KPageHeap::Initialize(KPhysicalAddress address, size_t size,
     }
 
     // Ensure we didn't overextend our bounds.
-    ASSERT(KVirtualAddress(cur_bitmap_storage) <= management_end);
+    assert(KVirtualAddress(cur_bitmap_storage) <= management_end);
 }
 
 size_t KPageHeap::GetNumFreePages() const {
@@ -176,7 +176,7 @@ void KPageHeap::Free(KPhysicalAddress addr, size_t num_pages) {
         }
         big_index--;
     }
-    ASSERT(big_index >= 0);
+    assert(big_index >= 0);
 
     // Free space before the big blocks.
     for (s32 i = big_index - 1; i >= 0; i--) {

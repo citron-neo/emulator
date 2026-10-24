@@ -25,7 +25,7 @@ VkFilter Filter(Tegra::Texture::TextureFilter filter) {
     case Tegra::Texture::TextureFilter::Linear:
         return VK_FILTER_LINEAR;
     }
-    ASSERT_MSG(false, "Invalid sampler filter={}", filter);
+    assert(false && "Invalid sampler filter={}" && (void(filter), true));
     return {};
 }
 
@@ -42,7 +42,7 @@ VkSamplerMipmapMode MipmapMode(Tegra::Texture::TextureMipmapFilter mipmap_filter
     case Tegra::Texture::TextureMipmapFilter::Linear:
         return VK_SAMPLER_MIPMAP_MODE_LINEAR;
     }
-    ASSERT_MSG(false, "Invalid sampler mipmap mode={}", mipmap_filter);
+    assert(false && "Invalid sampler mipmap mode={}" && (void(mipmap_filter), true));
     return {};
 }
 
@@ -69,7 +69,7 @@ VkSamplerAddressMode WrapMode(const Device& device, Tegra::Texture::WrapMode wra
         case Tegra::Texture::TextureFilter::Linear:
             return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         }
-        ASSERT(false);
+        assert(false);
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     case Tegra::Texture::WrapMode::MirrorOnceClampToEdge:
         return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
@@ -245,7 +245,7 @@ constexpr bool IsZetaFormat(PixelFormat pixel_format) {
 
 FormatInfo SurfaceFormat(const Device& device, FormatType format_type, bool with_srgb,
                          PixelFormat pixel_format) {
-    ASSERT(static_cast<size_t>(pixel_format) < std::size(tex_format_tuples));
+    assert(static_cast<size_t>(pixel_format) < std::size(tex_format_tuples));
     FormatTuple tuple = tex_format_tuples[static_cast<size_t>(pixel_format)];
     // Transcode on hardware that doesn't support ASTC natively
     if (!device.IsOptimalAstcSupported() && VideoCore::Surface::IsPixelFormatASTC(pixel_format)) {
@@ -350,7 +350,10 @@ VkPrimitiveTopology PrimitiveTopology([[maybe_unused]] const Device& device,
     case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Lines:
         return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
     case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LineLoop:
-        return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        // Vulkan has no line loop. A line strip draws every edge but the closing one; a triangle
+        // list drew filled triangles from line vertices. The closing edge needs an index
+        // conversion like the one for quads.
+        return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
     case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::LineStrip:
         return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
     case Tegra::Engines::Maxwell3D::Regs::PrimitiveTopology::Triangles:
@@ -383,8 +386,9 @@ VkPrimitiveTopology PrimitiveTopology([[maybe_unused]] const Device& device,
     return {};
 }
 
-VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type type,
-                      Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size size) {
+VkFormat NativeVertexFormat(const Device& device,
+                            Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type type,
+                            Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size size) {
     if (device.MustEmulateScaledFormats()) {
         if (type == Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SScaled) {
             type = Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::SInt;
@@ -396,7 +400,7 @@ VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::Ver
     const VkFormat format{([&]() {
         switch (type) {
         case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UnusedEnumDoNotUseBecauseItWillGoAway:
-            ASSERT_MSG(false, "Invalid vertex attribute type!");
+            assert(false && "Invalid vertex attribute type!");
             break;
         case Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type::UNorm:
             switch (size) {
@@ -607,9 +611,58 @@ VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::Ver
     if (format == VK_FORMAT_UNDEFINED) {
         UNIMPLEMENTED_MSG("Unimplemented vertex format of type={} and size={}", type, size);
     }
+    return format;
+}
 
-    return device.GetSupportedFormat(format, VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT,
-                                     FormatType::Buffer);
+VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type type,
+                      Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size size) {
+    return device.GetSupportedFormat(NativeVertexFormat(device, type, size),
+                                     VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT, FormatType::Buffer);
+}
+
+VkFormat VertexFormat(const Device& device, Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Type type,
+                      Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size size,
+                      u32 bytes_available) {
+    using Size = Tegra::Engines::Maxwell3D::Regs::VertexAttribute::Size;
+    // The same components one narrower, or Invalid when there is no narrower layout
+    const auto narrower{[](Size current) {
+        switch (current) {
+        case Size::Size_R32_G32_B32_A32:
+            return Size::Size_R32_G32_B32;
+        case Size::Size_R32_G32_B32:
+            return Size::Size_R32_G32;
+        case Size::Size_R32_G32:
+            return Size::Size_R32;
+        case Size::Size_R16_G16_B16_A16:
+            return Size::Size_R16_G16_B16;
+        case Size::Size_R16_G16_B16:
+            return Size::Size_R16_G16;
+        case Size::Size_R16_G16:
+            return Size::Size_R16;
+        case Size::Size_R8_G8_B8_A8:
+        case Size::Size_X8_B8_G8_R8:
+            return Size::Size_R8_G8_B8;
+        case Size::Size_R8_G8_B8:
+            return Size::Size_R8_G8;
+        case Size::Size_R8_G8:
+            return Size::Size_R8;
+        default:
+            return Size::Invalid;
+        }
+    }};
+    // Only the guest's own layout is narrowed; a host fallback that widens a format (R8G8B8 to
+    // R8G8B8A8, say) keeps every component the game declared and is left alone.
+    Tegra::Engines::Maxwell3D::Regs::VertexAttribute attribute{};
+    attribute.size.Assign(size);
+    while (attribute.SizeInBytes() > bytes_available) {
+        const Size next{narrower(attribute.size)};
+        if (next == Size::Invalid) {
+            // Packed or single component: nothing narrower, keep the layout the game declared
+            return VertexFormat(device, type, size);
+        }
+        attribute.size.Assign(next);
+    }
+    return VertexFormat(device, type, attribute.size);
 }
 
 VkCompareOp ComparisonOp(Tegra::Engines::Maxwell3D::Regs::ComparisonOp comparison) {
@@ -849,7 +902,7 @@ VkViewportCoordinateSwizzleNV ViewportSwizzle(Tegra::Engines::Maxwell3D::Regs::V
     case Tegra::Engines::Maxwell3D::Regs::ViewportSwizzle::NegativeW:
         return VK_VIEWPORT_COORDINATE_SWIZZLE_NEGATIVE_W_NV;
     }
-    ASSERT_MSG(false, "Invalid swizzle={}", swizzle);
+    assert(false && "Invalid swizzle={}" && (void(swizzle), true));
     return {};
 }
 
@@ -862,7 +915,7 @@ VkSamplerReductionMode SamplerReduction(Tegra::Texture::SamplerReduction reducti
     case Tegra::Texture::SamplerReduction::Max:
         return VK_SAMPLER_REDUCTION_MODE_MAX_EXT;
     }
-    ASSERT_MSG(false, "Invalid sampler mode={}", static_cast<int>(reduction));
+    assert(false && "Invalid sampler mode={}" && (void(static_cast<int>(reduction)), true));
     return VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE_EXT;
 }
 
@@ -885,7 +938,7 @@ VkSampleCountFlagBits MsaaMode(Tegra::Texture::MsaaMode msaa_mode) {
     case Tegra::Texture::MsaaMode::Msaa4x4:
         return VK_SAMPLE_COUNT_16_BIT;
     default:
-        ASSERT_MSG(false, "Invalid msaa_mode={}", static_cast<int>(msaa_mode));
+        assert(false && "Invalid msaa_mode={}" && (void(static_cast<int>(msaa_mode)), true));
         return VK_SAMPLE_COUNT_1_BIT;
     }
 }

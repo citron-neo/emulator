@@ -79,8 +79,8 @@ Service::PSC::Time::LocationName GetTimeZoneString(Service::PSC::Time::LocationN
                     std::min(configured_name.size(), configured_zone.size()));
     }
 
-    ASSERT_MSG(IsTimeZoneBinaryValid(configured_name), "Invalid time zone {}!",
-               configured_name.data());
+    assert(IsTimeZoneBinaryValid(configured_name) && "Invalid time zone {}!" &&
+           (void(configured_name.data()), true));
 
     return configured_name;
 }
@@ -94,28 +94,28 @@ TimeManager::TimeManager(Core::System& system)
         system.ServiceManager().GetService<Service::PSC::Time::ServiceManager>("time:m", true);
 
     auto res = m_time_m->GetStaticServiceAsServiceManager(&m_time_sm);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     m_set_sys =
         system.ServiceManager().GetService<Service::Set::ISystemSettingsServer>("set:sys", true);
 
     res = MountTimeZoneBinary(system);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     m_worker.Initialize(m_time_sm, m_set_sys);
 
     res = m_time_sm->GetStandardUserSystemClock(&m_file_timestamp_worker.m_system_clock);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     res = m_time_sm->GetTimeZoneService(&m_file_timestamp_worker.m_time_zone);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     res = SetupStandardSteadyClockCore();
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     Service::PSC::Time::SystemClockContext user_clock_context{};
     res = m_set_sys->GetUserSystemClockContext(&user_clock_context);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     // TODO the local clock should initialise with this epoch time, and be updated somewhere else on
     // first boot to update it, but I haven't been able to find that point (likely via ntc's auto
@@ -127,11 +127,11 @@ TimeManager::TimeManager(Core::System& system)
     }
 
     res = m_time_m->SetupStandardLocalSystemClockCore(user_clock_context, epoch_time);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     Service::PSC::Time::SystemClockContext network_clock_context{};
     res = m_set_sys->GetNetworkSystemClockContext(&network_clock_context);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     s32 network_accuracy_m{};
     m_set_sys->GetSettingsItemValueImpl<s32>(network_accuracy_m, "time",
@@ -141,30 +141,30 @@ TimeManager::TimeManager(Core::System& system)
     s64 network_accuracy_ns{network_accuracy_m * one_minute_ns};
 
     res = m_time_m->SetupStandardNetworkSystemClockCore(network_clock_context, network_accuracy_ns);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     bool is_automatic_correction_enabled{};
     res = m_set_sys->IsUserSystemClockAutomaticCorrectionEnabled(&is_automatic_correction_enabled);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     Service::PSC::Time::SteadyClockTimePoint automatic_correction_time_point{};
     res = m_set_sys->GetUserSystemClockAutomaticCorrectionUpdatedTime(
         &automatic_correction_time_point);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     res = m_time_m->SetupStandardUserSystemClockCore(is_automatic_correction_enabled,
                                                      automatic_correction_time_point);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     res = m_time_m->SetupEphemeralNetworkSystemClockCore();
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     res = SetupTimeZoneServiceCore();
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     s64 rtc_time_s{};
     res = m_steady_clock_resource.GetRtcTimeInSeconds(rtc_time_s);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     // TODO system report "launch"
     //      "rtc_reset" = m_steady_clock_resource.m_rtc_reset
@@ -194,11 +194,11 @@ TimeManager::~TimeManager() {
 Result TimeManager::SetupStandardSteadyClockCore() {
     Common::UUID external_clock_source_id{};
     auto res = m_set_sys->GetExternalSteadyClockSourceId(&external_clock_source_id);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     s64 external_steady_clock_internal_offset_s{};
     res = m_set_sys->GetExternalSteadyClockInternalOffset(&external_steady_clock_internal_offset_s);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     auto one_second_ns{
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(1)).count()};
@@ -227,14 +227,14 @@ Result TimeManager::SetupStandardSteadyClockCore() {
     res = m_time_m->SetupStandardSteadyClockCore(
         reset_detected, clock_source_id, m_steady_clock_resource.GetTime(),
         external_steady_clock_internal_offset_ns, standard_steady_clock_test_offset_ns);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
     R_SUCCEED();
 }
 
 Result TimeManager::SetupTimeZoneServiceCore() {
     Service::PSC::Time::LocationName name{};
     auto res = m_set_sys->GetDeviceTimeZoneLocationName(&name);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     auto configured_zone = GetTimeZoneString(name);
 
@@ -252,7 +252,7 @@ Result TimeManager::SetupTimeZoneServiceCore() {
 
     Service::PSC::Time::SteadyClockTimePoint time_point{};
     res = m_set_sys->GetDeviceTimeZoneLocationUpdatedTime(&time_point);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     auto location_count = GetTimeZoneCount();
     Service::PSC::Time::RuleVersion rule_version{};
@@ -261,11 +261,11 @@ Result TimeManager::SetupTimeZoneServiceCore() {
     std::span<const u8> rule_buffer{};
     size_t rule_size{};
     res = GetTimeZoneRule(rule_buffer, rule_size, name);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     res = m_time_m->SetupTimeZoneServiceCore(name, rule_version, location_count, time_point,
                                              rule_buffer);
-    ASSERT(res == ResultSuccess);
+    assert(res == ResultSuccess);
 
     R_SUCCEED();
 }

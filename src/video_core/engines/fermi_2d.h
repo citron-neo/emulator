@@ -133,6 +133,7 @@ public:
     };
 
     union Beta4 {
+        u32 raw;
         BitField<0, 8, u32> b;
         BitField<8, 8, u32> g;
         BitField<16, 8, u32> r;
@@ -300,12 +301,21 @@ public:
         s32 src_y0;
         s32 src_x1;
         s32 src_y1;
+        u32 beta1{};       ///< SET_BETA1: 1.31 fixed point, 8 fraction bits used
+        u32 beta4{};       ///< SET_BETA4: A8R8G8B8
+        bool clip{};       ///< SET_CLIP_ENABLE and the destination rect leaves the clip
+        s32 clip_x0{};
+        s32 clip_y0{};
+        s32 clip_x1{};     ///< Exclusive
+        s32 clip_y1{};     ///< Exclusive
     };
 
 private:
     VideoCore::RasterizerInterface* rasterizer = nullptr;
     std::unique_ptr<Blitter::SoftwareBlitEngine> sw_blitter;
     MemoryManager& memory_manager;
+    /// The first blit with a ROP operation is logged; later ones are not.
+    bool rop_reported{};
 
     /// Performs the copy from the source surface to the destination surface as configured in the
     /// registers.

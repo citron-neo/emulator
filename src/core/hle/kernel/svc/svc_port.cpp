@@ -166,7 +166,7 @@ Result ManageNamedPort(Core::System& system, Handle* out_server_handle, uint64_t
                                        name.data()));
     } else /* if (max_sessions == 0) */ {
         // Ensure that this else case is correct.
-        ASSERT(max_sessions == 0);
+        assert(max_sessions == 0);
 
         // If we're closing, there's no server handle.
         *out_server_handle = InvalidHandle;

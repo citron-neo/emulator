@@ -34,7 +34,7 @@ public:
 private:
     constexpr void LinkPrev(IntrusiveListNode* node) {
         // We can't link an already linked node.
-        ASSERT(!node->IsLinked());
+        assert(!node->IsLinked());
         this->SplicePrev(node, node);
     }
 
@@ -49,7 +49,7 @@ private:
 
     constexpr void LinkNext(IntrusiveListNode* node) {
         // We can't link an already linked node.
-        ASSERT(!node->IsLinked());
+        assert(!node->IsLinked());
         return this->SpliceNext(node, node);
     }
 
@@ -199,13 +199,13 @@ public:
 
     constexpr iterator iterator_to(reference v) {
         // Only allow iterator_to for values in lists.
-        ASSERT(v.IsLinked());
+        assert(v.IsLinked());
         return iterator(std::addressof(v));
     }
 
     constexpr const_iterator iterator_to(const_reference v) const {
         // Only allow iterator_to for values in lists.
-        ASSERT(v.IsLinked());
+        assert(v.IsLinked());
         return const_iterator(std::addressof(v));
     }
 

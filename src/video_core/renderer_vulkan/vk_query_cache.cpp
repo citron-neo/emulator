@@ -56,7 +56,7 @@ public:
     ~SamplesQueryBank() = default;
 
     void Reset() override {
-        ASSERT(references == 0);
+        assert(references == 0);
         VideoCommon::BankBase::Reset();
         const auto& dev = device.GetLogical();
         dev.ResetQueryPool(*query_pool, 0, BANK_SIZE);
@@ -677,7 +677,7 @@ public:
     ~TFBQueryBank() = default;
 
     void Reset() override {
-        ASSERT(references == 0);
+        assert(references == 0);
         VideoCommon::BankBase::Reset();
     }
 

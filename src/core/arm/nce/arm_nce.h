@@ -88,6 +88,10 @@ public:
     GuestContext m_guest_ctx{};
     Kernel::KThread* m_running_thread{};
 
+    // Unhandled data aborts reported on this core (HandleFailedGuestFault caps the reports).
+    // Only this core's host thread touches it.
+    u32 m_reported_data_aborts{};
+
     // Stack for signal processing.
     std::unique_ptr<u8[]> m_stack{};
 };

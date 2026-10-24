@@ -35,7 +35,7 @@ namespace {
            layers.base_layer + layers.num_layers <= info.resources.layers;
 }
 
-[[nodiscard]] bool ValidateCopy(const ImageCopy& copy, const ImageInfo& dst, const ImageInfo& src) {
+[[nodiscard, maybe_unused]] bool ValidateCopy(const ImageCopy& copy, const ImageInfo& dst, const ImageInfo& src) {
     const Extent3D src_size = MipSize(src.size, copy.src_subresource.base_level);
     const Extent3D dst_size = MipSize(dst.size, copy.dst_subresource.base_level);
     if (!ValidateLayers(copy.src_subresource, src)) {
@@ -160,7 +160,7 @@ void ImageBase::CheckAliasState() {
 
 bool AddImageAlias(ImageBase& lhs, ImageBase& rhs, ImageId lhs_id, ImageId rhs_id) {
     static constexpr auto OPTIONS = RelaxedOptions::Size | RelaxedOptions::Format;
-    ASSERT(lhs.info.type == rhs.info.type);
+    assert(lhs.info.type == rhs.info.type);
     std::optional<SubresourceBase> base;
     if (lhs.info.type == ImageType::Linear) {
         base = SubresourceBase{.level = 0, .layer = 0};
@@ -198,6 +198,8 @@ bool AddImageAlias(ImageBase& lhs, ImageBase& rhs, ImageId lhs_id, ImageId rhs_i
     for (s32 mip_level = 0; mip_level < num_mips; ++mip_level) {
         Extent3D lhs_size = MipSize(lhs.info.size, base->level + mip_level);
         Extent3D rhs_size = MipSize(rhs.info.size, mip_level);
+        const Extent3D lhs_texels = lhs_size;
+        const Extent3D rhs_texels = rhs_size;
         if (is_lhs_compressed) {
             lhs_size.width = Common::DivCeil(lhs_size.width, lhs_block.width);
             lhs_size.height = Common::DivCeil(lhs_size.height, lhs_block.height);
@@ -213,6 +215,46 @@ bool AddImageAlias(ImageBase& lhs, ImageBase& rhs, ImageId lhs_id, ImageId rhs_i
         };
         if (copy_size.width == 0 || copy_size.height == 0) {
             LOG_WARNING(HW_GPU, "Copy size is smaller than block size. Mip cannot be aliased.");
+            continue;
+        }
+        // copy_size counts blocks of a compressed image and texels of an uncompressed one.
+        // VkImageCopy's extent is in texels of the copy's source image, and a compressed region
+        // must be whole blocks or reach the end of the subresource (vkCmdCopyImage
+        // srcImage-01728/01729, dstImage-01732/01733). Before, a compressed source copied a
+        // block count as texels: 2 of 8 texels of a 2x2-block BC3 mip.
+        const auto source_extent = [&](bool src_compressed, Extent2D src_block,
+                                       const Extent3D& src_texels, bool dst_compressed,
+                                       const Extent3D& dst_texels) -> std::optional<Extent3D> {
+            if (!src_compressed) {
+                return copy_size;
+            }
+            Extent3D extent{
+                .width = std::min(copy_size.width * src_block.width, src_texels.width),
+                .height = std::min(copy_size.height * src_block.height, src_texels.height),
+                .depth = copy_size.depth,
+            };
+            if (!dst_compressed) {
+                return extent;
+            }
+            // Both compressed: the extent is in texels of both and must fit both
+            extent.width = std::min(extent.width, dst_texels.width);
+            extent.height = std::min(extent.height, dst_texels.height);
+            const auto fits = [&extent, src_block](const Extent3D& texels) {
+                return (extent.width % src_block.width == 0 || extent.width == texels.width) &&
+                       (extent.height % src_block.height == 0 || extent.height == texels.height);
+            };
+            if (!fits(src_texels) || !fits(dst_texels)) {
+                return std::nullopt;
+            }
+            return extent;
+        };
+        // lhs_alias lives in lhs.aliased_images and SynchronizeAliases applies it as
+        // CopyImage(dst = lhs, src = rhs), so its extent is in rhs texels; rhs_alias the reverse.
+        const std::optional<Extent3D> to_lhs_extent = source_extent(
+            is_rhs_compressed, rhs_block, rhs_texels, is_lhs_compressed, lhs_texels);
+        const std::optional<Extent3D> to_rhs_extent = source_extent(
+            is_lhs_compressed, lhs_block, lhs_texels, is_rhs_compressed, rhs_texels);
+        if (!to_lhs_extent || !to_rhs_extent) {
             continue;
         }
         const bool is_lhs_3d = lhs.info.type == ImageType::e3D;
@@ -237,19 +279,23 @@ bool AddImageAlias(ImageBase& lhs, ImageBase& rhs, ImageId lhs_id, ImageId rhs_i
             .dst_subresource = rhs_subresource,
             .src_offset = lhs_offset,
             .dst_offset = rhs_offset,
-            .extent = copy_size,
+            .extent = *to_lhs_extent,
         });
         [[maybe_unused]] const ImageCopy& to_rhs_copy = rhs_alias.copies.emplace_back(ImageCopy{
             .src_subresource = rhs_subresource,
             .dst_subresource = lhs_subresource,
             .src_offset = rhs_offset,
             .dst_offset = lhs_offset,
-            .extent = copy_size,
+            .extent = *to_rhs_extent,
         });
-        ASSERT_MSG(ValidateCopy(to_lhs_copy, lhs.info, rhs.info), "Invalid RHS to LHS copy");
-        ASSERT_MSG(ValidateCopy(to_rhs_copy, rhs.info, lhs.info), "Invalid LHS to RHS copy");
+        // ValidateCopy compares the extent with both images in texels, which only holds when
+        // neither or both are compressed
+        if (is_lhs_compressed == is_rhs_compressed) {
+            assert(ValidateCopy(to_lhs_copy, lhs.info, rhs.info) && "Invalid RHS to LHS copy");
+            assert(ValidateCopy(to_rhs_copy, rhs.info, lhs.info) && "Invalid LHS to RHS copy");
+        }
     }
-    ASSERT(lhs_alias.copies.empty() == rhs_alias.copies.empty());
+    assert(lhs_alias.copies.empty() == rhs_alias.copies.empty());
     if (lhs_alias.copies.empty()) {
         return false;
     }
