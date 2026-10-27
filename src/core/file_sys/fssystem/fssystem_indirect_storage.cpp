@@ -52,7 +52,7 @@ Result IndirectStorage::GetEntryList(Entry* out_entries, s32* out_entry_count, s
     R_UNLESS(out_entries != nullptr || entry_count == 0, ResultNullptrArgument);
 
     // Check that our range is valid.
-    BucketTree::Offsets table_offsets;
+    BucketTree::Offsets table_offsets{};
     R_TRY(m_table.GetOffsets(std::addressof(table_offsets)));
 
     R_UNLESS(table_offsets.IsInclude(offset, size), ResultOutOfRange);

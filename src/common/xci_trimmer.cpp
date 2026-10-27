@@ -416,7 +416,7 @@ XCITrimmer::OperationOutcome XCITrimmer::Trim(ProgressCallback progress_callback
 bool XCITrimmer::CanTrim(const std::filesystem::path& path) {
     auto extension = path.extension().string();
     std::transform(extension.begin(), extension.end(), extension.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     if (extension != ".xci" && extension != ".dxci") {
         return false;
     }
