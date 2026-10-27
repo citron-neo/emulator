@@ -255,43 +255,70 @@ void TextureCache<P>::FillComputeImageViews(std::span<ImageViewInOut> views) {
 }
 
 template <class P>
-void TextureCache<P>::CheckFeedbackLoop(std::span<const ImageViewInOut> views) {
-    if (!Settings::values.barrier_feedback_loops.GetValue()) {
-        return;
+void TextureCache<P>::CheckFeedbackLoop(std::span<const ImageViewInOut> views, bool same_pass,
+                                        bool foreign_writes) {
+    if (!same_pass) {
+        fbl_dirty = 0;
+    } else if (foreign_writes) {
+        fbl_dirty = ~0u;
     }
-
-    const bool requires_barrier = [&] {
-        for (const auto& view : views) {
-            if (!view.id) {
-                continue;
-            }
-            auto& image_view = slot_image_views[view.id];
-
-            // Check color targets
-            for (const auto& ct_view_id : render_targets.color_buffer_ids) {
-                if (ct_view_id) {
-                    auto& ct_view = slot_image_views[ct_view_id];
-                    if (image_view.image_id == ct_view.image_id) {
+    if (Settings::values.barrier_feedback_loops.GetValue() && fbl_dirty != 0) {
+        const bool requires_barrier = [&] {
+            for (const auto& view : views) {
+                if (!view.id) {
+                    continue;
+                }
+                const ImageId image_id = slot_image_views[view.id].image_id;
+                for (size_t i = 0; i < render_targets.color_buffer_ids.size(); ++i) {
+                    const ImageViewId ct_id = render_targets.color_buffer_ids[i];
+                    if (ct_id && (fbl_dirty & (1u << i)) != 0 &&
+                        slot_image_views[ct_id].image_id == image_id) {
                         return true;
                     }
                 }
-            }
-
-            // Check zeta target
-            if (render_targets.depth_buffer_id) {
-                auto& zt_view = slot_image_views[render_targets.depth_buffer_id];
-                if (image_view.image_id == zt_view.image_id) {
+                const ImageViewId zt_id = render_targets.depth_buffer_id;
+                if (zt_id && (fbl_dirty & (1u << NUM_RT)) != 0 &&
+                    slot_image_views[zt_id].image_id == image_id) {
                     return true;
                 }
             }
+            return false;
+        }();
+        if (requires_barrier) {
+            runtime.BarrierFeedbackLoop();
+            fbl_dirty = 0;
         }
-
-        return false;
-    }();
-
-    if (requires_barrier) {
-        runtime.BarrierFeedbackLoop();
     }
+    const auto& regs = maxwell3d->regs;
+    for (size_t i = 0; i < render_targets.color_buffer_ids.size(); ++i) {
+        if (render_targets.color_buffer_ids[i] &&
+            (regs.color_mask[regs.color_mask_common ? 0 : i].raw & 0x1111) != 0) {
+            fbl_dirty |= 1u << i;
+        }
+    }
+    if (render_targets.depth_buffer_id && (regs.depth_write_enabled || regs.stencil_enable)) {
+        fbl_dirty |= 1u << NUM_RT;
+    }
+}
+
+template <class P>
+int TextureCache<P>::FetchableTarget(ImageViewId id) {
+    if (!id) {
+        return -1;
+    }
+    const ImageViewBase& view = slot_image_views[id];
+    for (size_t i = 0; i < render_targets.color_buffer_ids.size(); ++i) {
+        const ImageViewId ct_id = render_targets.color_buffer_ids[i];
+        if (!ct_id) {
+            continue;
+        }
+        const ImageViewBase& ct = slot_image_views[ct_id];
+        if (ct.image_id == view.image_id && ct.range.base == view.range.base &&
+            ct.format == view.format) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
 }
 
 template <class P>

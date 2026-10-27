@@ -156,7 +156,10 @@ public:
     void FillComputeImageViews(std::span<ImageViewInOut> views);
 
     /// Handle feedback loops during draws.
-    void CheckFeedbackLoop(std::span<const ImageViewInOut> views);
+    void CheckFeedbackLoop(std::span<const ImageViewInOut> views, bool same_pass,
+                           bool foreign_writes);
+
+    int FetchableTarget(ImageViewId id);
 
     /// Get the sampler from the graphics descriptor table in the specified index
     Sampler* GetGraphicsSampler(u32 index);
@@ -455,6 +458,7 @@ public:
     std::deque<TextureCacheGPUMap> gpu_page_table_storage;
 
     RenderTargets render_targets;
+    u32 fbl_dirty{};
 
     std::unordered_map<RenderTargets, FramebufferId> framebuffers;
 

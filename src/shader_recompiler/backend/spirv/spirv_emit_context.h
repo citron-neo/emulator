@@ -42,6 +42,8 @@ struct TextureDefinition {
     bool is_multisample;
     bool is_integer;
     bool is_signed;
+    Id fetch_id{};
+    Id fetch_type{};
 };
 
 struct TextureBufferDefinition {

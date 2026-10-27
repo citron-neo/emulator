@@ -1487,6 +1487,26 @@ void EmitContext::DefineTextures(const Info& info, u32& binding, u32& scaling_in
         Decorate(id, spv::Decoration::Binding, binding);
         Decorate(id, spv::Decoration::DescriptorSet, ResourceSet(profile));
         Name(id, NameOf(stage, desc, "tex"));
+        Id fetch_id{};
+        Id fetch_type{};
+        const size_t desc_index{textures.size()};
+        if (stage == Stage::Fragment && desc_index < runtime_info.texture_fetch_attachment.size() &&
+            runtime_info.texture_fetch_attachment[desc_index] != 0 && desc.count == 1 &&
+            desc.type == TextureType::Color2D && !desc.is_depth && !desc.is_multisample &&
+            !desc.is_integer) {
+            fetch_type = TypeImage(F32[1], spv::Dim::SubpassData, false, false, false, 2,
+                                   spv::ImageFormat::Unknown);
+            fetch_id = AddGlobalVariable(TypePointer(spv::StorageClass::UniformConstant, fetch_type),
+                                         spv::StorageClass::UniformConstant);
+            Decorate(fetch_id, spv::Decoration::Binding, static_cast<u32>(desc_index));
+            Decorate(fetch_id, spv::Decoration::DescriptorSet, 7u);
+            Decorate(fetch_id, spv::Decoration::InputAttachmentIndex,
+                     runtime_info.texture_fetch_attachment[desc_index] - 1u);
+            AddCapability(spv::Capability::InputAttachment);
+            if (profile.supported_spirv >= 0x00010400) {
+                interfaces.push_back(fetch_id);
+            }
+        }
         textures.push_back({
             .id = id,
             .sampled_type = sampled_type,
@@ -1496,6 +1516,8 @@ void EmitContext::DefineTextures(const Info& info, u32& binding, u32& scaling_in
             .is_multisample = desc.is_multisample,
             .is_integer = desc.is_integer,
             .is_signed = desc.is_signed,
+            .fetch_id = fetch_id,
+            .fetch_type = fetch_type,
         });
         if (desc.count > 1 && profile.support_sampled_image_array_non_uniform_indexing) {
             AddExtension("SPV_EXT_descriptor_indexing");
