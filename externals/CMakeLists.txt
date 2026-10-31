@@ -342,5 +342,9 @@ endif()
 if (NOT TARGET SimpleIni::SimpleIni)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/simpleini/CMakeLists.txt")
         add_subdirectory(simpleini)
+        # Treat the bundled headers as system headers so their warnings don't trip -Werror
+        get_target_property(_simpleini_include_dirs SimpleIni INTERFACE_INCLUDE_DIRECTORIES)
+        set_target_properties(SimpleIni PROPERTIES
+            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_simpleini_include_dirs}")
     endif()
 endif()

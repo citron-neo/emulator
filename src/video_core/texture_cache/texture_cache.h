@@ -65,11 +65,11 @@ bool TextureCache<P>::RunGarbageCollector(bool aggressive_mode) {
     const size_t max_scans = aggressive_mode ? 128 : 64;
     const size_t max_download_bytes = 32_MiB;
     size_t download_bytes = 0;
-    struct PendingDownload {
+    struct GcDownload {
         ImageId image_id;
         size_t offset;
     };
-    boost::container::small_vector<PendingDownload, 40> pending_downloads;
+    boost::container::small_vector<GcDownload, 40> pending_downloads;
     size_t num_evictions = 0;
 
     const auto Cleanup = [&](ImageId image_id) {

@@ -89,7 +89,7 @@ public:
     virtual size_t Read(u8* buffer, size_t size, size_t offset) const override;
 
     virtual size_t GetSize() const override {
-        BucketTree::Offsets offsets;
+        BucketTree::Offsets offsets{};
         [[maybe_unused]] const auto get_offsets_result =
             m_table.GetOffsets(std::addressof(offsets));
         assert(R_SUCCEEDED(get_offsets_result));
