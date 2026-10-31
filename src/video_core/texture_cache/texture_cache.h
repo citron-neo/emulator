@@ -1965,7 +1965,10 @@ ImageId TextureCache<P>::FindPaddedRenderTarget(const ImageInfo& info, GPUVAddr 
         }
         const u32 width = std::max(1U, image.info.size.width >> base->level);
         const u32 height = std::max(1U, image.info.size.height >> base->level);
-        if (width > info.size.width || height > info.size.height ||
+        // Only an image at least as large as the requested target in both dimensions can
+        // stand in for it: rendering into a smaller one leaves the bottom and right rows of
+        // the target unwritten, and they come back as stale memory.
+        if (width < info.size.width || height < info.size.height ||
             (width == info.size.width && height == info.size.height)) {
             return;
         }
