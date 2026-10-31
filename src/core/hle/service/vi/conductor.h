@@ -34,6 +34,10 @@ public:
     explicit Conductor(Core::System& system, Container& container, DisplayList& displays);
     ~Conductor();
 
+    // Owner serializes Stop/destruction. Wait without holding Container's lock:
+    // a timing callback or the VSync thread may be entering ComposeOnDisplay.
+    void Stop();
+
     void LinkVsyncEvent(u64 display_id, Event* event);
     void UnlinkVsyncEvent(u64 display_id, Event* event);
 

@@ -3,10 +3,13 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <optional>
 
 #include "common/bit_field.h"
 #include "common/common_types.h"
+#include "common/terminal_ingress.h"
 #include "core/hle/service/nvdrv/nvdata.h"
 #include "video_core/cdma_pusher.h"
 #include "video_core/framebuffer_config.h"
@@ -147,15 +150,31 @@ public:
     /// Signal the ending of command list.
     void OnCommandListEnd();
 
-    std::shared_ptr<Control::ChannelState> AllocateChannel();
+    struct ChannelAllocation {
+        std::shared_ptr<Control::ChannelState> channel;
+        Common::TerminalIngress::Entry publication;
+    };
+    /// Retain publication through device/fd/session construction, not only allocation.
+    [[nodiscard]] std::optional<ChannelAllocation> AllocateChannel();
 
-    void InitChannel(Control::ChannelState& to_init, u64 program_id);
+    /// Retain through caller metadata/submission publication. Deferred setup may
+    /// record a program id before address-space binding, but cannot submit work.
+    [[nodiscard]] std::optional<Common::TerminalIngress::Entry>
+    InitChannel(Control::ChannelState& to_init, u64 program_id, bool allow_deferred = false);
 
     void BindChannel(s32 channel_id);
 
     void ReleaseChannel(Control::ChannelState& to_release);
 
-    void InitAddressSpace(Tegra::MemoryManager& memory_manager);
+    /// Retain the returned terminal publication entry through caller-side owner
+    /// publication. No entry means no binding; this is not guest admission.
+    [[nodiscard]] std::optional<Common::TerminalIngress::Entry>
+    InitAddressSpace(Tegra::MemoryManager& memory_manager);
+
+    /// External NV channel/address-space publication and mapping lifetime. Retain
+    /// through lookup, service locks, pin/unpin, callbacks and acknowledgement.
+    /// The caller still owns the facade/Module lifetime; this does not stop native producers.
+    [[nodiscard]] std::optional<Common::TerminalIngress::Entry> AcquireChannelBinding();
 
     /// Request a host GPU memory flush from the CPU.
     [[nodiscard]] u64 RequestFlush(DAddr addr, std::size_t size);
@@ -170,6 +189,9 @@ public:
 
     /// Wait until previously queued work has been processed by the GPU emulation thread.
     void SynchronizeGPUThread();
+    bool IsGpuThread() const;
+    void RunOnGpuThread(std::function<void()> callback);
+    [[nodiscard]] bool TryQueueCpuWrite(std::function<bool()> poll);
 
     /// Gets a mutable reference to the Host1x interface
     [[nodiscard]] Host1x::Host1x& Host1x();
@@ -227,6 +249,12 @@ public:
 
     /// Performs any additional necessary steps to shutdown GPU emulation.
     void NotifyShutdown();
+    /// Owner-thread terminal drain while System/Host1x/Kernel/backing still live.
+    /// Returns only on safe backend disposal; uncertain failure stops the process.
+    void Shutdown();
+    /// Fencing-worker failure publication without waiting for the command owner to run.
+    void NotifyControlledProducerConflict();
+    [[nodiscard]] bool HasControlledProducerConflict() const;
 
     /// Obtain the CPU Context
     void ObtainContext();

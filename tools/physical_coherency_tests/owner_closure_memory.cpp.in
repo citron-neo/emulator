@@ -1,0 +1,29 @@
+namespace Core::Memory {
+class Memory {
+    ManagedGuestWrites managed_writes;
+public:
+    struct Impl {
+        struct Entry { Common::PageTable::PageInfo pointer; };
+        struct Table { std::array<Entry,1> entries; } table;
+        Table* current_page_table = &table;
+        std::atomic<unsigned> translations{};
+        std::function<void(u64)> before_store;
+        explicit Impl(u8* bytes) { table.entries[0].pointer.Store(reinterpret_cast<uintptr_t>(bytes),Common::PageType::Memory); }
+        static bool AddressSpaceContains(const Table&,u64 address,size_t length) { return address + length <= 4096; }
+        u8* GetPointerFromDebugMemory(u64) const { return nullptr; }
+        u8* GetPointerFromRasterizerCachedMemory(u64) const { return nullptr; }
+        @GET_POINTER@
+        template<class T> void Write(Common::ProcessAddress address,T value) {
+            ++translations;
+            auto* p=GetPointerImpl(GetInteger(address), []{}, []{});
+            Require(p!=nullptr,"fixture address not mapped");
+            if(before_store) before_store(GetInteger(address));
+            *p=value;
+        }
+    };
+    std::unique_ptr<Impl> impl;
+    Memory(const std::shared_ptr<Common::ProducerDrain>& domain,u8* bytes)
+        : managed_writes{domain}, impl{std::make_unique<Impl>(bytes)} {}
+    @WRITE8@
+};
+}

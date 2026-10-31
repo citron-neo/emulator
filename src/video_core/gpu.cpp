@@ -5,11 +5,15 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <deque>
 #include <list>
 #include <memory>
+#include <stdexcept>
+#include <utility>
 
 #include "common/assert.h"
 #include "common/settings.h"
+#include "common/terminal_fail_stop.h"
 #include "core/core.h"
 #include "core/core_timing.h"
 #include "core/frontend/emu_window.h"
@@ -31,6 +35,7 @@
 #include "video_core/host1x/syncpoint_manager.h"
 #include "video_core/memory_manager.h"
 #include "video_core/renderer_base.h"
+#include "video_core/rasterizer_binding_state.h"
 #include "video_core/shader_notify.h"
 
 namespace Tegra {
@@ -39,45 +44,112 @@ struct GPU::Impl {
     explicit Impl(GPU& gpu_, Core::System& system_, bool is_async_, bool use_nvdec_)
         : gpu{gpu_}, system{system_}, host1x{system.Host1x()}, use_nvdec{use_nvdec_},
           shader_notify{std::make_unique<VideoCore::ShaderNotify>()}, is_async{is_async_},
-          gpu_thread{system_, is_async_}, scheduler{std::make_unique<Control::Scheduler>(gpu)} {}
+          gpu_thread{system_, is_async_}, scheduler{std::make_unique<Control::Scheduler>(gpu)} {
+        owner_publications.Open();
+    }
 
     ~Impl() {
-        if (rasterizer) {
-            rasterizer->Shutdown();
+        Shutdown();
+    }
+
+    void Shutdown() {
+        if (is_shut_down) return;
+        if (terminal_shutdown_started) {
+            Common::TerminalFailStop("gpu.entry", "reentrant_shutdown");
+        }
+        terminal_shutdown_started = true;
+        const char* stage = "gpu.ingress_close";
+        try {
+            NotifyShutdown();
+            // Join while every object referenced by RunThread is still alive. Member
+            // destruction order alone cannot drain work or close callback admission.
+            stage = "gpu.worker_join";
+            gpu_thread.Stop();
+            stage = "gpu.owner_join";
+            owner_publications.Join();
+            rasterizer_binding->Join();
+            CloseCompositeRequests();
+            stage = "gpu.renderer_shutdown";
+            if (renderer) {
+                renderer->Shutdown();
+            }
+            is_shut_down = true;
+        } catch (...) {
+            Common::TerminalFailStop(stage, "host_exception");
         }
     }
 
-    std::shared_ptr<Control::ChannelState> CreateChannel(s32 channel_id) {
+    std::optional<GPU::ChannelAllocation> AllocateChannel() {
+        auto publication = owner_publications.TryEnter();
+        if (!publication) return std::nullopt;
+        std::scoped_lock creation_lock{channel_creation_mutex};
+        const s32 channel_id = new_channel_id++;
         auto channel_state = std::make_shared<Tegra::Control::ChannelState>(channel_id);
-        channels.emplace(channel_id, channel_state);
-        scheduler->DeclareChannel(channel_state);
-        return channel_state;
+        {
+            std::scoped_lock map_lock{channel_map_mutex};
+            channels.emplace(channel_id, channel_state);
+        }
+        // Scheduler::Push holds its scheduling lock while binding a channel.
+        // Never hold channel_map_mutex while acquiring that scheduler lock.
+        try {
+            scheduler->DeclareChannel(channel_state);
+        } catch (...) {
+            std::scoped_lock map_lock{channel_map_mutex};
+            channels.erase(channel_id);
+            throw;
+        }
+        return GPU::ChannelAllocation{std::move(channel_state), std::move(*publication)};
     }
 
     void BindChannel(s32 channel_id) {
         if (bound_channel == channel_id) {
             return;
         }
-        auto it = channels.find(channel_id);
-        assert(it != channels.end());
+        std::shared_ptr<Control::ChannelState> channel_state;
+        {
+            std::scoped_lock map_lock{channel_map_mutex};
+            auto it = channels.find(channel_id);
+            if (it == channels.end()) {
+                throw std::runtime_error("GPU channel is not registered");
+            }
+            channel_state = it->second;
+        }
         bound_channel = channel_id;
-        current_channel = it->second.get();
+        current_channel = channel_state.get();
 
         rasterizer->BindChannel(*current_channel);
     }
 
-    std::shared_ptr<Control::ChannelState> AllocateChannel() {
-        return CreateChannel(new_channel_id++);
+    std::optional<Common::TerminalIngress::Entry>
+    InitChannel(Control::ChannelState& to_init, u64 program_id, bool allow_deferred) {
+        auto publication = owner_publications.TryEnter();
+        if (!publication || to_init.initialization_failed) return std::nullopt;
+        if (!to_init.memory_manager) {
+            return allow_deferred ? std::move(publication) : std::nullopt;
+        }
+        if (!to_init.initialized) {
+            // A throw may leave engines, aliases or backend cache entries behind.
+            // Do not replay that partially effected initialization on this owner.
+            to_init.initialization_failed = true;
+            to_init.Init(system, gpu, program_id);
+            to_init.BindRasterizer(rasterizer);
+            rasterizer->InitializeChannel(to_init);
+            to_init.initialized = true;
+            to_init.initialization_failed = false;
+        }
+        return publication;
     }
 
-    void InitChannel(Control::ChannelState& to_init, u64 program_id) {
-        to_init.Init(system, gpu, program_id);
-        to_init.BindRasterizer(rasterizer);
-        rasterizer->InitializeChannel(to_init);
+    std::optional<Common::TerminalIngress::Entry>
+    InitAddressSpace(Tegra::MemoryManager& memory_manager) {
+        auto publication = owner_publications.TryEnter();
+        if (!publication) return std::nullopt;
+        if (!rasterizer || !memory_manager.AttachRasterizer(rasterizer_binding)) return std::nullopt;
+        return publication;
     }
 
-    void InitAddressSpace(Tegra::MemoryManager& memory_manager) {
-        memory_manager.BindRasterizer(rasterizer);
+    std::optional<Common::TerminalIngress::Entry> AcquireChannelBinding() {
+        return owner_publications.TryEnter();
     }
 
     void ReleaseChannel(Control::ChannelState& to_release) {
@@ -86,56 +158,79 @@ struct GPU::Impl {
 
     /// Binds a renderer to the GPU.
     void BindRenderer(std::unique_ptr<VideoCore::RendererBase> renderer_) {
-        renderer = std::move(renderer_);
-        rasterizer = renderer->ReadRasterizer();
-        host1x.MemoryManager().BindInterface(rasterizer);
-        host1x.GMMU().BindRasterizer(rasterizer);
+        auto publication = owner_publications.TryEnter();
+        if (!publication || !renderer_) throw std::runtime_error("Renderer binding closed or invalid");
+        auto replacement = std::make_shared<CompositeState>();
+        replacement->renderer = renderer_.get();
+        auto* target = renderer_->ReadRasterizer();
+        if (!rasterizer_binding->SetTarget(target)) {
+            throw std::runtime_error("Renderer binding is invalid or already initialized");
+        }
+        try {
+            if (!host1x.GMMU().AttachRasterizer(rasterizer_binding)) {
+                throw std::runtime_error("GMMU already belongs to another binding");
+            }
+            CloseCompositeRequests();
+            renderer = std::move(renderer_);
+            composite_state = std::move(replacement);
+            rasterizer = target;
+            host1x.MemoryManager().BindInterface(rasterizer);
+        } catch (...) {
+            NotifyShutdown();
+            throw;
+        }
     }
 
     /// Flush all current written commands into the host GPU for execution.
     void FlushCommands() {
-        rasterizer->FlushCommands();
+        gpu_thread.FlushCommands();
     }
 
     /// Synchronizes CPU writes with Host GPU memory.
     void InvalidateGPUCache() {
-        std::function<void(PAddr, size_t)> callback_writes(
-            [this](PAddr address, size_t size) { rasterizer->OnCacheInvalidation(address, size); });
-        system.GatherGPUDirtyMemory(callback_writes);
+        gpu_thread.InvalidateGPUCache();
     }
 
     /// Signal the ending of command list.
     void OnCommandListEnd() {
-        rasterizer->ReleaseFences(false);
-        Settings::UpdateGPUAccuracy();
+        gpu_thread.OnCommandListEnd();
     }
 
     /// Request a host GPU memory flush from the CPU.
     template <typename Func>
     [[nodiscard]] u64 RequestSyncOperation(Func&& action) {
         std::unique_lock lck{sync_request_mutex};
+        if (shutting_down.load(std::memory_order_relaxed)) {
+            return 0;
+        }
+        sync_requests.emplace_back(std::forward<Func>(action));
         const u64 fence = ++last_sync_fence;
-        sync_requests.emplace_back(action);
         return fence;
     }
 
     /// Obtains current flush request fence id.
     [[nodiscard]] u64 CurrentSyncRequestFence() const {
-        return current_sync_fence.load(std::memory_order_relaxed);
+        // A shutdown waiter can observe completion before TickWork reacquires
+        // sync_request_mutex. Pair with its release publication before reading results.
+        return current_sync_fence.load(std::memory_order_acquire);
     }
 
-    void WaitForSyncOperation(const u64 fence) {
+    bool WaitForSyncOperation(const u64 fence) {
+        if (fence == 0) {
+            return false;
+        }
         std::unique_lock lck{sync_request_mutex};
         sync_request_cv.wait(lck, [this, fence] {
             return shutting_down.load(std::memory_order_relaxed) ||
                    CurrentSyncRequestFence() >= fence;
         });
+        return CurrentSyncRequestFence() >= fence;
     }
 
     /// Tick pending requests within the GPU.
     void TickWork() {
         std::unique_lock lck{sync_request_mutex};
-        while (!sync_requests.empty()) {
+        while (!shutting_down.load(std::memory_order_relaxed) && !sync_requests.empty()) {
             auto request = std::move(sync_requests.front());
             sync_requests.pop_front();
             lck.unlock();
@@ -148,6 +243,14 @@ struct GPU::Impl {
 
     void SynchronizeGPUThread() {
         gpu_thread.Synchronize();
+    }
+
+    bool IsGpuThread() const { return gpu_thread.IsGpuThread(); }
+    void RunOnGpuThread(std::function<void()> callback) {
+        gpu_thread.RunOnGpuThread(std::move(callback));
+    }
+    bool TryQueueCpuWrite(std::function<bool()> poll) {
+        return gpu_thread.TryQueueCpuWrite(std::move(poll));
     }
 
     /// Returns a reference to the Maxwell3D GPU engine.
@@ -237,6 +340,8 @@ struct GPU::Impl {
     }
 
     void NotifyShutdown() {
+        owner_publications.Close();
+        rasterizer_binding->Close();
         {
             // Both kinds of CPU waiters must be released if GPU execution has failed.
             std::scoped_lock lk{sync_mutex, sync_request_mutex};
@@ -244,6 +349,22 @@ struct GPU::Impl {
         }
         sync_cv.notify_all();
         sync_request_cv.notify_all();
+        // Move/destroy one payload at a time outside locks, without allocating a
+        // temporary container in this failure path (even list's sentinel can
+        // allocate on some standard libraries). Reentrant enqueue sees shutdown.
+        for (;;) {
+            std::function<void()> cancelled;
+            {
+                std::scoped_lock lock{sync_request_mutex};
+                if (sync_requests.empty()) {
+                    break;
+                }
+                cancelled = std::move(sync_requests.front());
+                sync_requests.pop_front();
+            }
+        }
+        // An already-started request owns its arguments/result and is joined by
+        // Impl teardown before owner release.
     }
 
     /// Obtain the CPU Context
@@ -294,17 +415,26 @@ struct GPU::Impl {
     }
 
     VideoCore::RasterizerDownloadArea OnCPURead(DAddr addr, u64 size) {
-        auto raster_area = rasterizer->GetFlushArea(addr, size);
+        // Retain the direct cache query only. Its entry must not span a queued
+        // flush wait; worker join/cancellation owns that separate execution.
+        const auto area = gpu_thread.TryGetFlushArea(addr, size);
+        if (!area) {
+            return {};
+        }
+        auto raster_area = *area;
         if (raster_area.preemtive) {
             return raster_area;
         }
         raster_area.preemtive = true;
-        const u64 fence = RequestSyncOperation([this, &raster_area]() {
+        const u64 fence = RequestSyncOperation([this, raster_area]() {
             rasterizer->FlushRegion(raster_area.start_address,
                                     raster_area.end_address - raster_area.start_address);
         });
         gpu_thread.TickGPU();
-        WaitForSyncOperation(fence);
+        if (!WaitForSyncOperation(fence)) {
+            // Do not cache coverage for a flush cancelled during shutdown.
+            return {};
+        }
         return raster_area;
     }
 
@@ -314,7 +444,7 @@ struct GPU::Impl {
     }
 
     bool OnCPUWrite(DAddr addr, u64 size) {
-        return rasterizer->OnCPUWrite(addr, size);
+        return gpu_thread.OnCPUWrite(addr, size);
     }
 
     /// Notify rasterizer that any caches of the specified region should be flushed and invalidated
@@ -324,37 +454,46 @@ struct GPU::Impl {
 
     void RequestComposite(std::vector<Tegra::FramebufferConfig>&& layers,
                           std::vector<Service::Nvidia::NvFence>&& fences) {
-        size_t num_fences{fences.size()};
-        size_t current_request_counter{};
-        {
-            std::unique_lock<std::mutex> lk(request_swap_mutex);
-            if (free_swap_counters.empty()) {
-                current_request_counter = request_swap_counters.size();
-                request_swap_counters.emplace_back(num_fences);
-            } else {
-                current_request_counter = free_swap_counters.front();
-                request_swap_counters[current_request_counter] = num_fences;
-                free_swap_counters.pop_front();
-            }
-        }
+        struct Request {
+            std::vector<Tegra::FramebufferConfig> layers;
+            size_t remaining;
+            bool cancelled{}; // guarded by CompositeState::mutex
+        };
+        auto request = std::make_shared<Request>(Request{std::move(layers), fences.size()});
+        auto state = composite_state;
+        auto& syncpoint_manager = host1x.GetSyncpointManager();
         const auto wait_fence =
-            RequestSyncOperation([this, current_request_counter, &layers, &fences, num_fences] {
-                auto& syncpoint_manager = host1x.GetSyncpointManager();
-                if (num_fences == 0) {
-                    renderer->Composite(layers);
-                }
-                const auto executer = [this, current_request_counter, layers_copy = layers]() {
-                    {
-                        std::unique_lock<std::mutex> lk(request_swap_mutex);
-                        if (--request_swap_counters[current_request_counter] != 0) {
-                            return;
-                        }
-                        free_swap_counters.push_back(current_request_counter);
+            RequestSyncOperation([state, request, pending_fences = std::move(fences),
+                                  &syncpoint_manager] {
+                const auto present = [state, request] {
+                    std::scoped_lock lock{state->mutex};
+                    if (!state->renderer || request->cancelled) {
+                        return;
                     }
-                    renderer->Composite(layers_copy);
+                    if (request->remaining != 0 && --request->remaining != 0) {
+                        return;
+                    }
+                    try {
+                        state->renderer->Composite(request->layers);
+                    } catch (...) {
+                        // A retained failing action must never replay a partial read/present.
+                        request->cancelled = true;
+                        throw;
+                    }
                 };
-                for (size_t i = 0; i < num_fences; i++) {
-                    syncpoint_manager.RegisterGuestAction(fences[i].id, fences[i].value, executer);
+                try {
+                    if (pending_fences.empty()) {
+                        present();
+                    }
+                    for (const auto& fence : pending_fences) {
+                        syncpoint_manager.RegisterGuestAction(fence.id, fence.value, present);
+                    }
+                } catch (...) {
+                    // A prefix may already own callbacks. Keep its source packet,
+                    // but forbid any later presentation of a failed registration.
+                    std::scoped_lock lock{state->mutex};
+                    request->cancelled = true;
+                    throw;
                 }
             });
         gpu_thread.TickGPU();
@@ -362,14 +501,15 @@ struct GPU::Impl {
     }
 
     std::vector<u8> GetAppletCaptureBuffer() {
-        std::vector<u8> out;
+        auto out = std::make_shared<std::vector<u8>>();
 
         const auto wait_fence =
-            RequestSyncOperation([&] { out = renderer->GetAppletCaptureBuffer(); });
+            RequestSyncOperation([this, out] { *out = renderer->GetAppletCaptureBuffer(); });
         gpu_thread.TickGPU();
-        WaitForSyncOperation(wait_fence);
-
-        return out;
+        if (!WaitForSyncOperation(wait_fence)) {
+            return {}; // Do not read a result still being produced by a cancelled wait.
+        }
+        return std::move(*out);
     }
 
     GPU& gpu;
@@ -386,6 +526,14 @@ struct GPU::Impl {
     std::unique_ptr<VideoCore::ShaderNotify> shader_notify;
     /// When true, we are about to shut down emulation session, so terminate outstanding tasks
     std::atomic_bool shutting_down{};
+    bool is_shut_down{}; // terminal owner thread only; no restart
+    bool terminal_shutdown_started{};
+    // Cold publications may precede GPU Start. Closed by NotifyShutdown, joined
+    // before renderer teardown, including the caller's final owner publication.
+    Common::TerminalIngress owner_publications;
+    std::shared_ptr<RasterizerBindingState> rasterizer_binding =
+        std::make_shared<RasterizerBindingState>();
+    std::atomic_bool controlled_producer_conflict{};
 
     std::array<std::atomic<u32>, Service::Nvidia::MaxSyncPoints> syncpoints{};
 
@@ -409,12 +557,23 @@ struct GPU::Impl {
 
     std::unique_ptr<Tegra::Control::Scheduler> scheduler;
     std::unordered_map<s32, std::shared_ptr<Tegra::Control::ChannelState>> channels;
+    std::mutex channel_creation_mutex;
+    std::mutex channel_map_mutex;
     Tegra::Control::ChannelState* current_channel;
     s32 bound_channel{-1};
 
-    std::deque<size_t> free_swap_counters;
-    std::deque<size_t> request_swap_counters;
-    std::mutex request_swap_mutex;
+    // Guest syncpoint actions can outlive their initiating request and even Impl.
+    // They retain this detached state, never Impl or a borrowed caller stack.
+    struct CompositeState {
+        std::mutex mutex;
+        VideoCore::RendererBase* renderer{};
+    };
+    std::shared_ptr<CompositeState> composite_state = std::make_shared<CompositeState>();
+
+    void CloseCompositeRequests() {
+        std::scoped_lock lock{composite_state->mutex};
+        composite_state->renderer = nullptr;
+    }
 };
 
 GPU::GPU(Core::System& system, bool is_async, bool use_nvdec)
@@ -422,24 +581,30 @@ GPU::GPU(Core::System& system, bool is_async, bool use_nvdec)
 
 GPU::~GPU() = default;
 
-std::shared_ptr<Control::ChannelState> GPU::AllocateChannel() {
+std::optional<GPU::ChannelAllocation> GPU::AllocateChannel() {
     return impl->AllocateChannel();
 }
 
-void GPU::InitChannel(Control::ChannelState& to_init, u64 program_id) {
-    impl->InitChannel(to_init, program_id);
+std::optional<Common::TerminalIngress::Entry>
+GPU::InitChannel(Control::ChannelState& to_init, u64 program_id, bool allow_deferred) {
+    return impl->InitChannel(to_init, program_id, allow_deferred);
 }
 
 void GPU::BindChannel(s32 channel_id) {
     impl->BindChannel(channel_id);
 }
 
+std::optional<Common::TerminalIngress::Entry> GPU::AcquireChannelBinding() {
+    return impl->AcquireChannelBinding();
+}
+
 void GPU::ReleaseChannel(Control::ChannelState& to_release) {
     impl->ReleaseChannel(to_release);
 }
 
-void GPU::InitAddressSpace(Tegra::MemoryManager& memory_manager) {
-    impl->InitAddressSpace(memory_manager);
+std::optional<Common::TerminalIngress::Entry>
+GPU::InitAddressSpace(Tegra::MemoryManager& memory_manager) {
+    return impl->InitAddressSpace(memory_manager);
 }
 
 void GPU::BindRenderer(std::unique_ptr<VideoCore::RendererBase> renderer) {
@@ -468,11 +633,21 @@ u64 GPU::CurrentSyncRequestFence() const {
 }
 
 void GPU::WaitForSyncOperation(u64 fence) {
-    return impl->WaitForSyncOperation(fence);
+    impl->WaitForSyncOperation(fence);
 }
 
 void GPU::TickWork() {
     impl->TickWork();
+}
+
+bool GPU::IsGpuThread() const { return impl->IsGpuThread(); }
+
+void GPU::RunOnGpuThread(std::function<void()> callback) {
+    impl->RunOnGpuThread(std::move(callback));
+}
+
+bool GPU::TryQueueCpuWrite(std::function<bool()> poll) {
+    return impl->TryQueueCpuWrite(std::move(poll));
 }
 
 void GPU::SynchronizeGPUThread() {
@@ -560,6 +735,19 @@ void GPU::Start() {
 
 void GPU::NotifyShutdown() {
     impl->NotifyShutdown();
+}
+
+void GPU::Shutdown() {
+    impl->Shutdown();
+}
+
+void GPU::NotifyControlledProducerConflict() {
+    impl->controlled_producer_conflict.store(true, std::memory_order_release);
+    impl->NotifyShutdown();
+}
+
+bool GPU::HasControlledProducerConflict() const {
+    return impl->controlled_producer_conflict.load(std::memory_order_acquire);
 }
 
 void GPU::ObtainContext() {

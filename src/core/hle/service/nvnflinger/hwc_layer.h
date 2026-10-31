@@ -3,11 +3,16 @@
 
 #pragma once
 
+#include <memory>
 #include "common/math_util.h"
 #include "core/hle/service/nvdrv/nvdata.h"
 #include "core/hle/service/nvnflinger/buffer_transform_flags.h"
 #include "core/hle/service/nvnflinger/pixel_format.h"
 #include "core/hle/service/nvnflinger/ui/fence.h"
+
+namespace Service::android {
+struct GraphicBufferSource;
+}
 
 namespace Service::Nvnflinger {
 
@@ -37,6 +42,7 @@ struct HwcLayer {
     android::BufferTransformFlags transform;
     Common::Rectangle<int> crop_rect;
     android::Fence acquire_fence;
+    std::shared_ptr<const android::GraphicBufferSource> source_owner{};
 };
 
 } // namespace Service::Nvnflinger

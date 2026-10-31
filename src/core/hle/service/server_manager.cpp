@@ -16,6 +16,7 @@
 #include "core/hle/service/hle_ipc.h"
 #include "core/hle/service/ipc_helpers.h"
 #include "core/hle/service/server_manager.h"
+#include "common/terminal_fail_stop.h"
 #include "core/hle/service/sm/sm.h"
 
 namespace Service {
@@ -91,6 +92,16 @@ ServerManager::~ServerManager() {
     // Wait for processing to stop.
     m_stopped.Wait();
     m_threads.clear();
+
+    // A service worker may hold a callback target lock. Join those workers first,
+    // then drain external callbacks before releasing any handler/session owner.
+    try {
+        if (m_before_service_release) {
+            m_before_service_release();
+        }
+    } catch (...) {
+        Common::TerminalFailStop("service.owner_drain", "host_exception");
+    }
 
     // Clean up ports.
     auto port_it = m_servers.begin();

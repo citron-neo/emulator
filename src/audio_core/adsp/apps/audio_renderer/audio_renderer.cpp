@@ -66,15 +66,17 @@ void AudioRenderer::Signal() {
     Send(Direction::DSP, Message::Render);
 }
 
-void AudioRenderer::Wait() {
+bool AudioRenderer::Wait() {
     auto msg = Receive(Direction::Host);
     if (msg != Message::RenderResponse) {
         LOG_ERROR(Service_Audio,
                   "Did not receive the expected render response from the AudioRenderer! Expected "
                   "{}, got {}",
                   Message::RenderResponse, msg);
+        return false;
     }
     PostDSPClearCommandBuffer();
+    return true;
 }
 
 void AudioRenderer::Send(Direction dir, u32 message) {

@@ -1,0 +1,167 @@
+// SPDX-FileCopyrightText: Copyright 2026 citron Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+#version 450
+
+// Format-aware DMA conversion using integer reference rounding; no Float64 capability.
+// One invocation owns one complete output word, including partial byte updates.
+// This requires neither 8/16-bit storage nor subword atomic writes.
+layout(local_size_x = 64) in;
+layout(std430, set=0, binding=0) buffer Packed { uint words[]; } packed;
+layout(std430, set=0, binding=1) buffer Planes { uint words[]; } planes;
+layout(push_constant) uniform Parameters {
+    uint width;
+    uint height;
+    uint layers;
+    uint row_pitch;
+    uint layer_pitch;
+    uint packed_offset;
+    uint depth_offset;
+    uint stencil_offset;
+    uint guest_layout; // CPU GuestLayout enum: depth24/stencil8, stencil8/depth24, float32/stencil8/X24
+    uint pack_mode;
+    uint output_first; // Four-byte aligned; depth_offset on unpack, zero on pack.
+    uint output_end;   // Exclusive, rounded to four bytes and inside the descriptor.
+    uint host_format; // 0 = UNORM24, 1 = float32, 2 = UNORM16
+} p;
+
+// Divide an at-most-48-bit numerator by a positive at-most-24-bit denominator.
+// The quotient is at most 25 bits. Remainder shifts stay below 2^25, so this
+// needs neither shaderInt64 nor FP64 and never loses a quantization carry.
+uint divide48(uint hi, uint lo, uint denominator) {
+    uint result = 0u, remainder = 0u;
+    for (int bit = 47; bit >= 0; --bit) {
+        uint digit;
+        if (bit >= 32) digit = (hi >> uint(bit - 32)) & 1u;
+        else digit = (lo >> uint(bit)) & 1u;
+        remainder = (remainder << 1u) | digit;
+        result <<= 1u;
+        if (remainder >= denominator) { remainder -= denominator; result |= 1u; }
+    }
+    return result;
+}
+// UNORM-to-UNORM: exact product, then nearest integer with halves upward.
+uint rounded_ratio(uint value, uint source_max, uint target_max) {
+    uint hi, lo;
+    umulExtended(value, target_max, hi, lo);
+    uint old = lo;
+    lo += source_max / 2u;
+    if (lo < old) hi++;
+    return divide48(hi, lo, source_max);
+}
+// Build the correctly rounded binary32 bit pattern for value/(2^digits-1).
+// The denominator is odd: halfway significand ties cannot occur. Scaling the
+// numerator to a 24-bit significand needs at most 48 bits, and UNORM16/24 never
+// produce subnormal floats. A rounded carry renormalizes the exponent.
+uint unorm_float(uint value, uint digits) {
+    if (value == 0u) return 0u;
+    uint msb = uint(findMSB(value));
+    uint shift = 23u + digits - msb;
+    uint hi, lo;
+    if (shift >= 32u) { hi = value << (shift-32u); lo = 0u; }
+    else { hi = value >> (32u-shift); lo = value << shift; }
+    uint maximum = (1u << digits)-1u;
+    uint old = lo; lo += maximum/2u; if (lo < old) hi++;
+    uint significand = divide48(hi,lo,maximum);
+    uint exponent = msb + 127u - digits;
+    if (significand >= 0x1000000u) { significand >>= 1u; exponent++; }
+    return (exponent << 23u) | (significand & 0x7fffffu);
+}
+// Clamp NaN/negative to zero and >=1 to max, matching the CPU helper.
+// For 0<value<1 the exact significand product has at most 48 bits. Add the
+// halfway bit before the shift; values with shift>48 necessarily round to zero.
+uint float_unorm(uint bits, uint maximum) {
+    if ((bits & 0x7fffffffu) > 0x7f800000u || (bits & 0x80000000u) != 0u) return 0u;
+    if (bits >= 0x3f800000u) return maximum;
+    uint shift = 150u - ((bits >> 23u) & 255u);
+    if (shift > 48u) return 0u;
+    uint hi, lo;
+    umulExtended((bits & 0x7fffffu) | 0x800000u,maximum,hi,lo);
+    if (shift > 32u) hi += 1u << (shift-33u);
+    else { uint old=lo; lo += 1u << (shift-1u); if(lo<old) hi++; }
+    if (shift >= 32u) return hi >> (shift-32u);
+    return (lo >> shift) | (hi << (32u-shift));
+}
+uint convert_depth(uint bits, uint source, uint target) {
+    if (source == target) return source == 0u ? bits & 0xffffffu : bits;
+    uint source_max = source == 0u ? 0xffffffu : 65535u;
+    uint target_max = target == 0u ? 0xffffffu : 65535u;
+    if (source == 1u) return float_unorm(bits,target_max);
+    bits &= source_max;
+    if (target == 1u) return unorm_float(bits,source == 0u ? 24u : 16u);
+    return rounded_ratio(bits,source_max,target_max);
+}
+uint packed_byte(uint address) {
+    return (packed.words[address / 4u] >> ((address % 4u) * 8u)) & 255u;
+}
+uint plane_byte(uint address) {
+    return (planes.words[address / 4u] >> ((address % 4u) * 8u)) & 255u;
+}
+uint packed_pixel(uint index) {
+    uint x = index % p.width;
+    uint y = (index / p.width) % p.height;
+    uint z = index / (p.width * p.height);
+    return p.packed_offset + z * p.layer_pitch + y * p.row_pitch +
+        x * (p.guest_layout == 2u ? 8u : 4u);
+}
+uint unpack_byte(uint address) {
+    uint count = p.width * p.height * p.layers;
+    uint db = p.host_format == 2u ? 2u : 4u;
+    if (address >= p.depth_offset && address - p.depth_offset < count * db) {
+        uint relative = address - p.depth_offset;
+        uint pixel = packed_pixel(relative / db);
+        uint value = 0u;
+        for (uint i=0u;i<4u;++i) value |= packed_byte(pixel+i) << (i*8u);
+        if (p.guest_layout == 1u) value >>= 8u;
+        value = convert_depth(value,p.guest_layout == 2u ? 1u : 0u,p.host_format);
+        return (value >> ((relative % db)*8u)) & 255u;
+    }
+    if (address >= p.stencil_offset && address - p.stencil_offset < count) {
+        uint pixel = packed_pixel(address - p.stencil_offset);
+        return packed_byte(pixel + (p.guest_layout == 0u ? 3u : p.guest_layout == 1u ? 0u : 4u));
+    }
+    return 0u; // Dedicated plane allocation alignment padding.
+}
+uint pack_byte(uint address, uint previous) {
+    if (address < p.packed_offset) return previous;
+    uint relative = address - p.packed_offset;
+    uint z = relative / p.layer_pitch;
+    relative %= p.layer_pitch;
+    uint y = relative / p.row_pitch;
+    relative %= p.row_pitch;
+    uint bpp = p.guest_layout == 2u ? 8u : 4u;
+    uint x = relative / bpp;
+    uint component = relative % bpp;
+    if (z >= p.layers || y >= p.height || x >= p.width) return previous;
+    uint pixel = (z * p.height + y) * p.width + x;
+    if (p.guest_layout == 2u) {
+        if (component > 4u) return previous; // Preserve guest X24 baseline.
+        if (component == 4u) return plane_byte(p.stencil_offset + pixel);
+    } else {
+        uint stencil_component = p.guest_layout == 0u ? 3u : 0u;
+        if (component == stencil_component) return plane_byte(p.stencil_offset + pixel);
+        if (p.guest_layout == 1u) component--;
+    }
+    uint value=0u;
+    uint db=p.host_format == 2u ? 2u : 4u;
+    for (uint i=0u;i<db;++i) value |= plane_byte(p.depth_offset+pixel*db+i) << (i*8u);
+    value=convert_depth(value,p.host_format,p.guest_layout == 2u ? 1u : 0u);
+    return (value >> (component*8u)) & 255u;
+}
+void main() {
+    // Check the relative word before adding a potentially near-UINT_MAX base.
+    // Tail invocations must not wrap around into the beginning of the buffer.
+    uint word_index = gl_GlobalInvocationID.x;
+    if (word_index >= (p.output_end - p.output_first) / 4u) return;
+    uint address = p.output_first + word_index * 4u;
+    uint word = 0u;
+    // Pack reads the original word once. Every preserved byte comes from that
+    // invocation's own word; no invocation reads a word another one overwrites.
+    uint previous = p.pack_mode != 0u ? packed.words[address / 4u] : 0u;
+    for (uint i=0u; i<4u; ++i) {
+        uint value = p.pack_mode != 0u ? pack_byte(address+i, (previous >> (8u*i)) & 255u) :
+                                       unpack_byte(address+i);
+        word |= value << (8u*i);
+    }
+    if (p.pack_mode != 0u) packed.words[address / 4u] = word;
+    else planes.words[address / 4u] = word;
+}

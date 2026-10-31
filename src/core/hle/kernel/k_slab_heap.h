@@ -195,7 +195,13 @@ public:
         T* obj = static_cast<T*>(BaseHeap::Allocate());
 
         if (obj != nullptr) [[likely]] {
-            std::construct_at(obj, kernel);
+            try {
+                std::construct_at(obj, kernel);
+            } catch (...) {
+                // A refused process constructor has not published an object.
+                BaseHeap::Free(obj);
+                throw;
+            }
         }
         return obj;
     }

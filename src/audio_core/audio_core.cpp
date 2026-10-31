@@ -5,10 +5,12 @@
 #include "audio_core/sink/sink_details.h"
 #include "common/settings.h"
 #include "core/core.h"
+#include "core/hle/kernel/kernel.h"
 
 namespace AudioCore {
 
-AudioCore::AudioCore(Core::System& system) : audio_manager{std::make_unique<AudioManager>()} {
+AudioCore::AudioCore(Core::System& system)
+    : audio_manager{std::make_unique<AudioManager>(system.Kernel().AudioCallbackDomain())} {
     CreateSinks();
     // Must be created after the sinks
     adsp = std::make_unique<ADSP::ADSP>(system, *output_sink);

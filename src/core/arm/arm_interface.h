@@ -93,6 +93,10 @@ public:
     // Signal an interrupt for execution to halt as soon as possible.
     // It is safe to call this if the CPU is not running.
     virtual void SignalInterrupt(Kernel::KThread* thread) = 0;
+    // Explicit owner-orchestrated stop request. Unsupported backends must refuse;
+    // SignalInterrupt may contain a blocking platform handshake (notably NCE).
+    // A successful request is NOT acknowledgement that execution has exited.
+    virtual bool RequestNonblockingGuestStop(Kernel::KThread*) { return false; }
 
     // Stack trace generation.
     void LogBacktrace(Kernel::KProcess* process) const;

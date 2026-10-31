@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <functional>
+#include <iostream>
+#include <list>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+#include "common/bit_field.h"
+#include "core/hle/service/nvnflinger/hwc_layer.h"
+#include "core/hle/service/nvnflinger/ui/graphic_buffer.h"
+#include "video_core/framebuffer_config.h"
+using namespace std::chrono_literals;
+#define LOG_WARNING(...) ((void)0)
+#define LOG_DEBUG(...) ((void)0)
+void Require(bool value,const char* why){if(!value){std::cerr<<"FAIL "<<why<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Gate{std::mutex mutex;std::condition_variable cv;bool ready=false;
+    void Set(){std::scoped_lock l{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{mutex};Require(cv.wait_for(l,5s,[&]{return ready;}),"rendezvous timeout");}};
+struct Choice{std::mutex mutex;std::condition_variable cv;int value=0;
+    void Set(int n){std::scoped_lock l{mutex};if(!value)value=n;cv.notify_all();}
+    int Wait(){std::unique_lock l{mutex};Require(cv.wait_for(l,5s,[&]{return value!=0;}),"choice timeout");return value;}};
+thread_local int thread_identity;
+struct ObservedMutex{std::mutex actual;std::atomic<const void*> owner=nullptr;std::function<void()> before;
+    void lock(){auto hook=before;if(hook)hook();actual.lock();owner=&thread_identity;}
+    void unlock(){owner=nullptr;actual.unlock();}bool HeldByCurrent()const{return owner==&thread_identity;}};
+struct GPU{
+    int requests=0,notifications=0;std::vector<DAddr> addresses;std::function<void()> notify_hook;
+    void NotifyShutdown(){if(notify_hook)notify_hook();++notifications;}
+    void RequestComposite(std::vector<Tegra::FramebufferConfig>&& frames,std::vector<Service::Nvidia::NvFence>&&){++requests;for(auto& f:frames)addresses.push_back(f.address);}
+};
+struct System{
+    ::GPU gpu;auto& GPU(){return gpu;}
+    struct RendererType{void SetMainApplicationAruid(u64){}}renderer;auto& Renderer(){return renderer;}
+    u64 GetMainApplicationAruid(){return 1;}
+    struct Limiter{void DoSpeedLimiting(u64){}}limiter;auto& SpeedLimiter(){return limiter;}
+    struct Timing{u64 GetGlobalTimeUs(){return 0;}}timing;auto& CoreTiming(){return timing;}
+    struct Stats{void EndSystemFrame(){}void BeginSystemFrame(){}}stats;auto& GetPerfStats(){return stats;}
+};
+namespace Service::android{
+// Translation fixture only: no nvmap pin/process/backing authority is fabricated.
+GraphicBuffer::GraphicBuffer(u32 w,u32 h,PixelFormat f,u32 u):NvGraphicBuffer(w,h,f,u){}
+GraphicBuffer::~GraphicBuffer()=default;
+}
+namespace Service::Nvidia::NvCore{
+struct SessionId{u32 id;u64 generation{};};
+struct NvMap{
+    @HANDLE@
+    @INFO@
+    ObservedMutex handles_lock,unmap_queue_lock;
+    std::unordered_map<Handle::Id,std::shared_ptr<Handle>> handles;
+    std::list<std::shared_ptr<Handle>> unmap_queue;
+    struct Host{::System system;auto& System(){return system;}
+        struct Memory {Common::FrameMappingDomain domain;
+            auto CaptureFrameMapping(DAddr address,u64 size) {
+                if(!address)return std::optional<Common::FrameMappingDomain::Stamp>{};
+                return domain.Capture(address,size);
+            }}memory;
+        auto& MemoryManager(){return memory;}}host1x;
+    std::function<void()> unmap_hook;bool fail_unmap=false;int unmaps=0;
+    struct Core{bool IsDisplaySessionActive(SessionId){return true;}}core;
+    bool UnmapHandle(Handle& h){Require(h.mutex.HeldByCurrent(),"unmap writer lost handle guard");++unmaps;if(unmap_hook)unmap_hook();
+        if(fail_unmap){return false;}
+        h.d_address=0;h.pin_virt_address=0;return true;}
+    std::shared_ptr<Handle> GetHandle(Handle::Id);DAddr GetHandleAddress(Handle::Id);
+    std::optional<Common::FrameMappingDomain::Stamp> GetDisplayMapping(Handle::Id);
+    bool TryRemoveHandle(const Handle&);std::optional<FreeInfo> FreeHandle(Handle::Id,bool);void UnmapAllHandles(SessionId);
+};
+@METHODS@
+}
+namespace Service::Nvidia::Devices{
+struct nvdisp_disp0{::System& system;NvCore::NvMap& nvmap;void Composite(std::span<const Nvnflinger::HwcLayer>);};
+@BLEND@
+@NVDISP@
+}
+using NvMap=Service::Nvidia::NvCore::NvMap;
+struct Fixture{
+    NvMap file;std::shared_ptr<NvMap::Handle> handle=std::make_shared<NvMap::Handle>(4096,1);
+    Fixture(){handle->allocated=true;handle->d_address=4096;handle->pin_virt_address=8192;handle->address=12288;
+        handle->session_id={1};handle->internal_dupes=1;handle->pins=1;file.handles.emplace(1,handle);
+        file.host1x.system.gpu.notify_hook=[&]{Require(!handle->mutex.HeldByCurrent()&&!file.handles_lock.HeldByCurrent()&&!file.unmap_queue_lock.HeldByCurrent(),"failed free notified under mapping locks");};}
+};
+void Racing(const std::string& mode){Fixture f;Gate entered,release;Choice progress;
+    if(mode=="last-free")f.handle->internal_dupes=0;
+    f.file.fail_unmap=mode=="free-failure";f.file.unmap_hook=[&]{entered.Set();release.Wait();};
+    bool freed=false;std::thread writer([&]{if(mode=="session-retire"||mode=="display-session"){f.file.UnmapAllHandles({1});freed=true;}else freed=f.file.FreeHandle(1,false).has_value();});entered.Wait();
+    f.handle->mutex.before=[&]{Require(!f.file.handles_lock.HeldByCurrent(),"address lookup held table lock across handle wait");progress.Set(1);};
+    DAddr address=123;std::thread reader([&]{
+#if @DISPLAY_MAPPING@
+        if(mode.starts_with("display-")){const auto mapping=f.file.GetDisplayMapping(1);address=mapping?mapping->address:0;}
+        else
+#endif
+        {address=f.file.GetHandleAddress(1);}
+        progress.Set(2);});
+    Require(progress.Wait()==1,"address lookup bypassed mapping mutation lock");release.Set();writer.join();reader.join();
+    if(mode=="free-failure")Require(!freed&&address==4096&&f.handle->dupes==1&&f.handle->pins==1&&f.file.host1x.system.gpu.notifications==1,"failed unmap changed guest ownership boundary");
+    else Require(freed&&address==0&&f.handle->dupes==0&&f.handle->pins==0,"lookup published source after mapping retirement");
+    if(mode=="last-free")Require(f.file.handles.empty(),"last guest free retained numeric lookup entry");}
+void SnapshotRetire(){Fixture f;int attempts=0;
+    f.handle->mutex.before=[&]{if(++attempts==1){Require(!f.file.handles_lock.HeldByCurrent(),"address lookup held table lock across handle wait");f.handle->mutex.before={};f.file.FreeHandle(1,false);}};
+    Require(f.file.GetHandleAddress(1)==0,"retained handle snapshot ignored concurrent retirement");}
+void Publish(bool zero){Fixture f;if(zero){f.file.FreeHandle(1,false);}Service::Nvidia::Devices::nvdisp_disp0 disp{f.file.host1x.system,f.file};
+    auto owner=std::make_shared<Service::android::GraphicBuffer>(32,16,Service::android::PixelFormat{},0);owner->buffer_id=1;
+    Service::Nvnflinger::HwcLayer layer{};layer.buffer_handle=1;layer.width=32;layer.source_owner=std::make_shared<const Service::android::GraphicBufferSource>(owner);
+    disp.Composite(std::span(&layer,1));auto& gpu=f.file.host1x.system.gpu;
+    if(zero)Require(gpu.requests==0,"zero source address published deferred read");
+    else Require(gpu.requests==1&&gpu.addresses==std::vector<DAddr>{4096}&&f.file.GetHandleAddress(999)==0,"valid source translation lost normal publication");}
+void AfterSnapshot(){Fixture f;const auto saved=f.file.GetHandleAddress(1);auto retained=f.handle;
+    f.file.FreeHandle(1,false);Require(saved==4096&&retained->internal_dupes==1&&retained->d_address==0&&retained->pins==0,"post-snapshot mapping characterization changed");
+    // Deliberately never dereference saved: an object/once-valid address is not a mapping-use epoch.
+}
+void UnmapIncarnation(){Fixture f;f.handle->session_id.generation=1;
+    auto next=std::make_shared<NvMap::Handle>(4096,2);next->session_id={1,2};next->d_address=8192;next->pins=1;next->internal_dupes=1;f.file.handles.emplace(2,next);
+    f.file.UnmapAllHandles({1,2});
+    Require(f.handle->d_address==4096&&f.handle->dupes==1&&f.handle->pins==1&&next->d_address==0,
+            "replacement unmap retired old incarnation");}
+int main(int argc,char** argv){Require(argc==2,"missing case");std::string c=argv[1];
+    if(c=="guest-free"||c=="session-retire"||c=="free-failure"||c=="last-free"||c.starts_with("display-"))Racing(c);
+    else if(c=="session-generation")UnmapIncarnation();else if(c=="snapshot-retire")SnapshotRetire();else if(c=="normal"||c=="zero")Publish(c=="zero");else if(c=="after-snapshot")AfterSnapshot();else Require(false,"unknown case");
+    std::cout<<"PASS frame address "<<c<<'\n';}

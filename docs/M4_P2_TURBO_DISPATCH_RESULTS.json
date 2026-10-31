@@ -1,0 +1,183 @@
+{
+  "date": "2026-10-23",
+  "branch": "codex/issue-372-fixes",
+  "synchronized_head": "664136bb763d5fe6dc25f9316cfafb7e88ba4f61",
+  "main_unchanged": "b6a2ce9488d78efdbbeb0efe14c2ec5c0a263e76",
+  "baseline": {
+    "revision": "664136bb763d5fe6dc25f9316cfafb7e88ba4f61",
+    "source": "src/video_core/renderer_vulkan/vk_turbo_mode.cpp",
+    "source_sha256": "839cd681b7d633fe8c000c2831ddd247cd2fc6bfb90256df8c7bbe7680ab3c29",
+    "witnesses": {
+      "success": {
+        "exit_code": 91,
+        "witness": "UNSAFE success accounting or reuse"
+      },
+      "retry": {
+        "exit_code": 91,
+        "witness": "UNSAFE pending fence reset"
+      },
+      "stop-pending": {
+        "exit_code": 91,
+        "witness": "UNSAFE stop lost pending native owner"
+      },
+      "submit-error": {
+        "exit_code": 91,
+        "witness": "UNSAFE wait without accepted dispatch"
+      },
+      "wait-error": {
+        "exit_code": 91,
+        "witness": "UNSAFE native error returned"
+      }
+    }
+  },
+  "dispatch": {
+    "sha256": {
+      "src/video_core/renderer_vulkan/vk_turbo_mode.cpp": "8e1e499a096f2fdb94bc6d279983324081b22423c465dc3fab3a4a18f117db38",
+      "tools/gpu_lifecycle_tests/turbo_dispatch_fixture.cpp.in": "ec98257ba9ba173abda992e5dd9da99a5a15abdd58eb1c9f2ef25aa52784139e",
+      "tools/gpu_lifecycle_tests/run_turbo_dispatch_tests.py": "c23ba4da9bd19c203cbb3051216ace36f5e0e8d832e5f58c2e51ce935e4d3c4e",
+      "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+      "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3"
+    },
+    "repetitions": 3,
+    "cases": [
+      "success",
+      "retry",
+      "stop-pending",
+      "submit-error",
+      "wait-error"
+    ],
+    "controls": [
+      "inverted-success",
+      "reset-pending",
+      "timeout-retires",
+      "ignore-submit-error",
+      "ignore-wait-error"
+    ],
+    "actual": [
+      "Unmodified TurboMode::Run and destructor",
+      "TerminalFailStop implementation"
+    ],
+    "fixtures": [
+      "Vulkan calls/resources/results",
+      "metrics and adaptive timeout hooks",
+      "submission pacing condvar, no simulated wall-clock performance claim"
+    ],
+    "boundary": "Desktop actual-body ownership/result witness, not real driver or Guest admission proof."
+  },
+  "terminal": {
+    "sha256": {
+      "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+      "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+      "src/core/core.cpp": "6b8fbeef5ae64cfcb3174a469f5dcc0f42132938173048ed2cc423e5c77b3a37",
+      "src/video_core/gpu.cpp": "e0ac6ced278e3c3c7f9338066fe54786c86837f1ca5f7d08428822d6b4da23ee",
+      "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "c8180a3817ba531f18e6bd0ef993bfbd0faf29625bbeecba9a7d8c0b2e3765c1",
+      "src/video_core/renderer_vulkan/vk_turbo_mode.cpp": "8e1e499a096f2fdb94bc6d279983324081b22423c465dc3fab3a4a18f117db38",
+      "tools/gpu_lifecycle_tests/run_terminal_disposal_tests.py": "7d916139e008e2db146b1189ba93a453caef8068004c08e854363072bcb151ee",
+      "tools/gpu_lifecycle_tests/terminal_disposal_fixture.cpp.in": "7d20f90048f6304f6d7bd2902599b8c4b8908973a660859f4a992ac8599a2086"
+    },
+    "repetitions": 3,
+    "success_paths": 5,
+    "failure_paths": 23,
+    "controls": [
+      "ignore-idle-failure",
+      "ignore-checked-refusal",
+      "dispose-services-first",
+      "omit-system-fallback",
+      "normal-exit-runs-handlers"
+    ],
+    "actual": [
+      "System owning shutdown and destructor",
+      "GPU terminal shutdown and destructor",
+      "Vulkan renderer shutdown and destructor",
+      "Turbo destructor",
+      "FailStop implementation"
+    ],
+    "fixtures": [
+      "worker/driver/component methods and protected-owner destructor markers",
+      "platform backing memory reset after successful teardown"
+    ],
+    "boundary": "All failures execute in subprocesses; exact exit 86, diagnostic stage/reason/result, no protected member destruction, service/Process disposal or exit handlers. Not an actual driver-loss injection, blocked-driver timeout or ordinary Guest admission proof."
+  },
+  "production": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "compiler": "g++.exe (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+    "objects": [
+      {
+        "source": "src/video_core/renderer_vulkan/vk_turbo_mode.cpp",
+        "sha256": "8e1e499a096f2fdb94bc6d279983324081b22423c465dc3fab3a4a18f117db38",
+        "object_sha256": "1a761900d7526c8d2618310abbe16c06fbf41043816d9f264865050bb1d57333",
+        "object_size": 46273,
+        "command": [
+          "C:/Strawberry/c/bin/g++.exe",
+          "-std=c++23",
+          "-O1",
+          "-DNDEBUG",
+          "-DARCHITECTURE_x86_64",
+          "-DBOOST_ASIO_DISABLE_CONCEPTS",
+          "-fno-strict-aliasing",
+          "-Werror=conversion",
+          "-Wno-sign-conversion",
+          "-I",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+          "-I",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-turbo-production\\generated",
+          "-c",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\vk_turbo_mode.cpp",
+          "-o",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-turbo-production\\0-vk_turbo_mode.o"
+        ],
+        "warnings": ""
+      }
+    ],
+    "shader_evidence": {
+      "command": [
+        "glslangValidator",
+        "-V",
+        "--quiet",
+        "--variable-name",
+        "VULKAN_TURBO_MODE_COMP_SPV",
+        "-o",
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-turbo-production\\generated\\video_core\\host_shaders\\vulkan_turbo_mode_comp_spv.h",
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\host_shaders\\vulkan_turbo_mode.comp",
+        "--target-env",
+        "spirv1.3"
+      ],
+      "source": "src/video_core/host_shaders/vulkan_turbo_mode.comp",
+      "source_sha256": "f977b1154c1f2da930ae793e69573959c55a3352505294c52a956e8e169e0196",
+      "generated_sha256": "9012e2717898792636143f312817749796e0cedb6b26c22b256ef6f51d897b97",
+      "compiler": "Glslang Version: 11:16.2.0\nESSL Version: OpenGL ES GLSL 3.20 glslang Khronos. 16.2.0\nGLSL Version: 4.60 glslang Khronos. 16.2.0\nSPIR-V Version 0x00010600, Revision 1\nGLSL.std.450 Version 100, Revision 1\nKhronos Tool ID 8\nSPIR-V Generator Version 11\nGL_KHR_vulkan_glsl version 100\nARB_GL_gl_spirv version 100\n"
+    },
+    "boundary": "Actual production Windows x64 object compilation with real headers. No application link, runtime, native Vulkan or Android claim."
+  },
+  "workflow": "Existing integration workflow updated; no manual dispatch or current-head CI success claimed.",
+  "boundary": "Actual-body deterministic Windows fixtures and actual AMD64 production compilation; no full link, real driver failure, Android/Linux or Guest-backed admission acceptance. P2 open, GuestBackingAdmission Unknown.",
+  "cleanup": {
+    "removed_files": 163,
+    "removed_executables": 13,
+    "removed_objects": 1,
+    "preserved_local_results": ".diagnostics/m4-turbo-results",
+    "scope": "Only four explicitly named current-run directories; old results and dependency caches retained."
+  }
+}

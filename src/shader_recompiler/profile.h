@@ -52,6 +52,8 @@ struct Profile {
     bool support_viewport_mask{};
     bool support_typeless_image_loads{};
     bool support_demote_to_helper_invocation{};
+    /// Vulkan checks/enables shaderBufferInt64Atomics and shaderSharedInt64Atomics, separately
+    /// from shaderInt64. A global B64 CAS must never fall back to non-atomic loads/stores.
     bool support_int64_atomics{};
     bool support_derivative_control{};
     bool support_geometry_shader_passthrough{};

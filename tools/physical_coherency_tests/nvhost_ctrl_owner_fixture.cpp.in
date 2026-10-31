@@ -1,0 +1,278 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <atomic>
+#include <bit>
+#include <cassert>
+#include <cstring>
+#include <deque>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <list>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <set>
+#include <span>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+#include <fmt/format.h>
+#include "common/concepts.h"
+#include "common/scope_exit.h"
+#include "common/owned_retirement.h"
+#include "common/retained_backing_storage.h"
+#include "common/terminal_ingress.h"
+#include "common/terminal_fail_stop.h"
+#include "core/hle/service/nvdrv/nvdata.h"
+#include "video_core/host1x/syncpoint_manager.h"
+using namespace std::chrono_literals;
+static void Require(bool b,const char*s){if(!b){std::cerr<<"FAIL "<<s<<"\n";std::cerr.flush();std::_Exit(91);}}
+#define LOG_DEBUG(...) ((void)0)
+#define LOG_INFO(...) ((void)0)
+#define LOG_ERROR(...) ((void)0)
+#define LOG_TRACE(...) ((void)0)
+#define LOG_WARNING(...) ((void)0)
+#define LOG_CRITICAL(...) ((void)0)
+#define ASSERT(x) Require(bool(x),"native fixture assertion")
+#define ASSERT_MSG(x,...) ASSERT(x)
+#define UNIMPLEMENTED_MSG(...) Require(false,"unexpected native fixture route")
+struct Gate {std::mutex m;std::condition_variable cv;bool ready{};
+ void Set(){std::scoped_lock l{m};ready=true;cv.notify_all();}
+ void Wait(){std::unique_lock l{m};Require(cv.wait_for(l,5s,[&]{return ready;}),"rendezvous timeout");}};
+static Gate signal_entered,signal_release,cancel_entered;
+static std::string mode;
+static std::atomic<unsigned> active_signals{},signals{},freed_events{},module_ends{};
+static std::atomic<unsigned> nonzero_cancels{};
+static thread_local unsigned host_guard_depth{};
+struct ObservedHostGuard {ObservedHostGuard(){++host_guard_depth;}~ObservedHostGuard(){--host_guard_depth;}};
+static std::mutex observation_mutex;
+static std::set<void*> destroyed_devices;
+static std::map<u64,void*> queued_actions;
+static thread_local void* registering_owner{};
+static std::function<void()> register_hook;
+static void ObserveRegisterOwner(void*p){registering_owner=p;if(register_hook)register_hook();}
+static void ObserveQueued(u64 id){std::scoped_lock l{observation_mutex};queued_actions[id]=registering_owner;}
+static void ObserveRemoved(u64 id){std::scoped_lock l{observation_mutex};queued_actions.erase(id);}
+static void ObserveDeviceDestruction(void*){}
+static void ObserveDeviceDestroyed(void*p){std::scoped_lock l{observation_mutex};destroyed_devices.insert(p);}
+static void ObserveRawCallback(void*p){std::scoped_lock l{observation_mutex};Require(!destroyed_devices.contains(p),"queued callback used retired target");}
+static void BeforeDeregister(u64 id){if(id){++nonzero_cancels;cancel_entered.Set();if(mode=="cancel-failure")throw std::runtime_error("injected cancel failure");}}
+static void ModuleDestructionBegin(){Require(host_guard_depth==0,"final Module owner released under Host1x guard");}
+static void ModuleDestructionEnd(){++module_ends;std::cerr<<"MODULE_DESTROYED\n";}
+namespace Common {namespace Literals{}
+class HostMemory {public:
+ std::shared_ptr<std::array<u8,4096>> storage=std::make_shared<std::array<u8,4096>>();
+ std::shared_ptr<const GuestBackingEpoch> epoch=std::make_shared<GuestBackingEpoch>();
+ auto RetainBackingStorage(){return storage?std::optional<RetainedBackingStorage>{RetainedBackingStorage{storage,epoch,4096}}:std::nullopt;}
+};}
+namespace Kernel {
+class KProcess {public:std::atomic<unsigned> refs{1};int memory{};u64 GetProcessId()const{return 7;}int& GetMemory(){return memory;}
+ bool Open(){++refs;return true;}void Close(){Require(refs>1,"process reference underflow");--refs;}};
+template<class T>class KScopedAutoObject {T*p{};public:
+ KScopedAutoObject()=default;KScopedAutoObject(KScopedAutoObject&&r)noexcept:p{std::exchange(r.p,nullptr)}{}
+ KScopedAutoObject&operator=(KScopedAutoObject&&r)noexcept{std::swap(p,r.p);return *this;}
+ ~KScopedAutoObject(){if(p)p->Close();}
+ static auto TryOpen(T*p){std::optional<KScopedAutoObject> r; if(p&&p->Open()){r.emplace();r->p=p;}return r;}
+ T*GetPointerUnsafe()const{return p;}T*ReleasePointerUnsafe(){return std::exchange(p,nullptr);}};
+class KEvent {public:bool live=true;void* owner{};
+ void Signal(){Require(live,"callback signalled freed event");++active_signals;
+  if(mode=="active"||mode=="clear-active"||mode=="concurrent-clear-active"||mode=="multi-events-active"||mode=="retirement-close-active"||mode=="closed-active"){signal_entered.Set();signal_release.Wait();}
+  if(mode=="callback-failure"){--active_signals;throw 7;}
+  ++signals;--active_signals;}
+ void Clear(){Require(active_signals==0,"clear overtook active callback");Require(live,"clear freed event");}};
+}
+namespace Core {class System;using Asid=unsigned;}
+struct Smmu {
+ struct Mutation{void Complete(){}};Mutation BeginFrameMappingMutation(){return {};}
+ unsigned RegisterProcess(int*){return 1;}void UnregisterProcess(unsigned){}void Free(u64,size_t){}
+};
+namespace Tegra::Host1x {
+class Host1x {Core::System&sys;SyncpointManager sync;Smmu memory;public:
+ explicit Host1x(Core::System&s):sys{s}{}Core::System&System(){return sys;}
+ SyncpointManager&GetSyncpointManager(){return sync;}Smmu&MemoryManager(){return memory;}};
+}
+namespace Core {class System {public:
+ struct KernelShell {std::shared_ptr<Common::ProducerDrain> domain=std::make_shared<Common::ProducerDrain>();const auto&NvdrvDispatchDomain(){return domain;}} kernel;
+ struct Memory{Common::HostMemory buffer;} memory;
+ struct Gpu {struct Allocation {std::shared_ptr<int>channel;Common::TerminalIngress::Entry publication;};
+  std::optional<Allocation>AllocateChannel(){return std::nullopt;}} gpu;
+ Tegra::Host1x::Host1x host{*this};
+ auto&Kernel(){return kernel;}auto&DeviceMemory(){return memory;}auto&Host1x(){return host;}auto&GPU(){return gpu;}
+ auto StallApplication(){return std::unique_lock<std::mutex>{stall};}void UnstallApplication(){}
+ private:std::mutex stall;
+};}
+namespace KernelHelpers {
+class ServiceContext {std::vector<std::unique_ptr<Kernel::KEvent>> events;public:
+ ServiceContext(Core::System&,const char*){}~ServiceContext(){std::cerr<<"CONTEXT_DESTROYED\n";}
+ Kernel::KEvent*CreateEvent(std::string){events.push_back(std::make_unique<Kernel::KEvent>());return events.back().get();}
+ void CloseEvent(Kernel::KEvent*e){Require(active_signals==0,"event freed during active Host1x callback");Require(e->live,"event freed twice");e->live=false;++freed_events;}
+};}
+namespace Service::Nvidia::NvCore {
+class NvMap;
+class SyncpointManager;
+struct ContainerImpl;
+@SESSION_ID@
+@PROCESS_FAILURE@
+struct HeapMapper {u64 GetRegionStart(){return 0;}size_t GetRegionSize(){return 0;}};
+@SESSION@
+@CONTAINER@
+class NvMap {public:NvMap(Container&,Tegra::Host1x::Host1x&){}void UnmapAllHandles(SessionId){}};
+class SyncpointManager {Tegra::Host1x::Host1x&host;public:
+ explicit SyncpointManager(Tegra::Host1x::Host1x&h):host{h}{}
+ bool IsSyncpointAllocated(u32){return true;}u32 ReadSyncpointMinValue(u32 id){return host.GetSyncpointManager().GetHostSyncpointValue(id);}
+ bool IsFenceSignalled(NvFence f){return ReadSyncpointMinValue(f.id)>=f.value;}u32 UpdateMin(u32 id){return ReadSyncpointMinValue(id);}};
+@CONTAINER_METHODS@
+}
+namespace Service::Nvidia {
+class Module;
+namespace Devices { class nvdevice; class nvhost_ctrl; }
+@MODULE@
+}
+namespace Service::Nvidia::Devices {
+@NVDEVICE@
+@CTRL@
+class UnusedDevice:public nvdevice {public:
+ template<class...T>UnusedDevice(Core::System&s,T&&...):nvdevice{s}{}
+ NvResult Ioctl1(DeviceFD,Ioctl,std::span<const u8>,std::span<u8>)override{return NvResult::NotImplemented;}
+ NvResult Ioctl2(DeviceFD,Ioctl,std::span<const u8>,std::span<const u8>,std::span<u8>)override{return NvResult::NotImplemented;}
+ NvResult Ioctl3(DeviceFD,Ioctl,std::span<const u8>,std::span<u8>,std::span<u8>)override{return NvResult::NotImplemented;}
+ void OnOpen(NvCore::SessionId,DeviceFD)override{}void OnClose(DeviceFD)override{}};
+using nvhost_as_gpu=UnusedDevice;using nvhost_gpu=UnusedDevice;using nvhost_ctrl_gpu=UnusedDevice;using nvmap=UnusedDevice;
+using nvdisp_disp0=UnusedDevice;using nvhost_nvdec=UnusedDevice;using nvhost_nvjpg=UnusedDevice;using nvhost_vic=UnusedDevice;
+}
+namespace Service::Nvidia {
+@PROVIDER@
+@MODULE_METHODS@
+class NVDRV {public:
+ std::shared_ptr<Module>nvdrv;std::optional<Module::SessionRetirement> session_retirement;
+ NVDRV(std::shared_ptr<Module>m,Kernel::KProcess&p):nvdrv{std::move(m)}{
+  auto entry=nvdrv->TryEnterDispatch();Require(bool(entry),"session dispatch refused");
+  auto prepared=nvdrv->PrepareSessionRetirement(&p,*entry);Require(bool(prepared),"retirement preparation refused");
+  session_retirement.emplace(std::move(*prepared));
+  *session_retirement->published=nvdrv->GetContainer().OpenSession(&p);
+ }
+ ~NVDRV();
+};
+@NVDRV_DTOR@
+}
+@SERIALIZATION@
+@CTRL_METHODS@
+@SYNC@
+using Service::Nvidia::Module;using Service::Nvidia::NVDRV;using Service::Nvidia::NvResult;using Service::Nvidia::Ioctl;
+template<class P>static NvResult IoctlCall(Module&m,int fd,u32 command,P&params){
+ Ioctl ioctl{};ioctl.cmd.Assign(command);ioctl.group.Assign(0);ioctl.length.Assign(sizeof(P));
+ auto in=std::span<const u8>{reinterpret_cast<const u8*>(&params),sizeof(P)};
+ auto out=std::span<u8>{reinterpret_cast<u8*>(&params),sizeof(P)};return m.Ioctl1(fd,ioctl,in,out);
+}
+static void Queue(Module&m,int fd,u32 slot,u32 sync=2,u32 threshold=1){
+ struct Reg{u32 slot;} reg{slot};Require(IoctlCall(m,fd,0x1f,reg)==NvResult::Success,"event registration failed");
+ struct Wait{Service::Nvidia::NvFence fence;u32 timeout,value;}wait{{static_cast<s32>(sync),threshold},100,slot};
+ Require(IoctlCall(m,fd,0x1e,wait)==NvResult::Timeout,"queued wait reported completion");
+}
+static void Clear(Module&m,int fd,u32 slot=0){struct Params{u32 slot;}params{slot};
+ Require(IoctlCall(m,fd,0x1c,params)==NvResult::Success,"event clear failed");}
+template<class T>static T Ready(std::future<T>&f){Require(f.wait_for(5s)==std::future_status::ready,"operation timeout");return f.get();}
+int main(int argc,char**argv){
+ Require(argc==2,"expected case");mode=argv[1];std::atexit([]{std::cerr<<"ATEXIT\n";});
+ Core::System system;Kernel::KProcess process;
+ auto module=std::make_shared<Module>(system);auto facade=std::make_unique<NVDRV>(module,process);
+ auto queue=module->RetirementQueue();auto domain=system.Kernel().NvdrvDispatchDomain();
+ auto sid=**facade->session_retirement->published;
+ int fd=module->Open("/dev/nvhost-ctrl",sid);Require(fd>=0,"actual device open failed");
+ if(mode=="immediate")register_hook=[&]{system.Host1x().GetSyncpointManager().IncrementHost(2);};
+ Queue(*module,fd,0,mode=="multi-events-active"?3:2);
+ if(mode=="multi-events-active")Queue(*module,fd,1);
+ register_hook={};
+ int second=-1;if(mode=="multiple"){second=module->Open("/dev/nvhost-ctrl",sid);Queue(*module,second,0);}
+ std::weak_ptr<Module>weak=module;std::weak_ptr<std::array<u8,4096>>backing=system.memory.buffer.storage;
+ system.memory.buffer.storage.reset();
+ auto&sync=system.Host1x().GetSyncpointManager();
+ if(mode=="completed")sync.IncrementHost(2);
+ if(mode=="callback-failure"){bool failed=false;try{sync.IncrementHost(2);}catch(...){failed=true;}Require(failed,"callback did not expose failure");}
+ if(mode=="repeat-clear-rearm"){
+  Clear(*module,fd);Clear(*module,fd);
+  Require(nonzero_cancels==1,"repeated clear retained cancelled handle");
+  Queue(*module,fd,0,2,2);
+  sync.IncrementHost(2);Require(signals==0,"cancelled callback affected rearmed event");
+  sync.IncrementHost(2);Require(signals==1,"rearmed callback did not run exactly once");
+  Clear(*module,fd);Clear(*module,fd);
+  Require(nonzero_cancels==2,"completed clear retained stale handle");
+  module.reset();facade.reset();Require(freed_events==2,"rearmed KEvent retired other than once");
+ }else if(mode=="last-owner-complete"||mode=="last-owner-cancel"){
+  auto held=std::shared_ptr<NVDRV>(facade.release());
+  auto handle=sync.RegisterHostAction(3,1,[held]{});held.reset();module.reset();
+  Require(!weak.expired(),"queue capture lost final facade owner");
+  if(mode=="last-owner-complete")sync.IncrementHost(3);
+  else {sync.DeregisterHostAction(3,handle);sync.DeregisterHostAction(3,handle);}
+ }else if(mode=="closed-active"){
+  auto increment=std::async(std::launch::async,[&]{sync.IncrementHost(2);});signal_entered.Wait();
+  auto closed=domain->TryClose(64);
+  Require(closed&&closed->Poll()==Common::ProducerDrain::Result::DrainedSubset&&active_signals==1,
+   "missing active Host1x callback subset counterexample");
+  Require(Common::ProducerDrain::GuestBackingAdmission()==Common::ProducerDrain::Result::Unknown,
+   "untracked Host1x callback granted guest admission");
+  module.reset();facade.reset();
+  Require(!weak.expired()&&freed_events==0&&process.refs>1&&!backing.expired(),
+   "closed active callback lost deferred owner graph");
+  std::cout<<"WITNESS dispatch DrainedSubset with active Host1x callback; admission Unknown\n";
+  // Reopen only this fixture's managed subset, not whole-guest/native exclusion.
+  Require(closed->ResumeNoEffects(),"subset fixture resume failed");
+  auto retiring=std::async(std::launch::async,[&]{Require(queue->Drain(),"active deferred retirement failed");});
+  cancel_entered.Wait();auto joined=domain->TryClose(64);
+  Require(joined&&joined->Poll()==Common::ProducerDrain::Result::Pending,
+   "deferred final release escaped dispatch closure");
+  signal_release.Set();Ready(increment);Ready(retiring);
+  Require(joined->Poll()==Common::ProducerDrain::Result::DrainedSubset&&weak.expired()&&active_signals==0,
+   "deferred final release did not drain its owner graph");
+  Require(joined->ResumeNoEffects(),"joined fixture subset resume failed");
+ }else if(mode=="closed-deferred"){
+  auto closed=domain->TryClose(64);Require(bool(closed)&&closed->Poll()==Common::ProducerDrain::Result::DrainedSubset,"dispatch subset did not close");
+  {std::scoped_lock l{observation_mutex};Require(!queued_actions.empty(),"closed dispatch hid queued Host1x work");}
+  module.reset();facade.reset();Require(!weak.expired(),"deferred retirement lost Module owner");
+  Require(process.refs>1&&!backing.expired(),"deferred retirement lost session/backing");
+  // Managed dispatch gate only; no callback or native effect ran during this hold.
+  Require(closed->ResumeNoEffects(),"managed dispatch resume failed");Require(queue->Drain(),"deferred retirement did not drain");
+ }else if(mode=="concurrent-clear-active"){
+  auto increment=std::async(std::launch::async,[&]{sync.IncrementHost(2);});signal_entered.Wait();
+  auto first=std::async(std::launch::async,[&]{Clear(*module,fd);});cancel_entered.Wait();
+  auto second_clear=std::async(std::launch::async,[&]{Clear(*module,fd);});
+  signal_release.Set();Ready(increment);Ready(first);Ready(second_clear);
+  Require(nonzero_cancels==1&&signals==1&&freed_events==0,
+   "concurrent clears reused a callback or freed its event");
+  module.reset();facade.reset();Require(freed_events==1,"concurrent clear event not retired once");
+ }else if(mode=="clear-active"){
+  auto increment=std::async(std::launch::async,[&]{sync.IncrementHost(2);});signal_entered.Wait();
+  auto clearing=std::async(std::launch::async,[&]{struct Clear{u32 id;}params{0};
+   Require(IoctlCall(*module,fd,0x1c,params)==NvResult::Success,"clear failed");});
+  cancel_entered.Wait();Require(freed_events==0,"clear freed active event");
+  signal_release.Set();Ready(increment);Ready(clearing);
+  Require(module->Close(fd)==NvResult::Success,"clear fd close failed");
+  module.reset();facade.reset();
+ }else if(mode=="active"||mode=="multi-events-active"||mode=="retirement-close-active"){
+  auto increment=std::async(std::launch::async,[&]{sync.IncrementHost(2);});signal_entered.Wait();
+  module.reset();auto retiring=std::async(std::launch::async,[&]{facade.reset();});
+  cancel_entered.Wait();Require(freed_events==0&&process.refs>1&&!backing.expired(),"active callback lost owner graph before join");
+  auto closing=mode=="retirement-close-active"?domain->TryClose(64):std::nullopt;
+  if(mode=="retirement-close-active"){
+   Require(closing&&closing->Poll()==Common::ProducerDrain::Result::Pending,
+    "final retirement release escaped dispatch closure");
+  }
+  signal_release.Set();Ready(increment);Ready(retiring);
+  if(closing){Require(closing->Poll()==Common::ProducerDrain::Result::DrainedSubset&&weak.expired(),
+   "final owner release did not finish before dispatch drain");
+   Require(closing->ResumeNoEffects(),"final owner fixture subset resume failed");}
+ }else if(mode=="multiple"){
+  Require(module->Close(fd)==NvResult::Success,"first fd close failed");sync.IncrementHost(2);
+  Require(signals==1,"device cancellation removed another device's action");module.reset();facade.reset();
+ }else if(mode=="fd-close"){
+  Require(module->Close(fd)==NvResult::Success,"fd close failed");sync.IncrementHost(2);Require(signals==0,"closed fd kept raw callback");
+  module.reset();facade.reset();
+ }else{module.reset();facade.reset();}
+ Require(weak.expired()&&module_ends==1,"last Module owner did not retire");
+ Require(process.refs==1&&backing.expired(),"session/backing survived proven last use");
+ auto before=signals.load();sync.IncrementHost(2);Require(signals==before,"retired callback was replayed");
+ {std::scoped_lock l{observation_mutex};Require(queued_actions.empty(),"retired device left queued callback");}
+ std::cout<<"PASS nvhost-owner "<<mode<<"\n";
+}

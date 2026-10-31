@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bit>
 #include <chrono>
 #include <cstring>
@@ -14,6 +15,8 @@
 #include <mutex>
 #include <vector>
 
+// Declare Result modules before Vulkan's X11 typedefs to preserve -Wshadow checking.
+#include "core/memory.h"
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 
 #include "citron/util/title_ids.h"
@@ -21,6 +24,8 @@
 #include "common/logging.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
+#include "video_core/acknowledged_callback.h"
+#include "video_core/unmap_failure.h"
 #include "video_core/arm64_register_guard.h"
 #include "video_core/buffer_cache/buffer_cache.h"
 #include "video_core/control/channel_state.h"
@@ -49,6 +54,205 @@
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 
 namespace Vulkan {
+
+std::shared_ptr<Scheduler::PrivateProducerDomain> RasterizerVulkan::CreatePrivateProducerDomain(u32 replicas,u64 size) {
+    std::shared_lock shutdown_guard{shutdown_mutex,std::try_to_lock};
+    if(!shutdown_guard.owns_lock() || is_shutting_down || !gpu.IsGpuThread()) return {};
+    return buffer_cache_runtime.CreatePrivateProducerDomain(replicas,size);
+}
+
+bool RasterizerVulkan::SetControlledStorageWriteObservation(bool enabled) {
+    std::shared_lock shutdown_guard{shutdown_mutex, std::try_to_lock};
+    if (!shutdown_guard.owns_lock() || is_shutting_down || !gpu.IsGpuThread()) return false;
+    if (!enabled) {
+        observe_storage_writes = false;
+        buffer_cache_runtime.SetPhysicalObservationMemory(nullptr);
+        if (storage_write_coverage) storage_write_coverage->Seal();
+        return true;
+    }
+    std::shared_ptr<VideoCommon::PhysicalWriteCoverage> coverage;
+    try {
+        observed_storage_writes.reserve(256);
+        coverage = std::make_shared<VideoCommon::PhysicalWriteCoverage>();
+    }
+    catch (...) { return false; }
+    observe_storage_writes = enabled;
+    storage_observation_incomplete = false;
+    observed_storage_writes.clear();
+    if (storage_write_coverage && storage_write_coverage->Accepting()) storage_write_coverage->Invalidate();
+    storage_write_coverage = std::move(coverage);
+    buffer_cache_runtime.SetPhysicalObservationMemory(&device_memory);
+    return true;
+}
+
+std::optional<RasterizerVulkan::StorageWriteObservation>
+RasterizerVulkan::GetControlledStorageWriteObservation() {
+    std::shared_lock shutdown_guard{shutdown_mutex, std::try_to_lock};
+    if (!shutdown_guard.owns_lock() || is_shutting_down || !gpu.IsGpuThread()) return {};
+    return StorageWriteObservation{storage_write_coverage && storage_write_coverage->Intact() &&
+                                       !storage_observation_incomplete,
+                                   observed_storage_writes,
+                                   storage_write_coverage && storage_write_coverage->Complete()};
+}
+
+void RasterizerVulkan::MarkStorageObservationIncomplete() {
+    storage_observation_incomplete = true;
+    if (storage_write_coverage) storage_write_coverage->Invalidate();
+}
+
+void RasterizerVulkan::RecordObservedShaderStorageWrite(std::function<bool(vk::CommandBuffer)> command) {
+    if (!observe_storage_writes || !buffer_cache_runtime.StorageWriteObservationValid()) {
+        if (observe_storage_writes) MarkStorageObservationIncomplete();
+        scheduler.Record(std::move(command));
+        return;
+    }
+    const auto writes = scheduler.RecordObservedWrites(buffer_cache_runtime.StorageWriteFootprints(),
+                                                       std::move(command), storage_write_coverage);
+    if (!writes || observed_storage_writes.size() + writes->size() > 256) {
+        MarkStorageObservationIncomplete();
+        return; // Command was already recorded once, including observation refusal.
+    }
+    observed_storage_writes.insert(observed_storage_writes.end(), writes->begin(), writes->end());
+}
+
+struct ControlledAliasCopy {
+    struct Owners {
+        const Tegra::PhysicalAccessPlan source, destination;
+        const std::shared_ptr<VideoCommon::ControlledAliasTransfer> transfer;
+    };
+    const std::shared_ptr<const u8> owner;
+    const DAddr source, destination;
+    const u32 size;
+    const VideoCommon::AliasWriteSnapshot written;
+    const u64 target_revision;
+    const std::vector<VideoCommon::AliasCopyRange> copies;
+    const std::shared_ptr<Owners> owners;
+    const std::shared_ptr<Common::PhysicalRangeAdmission> domain;
+    Common::PhysicalRangeAdmission::Ticket ticket;
+    ControlledAliasPhase phase{ControlledAliasPhase::Refused};
+};
+
+std::shared_ptr<ControlledAliasCopy> RasterizerVulkan::BeginControlledAliasCopy(
+    DAddr source, DAddr destination, u32 size) {
+    std::shared_lock shutdown_guard{shutdown_mutex, std::try_to_lock};
+    if (!shutdown_guard.owns_lock() || is_shutting_down || !gpu.IsGpuThread() ||
+        source == destination || !size || size > 256 * 1024) return {};
+    std::erase_if(controlled_alias_copies, [](const auto& op) {
+        return op->phase == ControlledAliasPhase::Complete || op->phase == ControlledAliasPhase::Refused;
+    });
+    if (controlled_alias_copies.size() >= 256) return {};
+    // Cold physical pins are prepared outside all cache/PTE locks.
+    auto from = Tegra::PhysicalAccessPlan::BuildDeviceRange(device_memory, source, size);
+    auto to = Tegra::PhysicalAccessPlan::BuildDeviceRange(device_memory, destination, size);
+    if (!from || !to || from->DeviceEpoch() != to->DeviceEpoch()) return {};
+    std::optional<StagedBufferPin> source_pin, destination_pin;
+    std::optional<VideoCommon::AliasWriteSnapshot> written, target_written;
+    try {
+        std::unique_lock lock{buffer_cache.mutex, std::try_to_lock};
+        if (!lock.owns_lock()) return {};
+        source_pin = buffer_cache.PinExistingDmaRepresentation(source, *from);
+        destination_pin = buffer_cache.PinExistingDmaRepresentation(destination, *to);
+        written = buffer_cache.SnapshotAliasWrites(source, size);
+        target_written = buffer_cache.SnapshotAliasWrites(destination, size);
+    } catch (...) { return {}; }
+    if (!source_pin || !destination_pin || !written || !target_written) return {};
+    const auto copies = VideoCommon::BuildPhysicalAliasCopies(*from, *to, written->ranges);
+    if (!copies) return {};
+    {
+        std::unique_lock lock{buffer_cache.mutex, std::try_to_lock};
+        if (!lock.owns_lock() || !buffer_cache.HasUniqueAliasSource(source, *from, *copies)) return {};
+    }
+    for (const auto& copy : *copies)
+        for (const auto& dirty : target_written->ranges)
+            if (copy.destination_offset < dirty.offset + dirty.size &&
+                dirty.offset < copy.destination_offset + copy.size) return {};
+    // Dedicated readback allocation is also outside cache/PTE locks. Only the
+    // transfer retains native pins; device-idle retirement can disarm every owner.
+    auto transfer = buffer_cache_runtime.PrepareAliasTransfer(
+        std::move(*source_pin), std::move(*destination_pin), *copies);
+    if (!transfer) return {};
+    auto domain = from->Segments().front().storage.Epoch()->ranges;
+    auto owners = std::make_shared<ControlledAliasCopy::Owners>(
+        ControlledAliasCopy::Owners{std::move(*from), std::move(*to), std::move(transfer)});
+    auto op = std::make_shared<ControlledAliasCopy>(ControlledAliasCopy{
+        controlled_alias_owner, source, destination, size, std::move(*written),
+        target_written->revision, *copies,
+        std::move(owners), domain, {}, ControlledAliasPhase::Refused});
+    std::vector<Common::PhysicalRangeAdmission::Access> accesses;
+    for (const auto& copy : op->copies)
+        accesses.push_back({copy.physical_offset, copy.size,
+                           Common::PhysicalRangeAdmission::Mode::Write});
+    controlled_alias_copies.push_back(op); // Retain accepted identity before admission.
+    op->ticket = domain->Enqueue(accesses, op->owners);
+    if (!op->ticket) return {};
+    op->phase = ControlledAliasPhase::Prepared;
+    return op;
+}
+
+ControlledAliasPhase RasterizerVulkan::PollControlledAliasCopy(
+    const std::shared_ptr<ControlledAliasCopy>& op) {
+    using Phase = ControlledAliasPhase;
+    using Admission = Common::PhysicalRangeAdmission;
+    std::shared_lock shutdown_guard{shutdown_mutex, std::try_to_lock};
+    if (!shutdown_guard.owns_lock() || !gpu.IsGpuThread() || !op ||
+        op->owner != controlled_alias_owner) return Phase::Refused;
+    if (op->phase == Phase::Complete || op->phase == Phase::Refused || op->phase == Phase::Unknown)
+        return op->phase;
+    const auto unknown = [&] {
+        (void)op->domain->Quarantine(op->ticket);
+        return op->phase = Phase::Unknown;
+    };
+    if (is_shutting_down) return unknown();
+    const auto qualified = [&] {
+        if (!op->owners->source.DeviceEpoch()->alive.load() ||
+            !op->owners->destination.DeviceEpoch()->alive.load()) return false;
+        const auto source_pin = buffer_cache.PinExistingDmaRepresentation(op->source, op->owners->source);
+        const auto target_pin = buffer_cache.PinExistingDmaRepresentation(op->destination, op->owners->destination);
+        if (!source_pin || !target_pin ||
+            source_pin->Identity() != op->owners->transfer->SourceIdentity() ||
+            target_pin->Identity() != op->owners->transfer->DestinationIdentity()) return false;
+        const auto writes = buffer_cache.SnapshotAliasWrites(op->source, op->size);
+        const auto target_writes = buffer_cache.SnapshotAliasWrites(op->destination, op->size);
+        if (!writes || *writes != op->written || !target_writes ||
+            target_writes->revision != op->target_revision ||
+            !buffer_cache.HasUniqueAliasSource(op->source, op->owners->source, op->copies)) return false;
+        for (const auto& copy : op->copies)
+            for (const auto& dirty : target_writes->ranges)
+                if (copy.destination_offset < dirty.offset + dirty.size &&
+                    dirty.offset < copy.destination_offset + copy.size) return false;
+        return true;
+    };
+    if (op->phase == Phase::Prepared || op->phase == Phase::Parked) {
+        const auto admitted = op->domain->TryStart(op->ticket);
+        if (admitted == Admission::Start::Park || admitted == Admission::Start::Reentrant)
+            return op->phase = Phase::Parked;
+        if (admitted != Admission::Start::Granted) return op->phase = Phase::Refused;
+        bool current{};
+        try {
+            std::unique_lock lock{buffer_cache.mutex, std::try_to_lock};
+            current = lock.owns_lock() && qualified();
+        } catch (...) { current = false; }
+        if (!current) {
+            if (!op->domain->Complete(op->ticket)) return unknown();
+            return op->phase = Phase::Refused; // No commands have been recorded.
+        }
+        if (!op->owners->transfer->Submit()) return unknown();
+        return op->phase = Phase::Submitted;
+    }
+    const auto result = op->owners->transfer->Poll();
+    if (result == VideoCommon::ControlledTransferPoll::Pending) return op->phase;
+    if (result != VideoCommon::ControlledTransferPoll::Complete) return unknown();
+    bool current{};
+    try {
+        std::unique_lock lock{buffer_cache.mutex, std::try_to_lock};
+        current = lock.owns_lock() && qualified();
+    } catch (...) { current = false; }
+    if (!current) return unknown();
+    // No upload consumption, backing copy, or dirty-bit clearing: this only makes
+    // a warmed, nonconflicting staged representation reflect an isolated producer.
+    if (!op->domain->Complete(op->ticket)) return unknown();
+    return op->phase = Phase::Complete;
+}
 
 using MaxwellDrawState = Tegra::Engines::DrawManager::State;
 using VideoCommon::ImageViewId;
@@ -291,6 +495,108 @@ RasterizerVulkan::RasterizerVulkan(Core::Frontend::EmuWindow& emu_window_, Tegra
       accelerate_dma(buffer_cache, texture_cache, scheduler),
       fence_manager(*this, gpu, texture_cache, buffer_cache, query_cache, device, scheduler) {
     scheduler.SetQueryCache(query_cache);
+    if (Settings::values.physical_coherency_shadow.GetValue()) {
+        try {
+            physical_shadow = std::make_unique<VideoCommon::PhysicalShadow>();
+            texture_cache.SetPhysicalShadow(physical_shadow.get());
+        } catch (...) {
+            // Startup diagnostics are optional, including their metadata allocation.
+            try {
+                LOG_WARNING(Render_Vulkan, "Physical shadow coverage=unknown status=allocation_failed");
+            } catch (...) {
+            }
+        }
+    }
+}
+
+void RasterizerVulkan::ReportPhysicalShadow() noexcept {
+    if (!physical_shadow) {
+        return;
+    }
+    try {
+        const auto& s = physical_shadow->Counters();
+        u64 skipped_observations = 0;
+        for (const auto& coverage : s.coverage) {
+            skipped_observations += coverage.sampled_out + coverage.deduplicated;
+        }
+        LOG_INFO(Render_Vulkan,
+                 "Physical shadow coverage=unknown measurement=sampled "
+                 "uninstrumented=cpu_nce_raw,query,dma_inline,"
+                 "upload,internal_texture_copy_scale,vertex_index_indirect_reads "
+                 "alias_window=historical sampling_loss={} ",
+                 s.errors + s.holes + s.budget_drops + s.provenance_mismatches +
+                     s.comparison_drops + s.cardinality_drops + s.evictions + skipped_observations);
+        LOG_INFO(Render_Vulkan,
+                 "Physical shadow: dispatches={} queries={} query_ns={} max_dispatch_query_ns={} "
+                 "observer_ns={} max_dispatch_observer_ns={} validation_ns={} hits={} cache_invalidations={} "
+                 "snapshot_invalidations={} aliases={} different_daddr={} different_manager={} "
+                 "holes={} budget_drops={} provenance_mismatches={} comparison_drops={} errors={} "
+                 "evictions={} outside_dispatch_queries={} max_dispatch_queries={}",
+                 s.dispatches, s.queries, s.query_ns, s.max_dispatch_query_ns, s.observer_ns,
+                 s.max_dispatch_observer_ns, s.validation_ns, s.cache_hits, s.cache_invalidations,
+                 s.snapshot_invalidations, s.historical_aliases, s.different_daddr_aliases,
+                 s.different_manager_aliases, s.holes, s.budget_drops, s.provenance_mismatches,
+                 s.comparison_drops, s.errors, s.evictions, s.outside_dispatch_queries,
+                 s.max_dispatch_queries);
+        LOG_INFO(Render_Vulkan,
+                 "Physical shadow costs: resolve_p50_upper_ns={} resolve_p95_upper_ns={} "
+                 "resolve_p99_upper_ns={} lock_p50_upper_ns={} lock_p95_upper_ns={} lock_p99_upper_ns={} "
+                 "walk_p50_upper_ns={} walk_p95_upper_ns={} walk_p99_upper_ns={} "
+                 "dispatch_p50_upper_ns={} dispatch_p95_upper_ns={} dispatch_p99_upper_ns={} "
+                 "gpu_lock_wait_ns={} device_lock_wait_ns={} walk_ns={} validation_lock_wait_ns={} provenance_walk_ns={} "
+                 "generation_invalidations={} generation_requeries={} lifetime_invalidations={} "
+                 "metadata_bytes={} peak_metadata_bytes={} entries={} peak_entries={}",
+                 s.resolve_latency.Percentile(50), s.resolve_latency.Percentile(95),
+                 s.resolve_latency.Percentile(99), s.lock_latency.Percentile(50),
+                 s.lock_latency.Percentile(95), s.lock_latency.Percentile(99),
+                 s.walk_latency.Percentile(50), s.walk_latency.Percentile(95),
+                 s.walk_latency.Percentile(99), s.dispatch_latency.Percentile(50),
+                 s.dispatch_latency.Percentile(95), s.dispatch_latency.Percentile(99),
+                 s.gpu_lock_wait_ns, s.device_lock_wait_ns, s.walk_ns,
+                 s.validation_lock_wait_ns, s.provenance_walk_ns,
+                 s.generation_invalidations, s.generation_requeries, s.lifetime_invalidations,
+                 s.metadata_bytes, s.peak_metadata_bytes, s.active_entries, s.peak_entries);
+        LOG_INFO(Render_Vulkan,
+                 "Physical shadow aliases: registered_observations={} alias_observations={} "
+                 "readonly_pairs={} potential_write_pairs={} samples={} cardinality_drops={} "
+                 "max_distinct_gpu_refs={} max_distinct_daddr_refs={} max_readonly_refs={} max_write_refs={} "
+                 "sample_epoch={} sample_offset={} sample_length={} sample_gpu_refs={} sample_daddr_refs={} "
+                 "sample_readonly_refs={} sample_write_refs={}",
+                 s.registered_observations, s.alias_observations, s.readonly_alias_pairs,
+                 s.writable_alias_pairs, s.alias_samples, s.cardinality_drops,
+                 s.max_distinct_gpu_refs, s.max_distinct_device_refs, s.max_readonly_refs,
+                 s.max_writable_refs, s.sample_epoch, s.sample_offset, s.sample_length,
+                 s.sample_gpu_refs, s.sample_device_refs, s.sample_readonly_refs, s.sample_writable_refs);
+        constexpr std::array names{"staged_buffer", "scratch", "texel", "texture", "render_target", "direct_buffer"};
+        for (size_t i = 0; i < names.size(); ++i) {
+            const auto& c = s.coverage[i];
+            LOG_INFO(Render_Vulkan,
+                     "Physical shadow coverage: kind={} observations={} write_intents={} "
+                     "registered_writes={} unregistered_write_intents={} unresolved={} "
+                     "bytes={} max_range={} segments={} split_observations={} "
+                     "size_buckets=[{},{},{},{},{},{},{},{}] sampled_out={} sampled_out_writes={} "
+                     "deduplicated={} deduplicated_writes={} inspections={} registrations={} "
+                     "unresolved_writes={}",
+                     names[i], c.observations, c.write_intents, c.registered_writes,
+                     c.write_intents - c.registered_writes, c.unresolved, c.bytes, c.max_range,
+                     c.registered_segments, c.split_observations, c.size_buckets[0], c.size_buckets[1],
+                     c.size_buckets[2], c.size_buckets[3], c.size_buckets[4], c.size_buckets[5],
+                     c.size_buckets[6], c.size_buckets[7], c.sampled_out, c.sampled_out_writes,
+                     c.deduplicated, c.deduplicated_writes, c.inspections, c.registrations,
+                     c.unresolved_writes);
+        }
+        LOG_INFO(Render_Vulkan,
+                 "Physical shadow sampling: period={} sampled_dispatches={} skipped_dispatches={} "
+                 "outside_observations={} outside_sampled={} outside_sampled_out={} "
+                 "timed_observations={} observer_scope=selected_body_excludes_input_counters_and_gating "
+                 "dispatch_quantiles=sampled_preparations alias_denominator=registered_observations "
+                 "lookup_hint_hits={} lookup_fallbacks={} geometry_comparisons={} device_span_steps={}",
+                 s.sampling_period, s.sampled_dispatches, s.skipped_dispatches, s.outside_observations,
+                 s.outside_sampled, s.outside_sampled_out, s.timed_observations, s.lookup_hint_hits,
+                 s.lookup_fallbacks, s.geometry_comparisons, s.device_span_steps);
+    } catch (...) {
+        // Logging/allocation failures in diagnostics must never stop the guest.
+    }
 }
 
 void RasterizerVulkan::Shutdown() {
@@ -298,12 +604,37 @@ void RasterizerVulkan::Shutdown() {
         return;
     }
     std::unique_lock exclusive_guard{shutdown_mutex};
+    for (const auto& op : controlled_alias_copies) {
+        if (op->phase == ControlledAliasPhase::Prepared || op->phase == ControlledAliasPhase::Parked) {
+            (void)op->domain->Cancel(op->ticket);
+            op->phase = ControlledAliasPhase::Refused;
+        } else if (op->phase == ControlledAliasPhase::Submitted) {
+            (void)op->domain->MarkUnknown(op->ticket);
+            op->phase = ControlledAliasPhase::Unknown;
+        }
+    }
+    buffer_cache_runtime.SealStagedPins();
+    if (physical_shadow) {
+        // Texture copies/clears also use the cache mutex outside draw preparation.
+        // Serialize final diagnostic reads and detach its pointer before teardown.
+        std::scoped_lock cache_guard{texture_cache.mutex, buffer_cache.mutex};
+        ReportPhysicalShadow();
+        texture_cache.SetPhysicalShadow(nullptr);
+    }
+
+    // No rendering producers remain. Join callbacks without retaining a renderer
+    // lock that they could reenter; guarded entries already reject shutdown work.
+    exclusive_guard.unlock();
+    pipeline_cache.DrainWorkers();
 
     // 1. Tell the GPU to finish current work
     scheduler.Finish();
 
-    // 2. Force runtimes to release internal references/handles FIRST
-    // This ensures VkBuffer/VkImage handles are gone before the memory they sit on is freed
+    // Fence callbacks may still use query/cache/GPU objects. Join them while the
+    // complete renderer and GPU Impl are alive, not from a base-class destructor.
+    fence_manager.Shutdown();
+
+    // 2. Complete any final runtime work. Finish is a device wait, not a cache clear.
     buffer_cache_runtime.Finish();
     texture_cache_runtime.Finish();
 }
@@ -339,11 +670,28 @@ GraphicsPipeline* RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_fun
     if (!pipeline) {
         return nullptr;
     }
+    const bool observing = observe_storage_writes;
+    bool observed_command_recorded{};
+    if (observing) buffer_cache_runtime.BeginStorageWriteObservation(true);
+    SCOPE_EXIT {
+        if (observing) {
+            if (!observed_command_recorded) MarkStorageObservationIncomplete();
+            buffer_cache_runtime.EndStorageWriteObservation();
+        }
+    };
     std::exception_ptr configure_exception;
     {
         std::scoped_lock lock{buffer_cache.mutex, texture_cache.mutex};
         // update engine as channel may be different.
         pipeline->SetEngine(maxwell3d, gpu_memory);
+        if (physical_shadow) {
+            physical_shadow->BeginDispatch();
+        }
+        SCOPE_EXIT {
+            if (physical_shadow) {
+                physical_shadow->EndDispatch();
+            }
+        };
         // A draw that writes memory comes after a deferred WAIT_FOR_IDLE barrier, which needs
         // the render pass ended. Before Configure, which begins the render pass for the draw.
         const bool writes_memory =
@@ -374,6 +722,13 @@ GraphicsPipeline* RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_fun
 #endif
 
         if (!configure_exception) {
+            if (physical_shadow) {
+                buffer_cache.ObservePhysicalBindings(*physical_shadow, false);
+                physical_shadow->EndDispatch();
+                if (physical_shadow->Counters().dispatches % 4096 == 0) {
+                    ReportPhysicalShadow();
+                }
+            }
             UpdateDynamicStates();
 
             if (writes_memory) {
@@ -383,6 +738,8 @@ GraphicsPipeline* RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_fun
             query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64,
                                       maxwell3d->regs.zpass_pixel_count_enable);
             draw_func();
+            observed_command_recorded = true;
+            buffer_cache.FlushGatherWrites();
         }
     }
     if (configure_exception) {
@@ -519,9 +876,9 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
         // An async build is only known to have failed on the worker thread, hence the check
         // there.
         const GraphicsPipeline* const draw_pipeline{pipeline_cache.CurrentGraphicsPipeline()};
-        scheduler.Record([draw_params, draw_pipeline](vk::CommandBuffer cmdbuf) {
+        RecordShaderStorageWrite([draw_params, draw_pipeline](vk::CommandBuffer cmdbuf) {
             if (draw_pipeline->IsFailed()) {
-                return;
+                return false;
             }
             if (draw_params.is_indexed) {
                 cmdbuf.DrawIndexed(draw_params.num_vertices, draw_params.num_instances,
@@ -531,6 +888,7 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                 cmdbuf.Draw(draw_params.num_vertices, draw_params.num_instances,
                             draw_params.base_vertex, draw_params.base_instance);
             }
+            return true; // Actual worker emission; ordinary Record ignores this evidence.
         });
     });
     if (pipeline) {
@@ -552,13 +910,14 @@ void RasterizerVulkan::DrawIndirect() {
         // Dropped with a failed pipeline, as in Draw.
         const GraphicsPipeline* const draw_pipeline{pipeline_cache.CurrentGraphicsPipeline()};
         if (params.is_byte_count) {
-            scheduler.Record([buffer_obj = buffer->Handle(), offset, stride = params.stride,
+            RecordShaderStorageWrite([buffer_obj = buffer->Handle(), offset, stride = params.stride,
                               draw_pipeline](vk::CommandBuffer cmdbuf) {
                 if (draw_pipeline->IsFailed()) {
-                    return;
+                    return false;
                 }
                 cmdbuf.DrawIndirectByteCountEXT(1, 0, buffer_obj, offset, 0,
                                                 static_cast<u32>(stride));
+                return true;
             });
             return;
         }
@@ -566,11 +925,11 @@ void RasterizerVulkan::DrawIndirect() {
             const auto count = buffer_cache.GetDrawIndirectCount();
             const auto& draw_buffer = count.first;
             const auto& offset_base = count.second;
-            scheduler.Record([draw_buffer_obj = draw_buffer->Handle(),
+            RecordShaderStorageWrite([draw_buffer_obj = draw_buffer->Handle(),
                               buffer_obj = buffer->Handle(), offset_base, offset, params,
                               draw_pipeline](vk::CommandBuffer cmdbuf) {
                 if (draw_pipeline->IsFailed()) {
-                    return;
+                    return false;
                 }
                 if (params.is_indexed) {
                     cmdbuf.DrawIndexedIndirectCount(
@@ -581,13 +940,14 @@ void RasterizerVulkan::DrawIndirect() {
                                              static_cast<u32>(params.max_draw_counts),
                                              static_cast<u32>(params.stride));
                 }
+                return true;
             });
             return;
         }
-        scheduler.Record([buffer_obj = buffer->Handle(), offset, params,
+        RecordShaderStorageWrite([buffer_obj = buffer->Handle(), offset, params,
                           draw_pipeline](vk::CommandBuffer cmdbuf) {
             if (draw_pipeline->IsFailed()) {
-                return;
+                return false;
             }
             if (params.is_indexed) {
                 cmdbuf.DrawIndexedIndirect(buffer_obj, offset,
@@ -597,6 +957,7 @@ void RasterizerVulkan::DrawIndirect() {
                 cmdbuf.DrawIndirect(buffer_obj, offset, static_cast<u32>(params.max_draw_counts),
                                     static_cast<u32>(params.stride));
             }
+            return true;
         });
     });
     buffer_cache.SetDrawIndirect(nullptr);
@@ -801,8 +1162,32 @@ void RasterizerVulkan::DispatchCompute() {
     if (!pipeline) {
         return;
     }
+    const bool observing = observe_storage_writes;
+    bool observed_command_recorded{};
+    if (observing) buffer_cache_runtime.BeginStorageWriteObservation(true);
+    SCOPE_EXIT {
+        if (observing) {
+            if (!observed_command_recorded) MarkStorageObservationIncomplete();
+            buffer_cache_runtime.EndStorageWriteObservation();
+        }
+    };
     std::scoped_lock lock{texture_cache.mutex, buffer_cache.mutex};
+    if (physical_shadow) {
+        physical_shadow->BeginDispatch();
+    }
+    SCOPE_EXIT {
+        if (physical_shadow) {
+            physical_shadow->EndDispatch();
+        }
+    };
     pipeline->Configure(*kepler_compute, *gpu_memory, scheduler, buffer_cache, texture_cache);
+    if (physical_shadow) {
+        buffer_cache.ObservePhysicalBindings(*physical_shadow, true);
+        physical_shadow->EndDispatch();
+        if (physical_shadow->Counters().dispatches % 4096 == 0) {
+            ReportPhysicalShadow();
+        }
+    }
 
     const auto& qmd{kepler_compute->launch_description};
     auto indirect_address = kepler_compute->GetIndirectComputeAddress();
@@ -813,17 +1198,25 @@ void RasterizerVulkan::DispatchCompute() {
         const auto [buffer, offset] =
             buffer_cache.ObtainBuffer(*indirect_address, 12, sync_info, post_op);
         scheduler.RequestOutsideRenderPassOperationContext();
-        scheduler.Record([indirect_buffer = buffer->Handle(),
+        RecordShaderStorageWrite([indirect_buffer = buffer->Handle(),
                           indirect_offset = offset](vk::CommandBuffer cmdbuf) {
             cmdbuf.DispatchIndirect(indirect_buffer, indirect_offset);
+            return true;
         });
+        observed_command_recorded = true;
         RecordComputeWriteBarrier();
+        buffer_cache.FlushGatherWrites();
         return;
     }
     const std::array<u32, 3> dim{qmd.grid_dim_x, qmd.grid_dim_y, qmd.grid_dim_z};
     scheduler.RequestOutsideRenderPassOperationContext();
-    scheduler.Record([dim](vk::CommandBuffer cmdbuf) { cmdbuf.Dispatch(dim[0], dim[1], dim[2]); });
+    RecordShaderStorageWrite([dim](vk::CommandBuffer cmdbuf) {
+        cmdbuf.Dispatch(dim[0], dim[1], dim[2]);
+        return true;
+    });
+    observed_command_recorded = true;
     RecordComputeWriteBarrier();
+    buffer_cache.FlushGatherWrites();
 }
 
 void RasterizerVulkan::RecordComputeWriteBarrier() {
@@ -919,19 +1312,216 @@ VideoCore::RasterizerDownloadArea RasterizerVulkan::GetFlushArea(DAddr addr, u64
         };
     }
 
-    {
-        std::scoped_lock lock{texture_cache.mutex};
-        auto area = texture_cache.GetFlushArea(addr, size);
-        if (area) {
-            return *area;
-        }
-    }
     VideoCore::RasterizerDownloadArea new_area{
         .start_address = Common::AlignDown(addr, Core::DEVICE_PAGESIZE),
         .end_address = Common::AlignUp(addr + size, Core::DEVICE_PAGESIZE),
         .preemtive = true,
     };
+    std::scoped_lock lock{texture_cache.mutex, buffer_cache.mutex};
+    const auto merge_area = [&](const auto& area) {
+        if (area) {
+            new_area.start_address = std::min(new_area.start_address, area->start_address);
+            new_area.end_address = std::max(new_area.end_address, area->end_address);
+            new_area.preemtive &= area->preemtive;
+        }
+    };
+    merge_area(texture_cache.GetFlushArea(addr, size));
+    merge_area(buffer_cache.GetFlushArea(addr, size));
     return new_area;
+}
+
+bool RasterizerVulkan::QueueControlledCpuWriteRequest(
+    const ControlledRegistrationPtr& operation,
+    const Core::Memory::ControlledCpuWriteRequestPtr& request) {
+    using Request = Core::Memory::ControlledCpuWriteRequest;
+    if (!operation || !request || request->State() != Request::Phase::Prepared) return false;
+    struct Handoff {
+        Core::Memory::ControlledCpuWriteRequestPtr request;
+        ControlledCpuWritePtr transaction;
+        ~Handoff() { if (!transaction) (void)request->Cancel(); }
+    };
+    auto handoff = std::make_shared<Handoff>();
+    handoff->request = request;
+    // Renderer teardown joins this existing GPU owner before releasing Rasterizer/Device.
+    // Only immutable request/registration owners cross the queue, never a raw Memory pointer.
+    return gpu.TryQueueCpuWrite([this, operation, handoff] {
+        std::unique_lock cache_guard{buffer_cache.mutex, std::try_to_lock};
+        if (!cache_guard.owns_lock()) return false;
+        // A parked admission/preservation returns from this poll and releases the cache.
+        // Never block the GPU owner behind a CPU producer holding this mutex.
+        if (!handoff->transaction) {
+            handoff->transaction = buffer_cache.BeginControlledCpuWriteRequest(operation, handoff->request);
+            if (!handoff->transaction) return true;
+        }
+        const auto phase = AdvanceControlledCpuWriteRequest(handoff->transaction);
+        return phase != Request::Phase::Prepared && phase != Request::Phase::Accepted;
+    });
+}
+
+Core::Memory::ControlledCpuWriteRequest::Phase RasterizerVulkan::AdvanceControlledCpuWriteRequest(
+    const ControlledCpuWritePtr& transaction) {
+    using Request = Core::Memory::ControlledCpuWriteRequest;
+    if (!transaction || !transaction->Request()) return Request::Phase::Unknown;
+    if (buffer_cache.PollControlledCpuWrite(transaction) == BufferCache::ControlledCpuWrite::Phase::Preserved) {
+        (void)buffer_cache.CommitControlledCpuWriteRequest(transaction,
+            [&](auto& memory, const auto& view, auto& write, u64 address, const auto& value) {
+                using T = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<T, u8>)
+                    return memory.WriteOrdinaryControlled8(view, write, Common::ProcessAddress{address}, value);
+                else if constexpr (std::is_same_v<T, u16>)
+                    return memory.WriteOrdinaryControlled16(view, write, Common::ProcessAddress{address}, value);
+                else if constexpr (std::is_same_v<T, u32>)
+                    return memory.WriteOrdinaryControlled32(view, write, Common::ProcessAddress{address}, value);
+                else
+                    return memory.WriteOrdinaryControlled64(view, write, Common::ProcessAddress{address}, value);
+            });
+    }
+    return transaction->Request()->State();
+}
+
+Core::Memory::PreparedCpuWriteResult RasterizerVulkan::CommitControlledCpuWrite8(
+    const ControlledCpuWritePtr& transaction, Core::Memory::Memory& memory, u8 value) {
+    return buffer_cache.CommitControlledCpuTransaction(transaction, sizeof(value),
+        [&](const auto& view, auto& write, u64 address) {
+            return memory.WriteOrdinaryControlled8(view, write, Common::ProcessAddress{address}, value);
+        });
+}
+
+Core::Memory::PreparedCpuWriteResult RasterizerVulkan::CommitControlledCpuWrite16(
+    const ControlledCpuWritePtr& transaction, Core::Memory::Memory& memory, u16 value) {
+    return buffer_cache.CommitControlledCpuTransaction(transaction, sizeof(value),
+        [&](const auto& view, auto& write, u64 address) {
+            return memory.WriteOrdinaryControlled16(view, write, Common::ProcessAddress{address}, value);
+        });
+}
+
+Core::Memory::PreparedCpuWriteResult RasterizerVulkan::CommitControlledCpuWrite32(
+    const ControlledCpuWritePtr& transaction, Core::Memory::Memory& memory, u32 value) {
+    return buffer_cache.CommitControlledCpuTransaction(transaction, sizeof(value),
+        [&](const auto& view, auto& write, u64 address) {
+            return memory.WriteOrdinaryControlled32(view, write, Common::ProcessAddress{address}, value);
+        });
+}
+
+Core::Memory::PreparedCpuWriteResult RasterizerVulkan::CommitControlledCpuWrite64(
+    const ControlledCpuWritePtr& transaction, Core::Memory::Memory& memory, u64 value) {
+    return buffer_cache.CommitControlledCpuTransaction(transaction, sizeof(value),
+        [&](const auto& view, auto& write, u64 address) {
+            return memory.WriteOrdinaryControlled64(view, write, Common::ProcessAddress{address}, value);
+        });
+}
+
+Core::Memory::PreparedCpuWriteResult RasterizerVulkan::WriteControlledCached8(
+    const ControlledRegistrationPtr& operation, Core::Memory::Memory& memory,
+    const Core::Memory::PreparedCpuPage& view,
+    Common::PhysicalRegistrationBundle::CachedWrite& write, Common::ProcessAddress address,
+    u8 value) {
+    return buffer_cache.CommitControlledCachedWrite(
+        operation, view, write, GetInteger(address), sizeof(value),
+        [&] { return memory.WritePreparedCached8(view, write, address, value); });
+}
+
+Core::Memory::PreparedCpuWriteResult RasterizerVulkan::WriteControlledCached16(
+    const ControlledRegistrationPtr& operation, Core::Memory::Memory& memory,
+    const Core::Memory::PreparedCpuPage& view,
+    Common::PhysicalRegistrationBundle::CachedWrite& write, Common::ProcessAddress address,
+    u16 value) {
+    return buffer_cache.CommitControlledCachedWrite(
+        operation, view, write, GetInteger(address), sizeof(value),
+        [&] { return memory.WritePreparedCached16(view, write, address, value); });
+}
+
+Core::Memory::PreparedCpuWriteResult RasterizerVulkan::WriteControlledCached32(
+    const ControlledRegistrationPtr& operation, Core::Memory::Memory& memory,
+    const Core::Memory::PreparedCpuPage& view,
+    Common::PhysicalRegistrationBundle::CachedWrite& write, Common::ProcessAddress address,
+    u32 value) {
+    return buffer_cache.CommitControlledCachedWrite(
+        operation, view, write, GetInteger(address), sizeof(value),
+        [&] { return memory.WritePreparedCached32(view, write, address, value); });
+}
+
+Core::Memory::PreparedCpuWriteResult RasterizerVulkan::WriteControlledCached64(
+    const ControlledRegistrationPtr& operation, Core::Memory::Memory& memory,
+    const Core::Memory::PreparedCpuPage& view,
+    Common::PhysicalRegistrationBundle::CachedWrite& write, Common::ProcessAddress address,
+    u64 value) {
+    return buffer_cache.CommitControlledCachedWrite(
+        operation, view, write, GetInteger(address), sizeof(value),
+        [&] { return memory.WritePreparedCached64(view, write, address, value); });
+}
+
+bool RasterizerVulkan::RunBufferCacheCpuWrite(DAddr addr, u64 size, bool check_gpu_writes,
+                                             bool unmap) {
+    if ((check_gpu_writes || unmap) && !Settings::IsNceEnabled()) {
+        // Legacy callers still use only the deferred-dirty bit. Transactions
+        // must consume the optional result directly and reject nullopt.
+        return TryRunBufferCacheCpuWrite(addr, size, check_gpu_writes, unmap).value_or(false);
+    }
+    // NCE alignment emulation also calls Memory::WriteBlock in signal context.
+    // Keep all NCE and default invalidation on their historical dispatch path;
+    // the acknowledged path is not a signal-safe native access mechanism.
+    std::unique_lock lock{buffer_cache.mutex};
+    // Check while holding the cache lock: an import cannot race a CPU-side write
+    // between the decision and execution. Never wait for the GPU with this lock held.
+    // Unmap also downloads ordinary staged GPU writes before CPU dirtying.
+    if (!gpu.IsGpuThread() &&
+        (buffer_cache.CpuWriteNeedsGpuThread(addr, size) ||
+         ((unmap || check_gpu_writes) && buffer_cache.IsRegionGpuModified(addr, size)))) {
+        lock.unlock();
+        const auto result = std::make_shared<std::atomic<bool>>(false);
+        gpu.RunOnGpuThread([this, addr, size, check_gpu_writes, unmap, result] {
+            std::scoped_lock gpu_lock{buffer_cache.mutex};
+            if (unmap) { buffer_cache.InvalidateGatherMemory(addr, size); }
+            if (check_gpu_writes) {
+                result->store(buffer_cache.OnCPUWrite(addr, size));
+            } else {
+                buffer_cache.WriteMemory(addr, size);
+            }
+        });
+        return result->load();
+    }
+    if (unmap) { buffer_cache.InvalidateGatherMemory(addr, size); }
+    if (check_gpu_writes) {
+        return buffer_cache.OnCPUWrite(addr, size);
+    }
+    buffer_cache.WriteMemory(addr, size);
+    return false;
+}
+
+std::optional<bool> RasterizerVulkan::TryRunBufferCacheCpuWrite(DAddr addr, u64 size,
+                                                             bool check_gpu_writes, bool unmap) {
+    std::unique_lock lock{buffer_cache.mutex};
+    // Check while holding the cache lock: an import cannot race a CPU-side write
+    // between the decision and execution. Never wait for the GPU with this lock held.
+    // Unmap also downloads ordinary staged GPU writes before CPU dirtying.
+    if (!gpu.IsGpuThread() &&
+        (buffer_cache.CpuWriteNeedsGpuThread(addr, size) ||
+         ((unmap || check_gpu_writes) && buffer_cache.IsRegionGpuModified(addr, size)))) {
+        lock.unlock();
+        const auto result = std::make_shared<std::atomic<bool>>(false);
+        const auto outcome = VideoCommon::RunAcknowledgedCallback(
+            [this](std::function<void()> callback) { gpu.RunOnGpuThread(std::move(callback)); },
+            [this, addr, size, check_gpu_writes, unmap, result] {
+                std::scoped_lock gpu_lock{buffer_cache.mutex};
+                if (unmap) { buffer_cache.InvalidateGatherMemory(addr, size); }
+                if (check_gpu_writes) {
+                    result->store(buffer_cache.OnCPUWrite(addr, size));
+                } else {
+                    buffer_cache.WriteMemory(addr, size);
+                }
+            });
+        if (outcome != VideoCommon::CallbackOutcome::Completed) {
+            return std::nullopt;
+        }
+        return result->load();
+    }
+    if (unmap) { buffer_cache.InvalidateGatherMemory(addr, size); }
+    if (check_gpu_writes) {
+        return buffer_cache.OnCPUWrite(addr, size);
+    }
+    buffer_cache.WriteMemory(addr, size);
+    return false;
 }
 
 void RasterizerVulkan::InvalidateRegion(DAddr addr, u64 size, VideoCommon::CacheType which) {
@@ -947,8 +1537,7 @@ void RasterizerVulkan::InvalidateRegion(DAddr addr, u64 size, VideoCommon::Cache
         texture_cache.WriteMemory(addr, size);
     }
     if ((True(which & VideoCommon::CacheType::BufferCache))) {
-        std::scoped_lock lock{buffer_cache.mutex};
-        buffer_cache.WriteMemory(addr, size);
+        RunBufferCacheCpuWrite(addr, size);
     }
     if ((True(which & VideoCommon::CacheType::QueryCache))) {
         query_cache.InvalidateRegion(addr, size);
@@ -966,9 +1555,8 @@ void RasterizerVulkan::InnerInvalidation(std::span<const std::pair<DAddr, std::s
         }
     }
     {
-        std::scoped_lock lock{buffer_cache.mutex};
         for (const auto& [addr, size] : sequences) {
-            buffer_cache.WriteMemory(addr, size);
+            RunBufferCacheCpuWrite(addr, size);
         }
     }
     {
@@ -985,8 +1573,7 @@ bool RasterizerVulkan::OnCPUWrite(DAddr addr, u64 size) {
     }
 
     {
-        std::scoped_lock lock{buffer_cache.mutex};
-        if (buffer_cache.OnCPUWrite(addr, size)) {
+        if (RunBufferCacheCpuWrite(addr, size, true)) {
             return true;
         }
     }
@@ -1010,8 +1597,7 @@ void RasterizerVulkan::OnCacheInvalidation(DAddr addr, u64 size) {
         texture_cache.WriteMemory(addr, size);
     }
     {
-        std::scoped_lock lock{buffer_cache.mutex};
-        buffer_cache.WriteMemory(addr, size);
+        RunBufferCacheCpuWrite(addr, size);
     }
     pipeline_cache.InvalidateRegion(addr, size);
 }
@@ -1021,15 +1607,31 @@ void RasterizerVulkan::InvalidateGPUCache() {
 }
 
 void RasterizerVulkan::UnmapMemory(DAddr addr, u64 size) {
-    {
-        std::scoped_lock lock{texture_cache.mutex};
-        texture_cache.UnmapMemory(addr, size);
+    VideoCommon::CallbackOutcome outcome;
+    try {
+        outcome = VideoCommon::RunAcknowledgedCallback(
+            [this](std::function<void()> callback) { gpu.RunOnGpuThread(std::move(callback)); },
+            [this, addr, size] {
+                gpu.InvalidateGPUCache();
+                {
+                    std::scoped_lock lock{texture_cache.mutex};
+                    texture_cache.UnmapMemory(addr, size);
+                }
+                // optional false is a valid completed WriteMemory result. Only
+                // nullopt means preservation could not be acknowledged.
+                if (!TryRunBufferCacheCpuWrite(addr, size, false, true).has_value()) {
+                    throw VideoCommon::UnmapFailure{VideoCommon::CallbackOutcome::Failed, true};
+                }
+                pipeline_cache.OnCacheInvalidation(addr, size);
+            });
+    } catch (...) {
+        // Includes inline GPU-owner callback failure and dispatch/allocation
+        // failure. Neither permits the caller to release mapping ownership.
+        throw VideoCommon::UnmapFailure{VideoCommon::CallbackOutcome::Failed, true};
     }
-    {
-        std::scoped_lock lock{buffer_cache.mutex};
-        buffer_cache.WriteMemory(addr, size);
+    if (outcome != VideoCommon::CallbackOutcome::Completed) {
+        throw VideoCommon::UnmapFailure{outcome, outcome == VideoCommon::CallbackOutcome::Failed};
     }
-    pipeline_cache.OnCacheInvalidation(addr, size);
 }
 
 void RasterizerVulkan::ModifyGPUMemory(size_t as_id, GPUVAddr addr, u64 size) {
@@ -1151,6 +1753,7 @@ void RasterizerVulkan::UpdatePassEndSubmit() {
 }
 
 void RasterizerVulkan::TickFrame() {
+    scheduler.CollectPresentationSources();
     memory_allocator.TickFrame();
     draw_counter = 0;
     UpdatePassEndSubmit();
@@ -1272,12 +1875,18 @@ void RasterizerVulkan::AccelerateInlineToMemory(GPUVAddr address, size_t copy_si
 
 std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
     const Tegra::FramebufferConfig& config, DAddr framebuffer_addr, u32 pixel_stride) {
-    if (!framebuffer_addr) {
+    if (!framebuffer_addr || !config.source_mapping) {
         return {};
     }
     std::scoped_lock lock{texture_cache.mutex};
-    const auto [image_view, scaled] =
-        texture_cache.TryFindFramebufferImageView(config, framebuffer_addr);
+    // Cache lock first; mapping mutation closes its source domain before entering
+    // invalidation callbacks and never holds that domain over cache/GPU waits.
+    decltype(texture_cache.TryFindFramebufferImageView(config, framebuffer_addr)) selected{};
+    if (!device_memory.WithFrameMapping(*config.source_mapping, framebuffer_addr, 1, [&] {
+            selected = texture_cache.TryFindFramebufferImageView(config, framebuffer_addr);
+            return true;
+        })) return {};
+    const auto [image_view, scaled] = selected;
     if (!image_view) {
         return {};
     }
@@ -1286,6 +1895,9 @@ std::optional<FramebufferTextureInfo> RasterizerVulkan::AccelerateDisplay(
     const auto& resolution = Settings::values.resolution_info;
 
     FramebufferTextureInfo info{};
+    info.native_owner = image_view->RetainPresentationSource();
+    if (!info.native_owner || !info.native_owner->Matches(image_view->ImageHandle(),
+            image_view->Handle(Shader::TextureType::Color2D))) return {};
     info.image = image_view->ImageHandle();
     info.image_view = image_view->Handle(Shader::TextureType::Color2D);
     info.width = image_view->size.width;
@@ -1397,20 +2009,36 @@ bool AccelerateDMA::DmaBufferImageCopy(const Tegra::DMA::ImageCopy& copy_info,
     if (image_id == VideoCommon::NULL_IMAGE_ID) {
         return false;
     }
-    const u32 buffer_size = static_cast<u32>(buffer_operand.pitch * buffer_operand.height);
+    const u64 wide_size = u64(buffer_operand.pitch) * buffer_operand.height;
+    if (wide_size > std::numeric_limits<u32>::max()) {
+        return false;
+    }
+    const auto buffer_size = static_cast<u32>(wide_size);
+    auto [image, copy] = texture_cache.DmaBufferImageCopy(copy_info, buffer_operand, image_operand,
+                                                          image_id, IS_IMAGE_UPLOAD, false);
+    if (image->NeedsSynchronousDownloadBaseline()) {
+        const auto bpp = BytesPerBlock(image->info.format);
+        if (buffer_operand.address % 4 || buffer_operand.pitch % bpp ||
+            (u64(copy_info.length_x) * image_operand.bytes_per_pixel) % bpp ||
+            (u64(image_operand.params.origin.x.Value()) * image_operand.bytes_per_pixel) % bpp ||
+            !image->CanDepthStencilDma(std::span{&copy, 1}, buffer_size)) {
+            LOG_DEBUG(Render_Vulkan, "Depth/stencil DMA requires unsupported layout or device "
+                                     "buffer range; using guest DMA fallback");
+            return false;
+        }
+    }
     static constexpr auto sync_info = VideoCommon::ObtainBufferSynchronize::FullSynchronize;
     const auto post_op = IS_IMAGE_UPLOAD ? VideoCommon::ObtainBufferOperation::DoNothing
                                          : VideoCommon::ObtainBufferOperation::MarkAsWritten;
     const auto [buffer, offset] =
         buffer_cache.ObtainBuffer(buffer_operand.address, buffer_size, sync_info, post_op);
-
-    const auto [image, copy] = texture_cache.DmaBufferImageCopy(
+    std::tie(image, copy) = texture_cache.DmaBufferImageCopy(
         copy_info, buffer_operand, image_operand, image_id, IS_IMAGE_UPLOAD);
     const std::span copy_span{&copy, 1};
 
     if constexpr (IS_IMAGE_UPLOAD) {
         texture_cache.PrepareImage(image_id, true, false);
-        image->UploadMemory(buffer->Handle(), offset, copy_span);
+        image->UploadMemoryDma(buffer->Handle(), offset, buffer_size, copy_span);
     } else {
         if (offset % BytesPerBlock(image->info.format)) {
             return false;

@@ -7,18 +7,22 @@
 #include <atomic>
 #include <bit>
 #include <cmath>
+#include <numeric>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <boost/container/small_vector.hpp>
 
 #include "common/alignment.h"
 #include "common/bit_util.h"
-#include "common/literals.h"
 #include "common/common_types.h"
+#include "common/literals.h"
 #include "common/settings.h"
 
+#include "video_core/renderer_vulkan/vk_depth_stencil.h"
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
 
 #include "video_core/engines/fermi_2d.h"
@@ -28,6 +32,7 @@
 #include "video_core/renderer_vulkan/vk_render_pass_cache.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_staging_buffer_pool.h"
+#include "video_core/texture_cache/depth_stencil.h"
 #include "video_core/texture_cache/formatter.h"
 #include "video_core/texture_cache/image_size.h"
 #include "video_core/texture_cache/samples_helper.h"
@@ -1008,6 +1013,8 @@ TextureCacheRuntime::TextureCacheRuntime(const Device& device_, Scheduler& sched
         msaa_copy_pass = std::make_unique<MSAACopyPass>(
             device, scheduler, descriptor_pool, staging_buffer_pool, compute_pass_descriptor_queue);
     }
+    depth_stencil_dma_pass = std::make_unique<DepthStencilDmaPass>(
+        device, scheduler, descriptor_pool, compute_pass_descriptor_queue);
     // Turnip stores an image linear, not tiled, when its mutable format list holds a format with
     // a component swap such as B8G8R8A8 (tu_image.cc: format_list_has_swaps sets
     // force_linear_tile when the formats are not all UBWC compatible). Every RGBA8 image would get
@@ -1064,8 +1071,8 @@ TextureCacheRuntime::TextureCacheRuntime(const Device& device_, Scheduler& sched
 struct TextureCacheRuntime::RetiredImage {
     u64 tick;
     u64 frame;
-    vk::Image original;
-    vk::Image scaled;
+    std::shared_ptr<vk::Image> original;
+    std::shared_ptr<vk::Image> scaled;
     std::vector<vk::ImageView> storage_views;
     std::unique_ptr<Framebuffer> scale_framebuffer;
     std::unique_ptr<ImageView> scale_view;
@@ -1075,7 +1082,8 @@ struct TextureCacheRuntime::RetiredImage {
 
 TextureCacheRuntime::~TextureCacheRuntime() = default;
 
-void TextureCacheRuntime::RetireImage(vk::Image original, vk::Image scaled,
+void TextureCacheRuntime::RetireImage(std::shared_ptr<vk::Image> original,
+                                    std::shared_ptr<vk::Image> scaled,
                                       std::vector<vk::ImageView> storage_views,
                                       std::unique_ptr<Framebuffer> scale_framebuffer,
                                       std::unique_ptr<ImageView> scale_view,
@@ -1092,6 +1100,43 @@ void TextureCacheRuntime::RetireImage(vk::Image original, vk::Image scaled,
         .normal_framebuffer = std::move(normal_framebuffer),
         .normal_view = std::move(normal_view),
     }));
+}
+
+std::shared_ptr<StagingBufferRef> TextureCacheRuntime::ReservePendingReadbackBuffer(size_t size) {
+    CollectPendingReadbackBuffers();
+    auto buffer = std::make_shared<StagingBufferRef>();
+    *buffer = DownloadStagingBuffer(size, true);
+    try {
+        pending_readback_buffers.push_back(buffer);
+    } catch (...) {
+        staging_buffer_pool.FreeDeferred(*buffer);
+        throw;
+    }
+    return buffer;
+}
+
+void TextureCacheRuntime::CollectPendingReadbackBuffers() {
+    std::erase_if(pending_readback_buffers, [&](const auto& buffer) {
+        if (buffer.use_count() != 1)
+            return false;
+        staging_buffer_pool.FreeDeferred(*buffer);
+        return true;
+    });
+}
+
+std::shared_ptr<Image> TextureCacheRuntime::ReservePendingReadbackImage() {
+    auto owner = std::make_shared<Image>(VideoCommon::NullImageParams{});
+    pending_readback_images.push_back({owner});
+    return owner;
+}
+
+void TextureCacheRuntime::RetirePendingReadbackImage(const std::shared_ptr<Image>& owner) {
+    const auto pending_it = std::ranges::find_if(
+        pending_readback_images, [&](const auto& entry) { return entry.owner == owner; });
+    assert(pending_it != pending_readback_images.end());
+    pending_it->retired = true;
+    pending_it->tick = scheduler.CurrentTick();
+    pending_it->frame = frame_count;
 }
 
 void TextureCacheRuntime::Finish() {
@@ -1169,6 +1214,9 @@ void TextureCacheRuntime::BarrierFeedbackLoop() {
 
 void TextureCacheRuntime::ReinterpretImage(Image& dst, Image& src,
                                            std::span<const VideoCommon::ImageCopy> copies) {
+    if (copies.empty()) {
+        return;
+    }
     boost::container::small_vector<VkBufferImageCopy, 16> vk_in_copies(copies.size());
     boost::container::small_vector<VkBufferImageCopy, 16> vk_out_copies(copies.size());
     const VkImageAspectFlags src_aspect_mask = src.AspectMask();
@@ -1186,18 +1234,34 @@ void TextureCacheRuntime::ReinterpretImage(Image& dst, Image& src,
     std::ranges::transform(copies, vk_out_copies.begin(), [dst_aspect_mask](const auto& copy) {
         return MakeBufferImageCopy(copy, false, dst_aspect_mask);
     });
-    const u32 img_bpp = BytesPerBlock(dst.info.format);
-    size_t total_size = 0;
-    for (const auto& copy : copies) {
+    const auto copy_size = [](const VkBufferImageCopy& copy, PixelFormat format) {
+        using namespace VideoCommon::ImageSize;
+        const u64 blocks_x = DivCeil(copy.imageExtent.width, DefaultBlockWidth(format));
+        const u64 blocks_y = DivCeil(copy.imageExtent.height, DefaultBlockHeight(format));
+        const u64 blocks = Multiply(blocks_x, blocks_y);
+        const u64 slices = Multiply(copy.imageExtent.depth, copy.imageSubresource.layerCount);
+        return Multiply(Multiply(blocks, slices), BytesPerBlock(format));
+    };
+    // Each region needs its own tightly packed slice, aligned for both image formats.
+    // Array layers also occupy buffer space; extent.depth alone only covers 3D slices.
+    const u64 texel_alignment = std::lcm(u64{BytesPerBlock(src.info.format)},
+                                         u64{BytesPerBlock(dst.info.format)});
+    const u64 alignment = std::lcm(u64{4}, texel_alignment);
+    u64 total_size = 0;
+    for (size_t index = 0; index < copies.size(); ++index) {
+        const u64 offset = VideoCommon::ImageSize::AlignUp(total_size, alignment);
+        auto& in_copy = vk_in_copies[index];
+        auto& out_copy = vk_out_copies[index];
+        in_copy.bufferOffset = offset;
+        out_copy.bufferOffset = offset;
         total_size = VideoCommon::ImageSize::Add(
-            total_size,
-            VideoCommon::ImageSize::Multiply(
-                VideoCommon::ImageSize::Multiply(
-                    VideoCommon::ImageSize::Multiply(copy.extent.width, copy.extent.height),
-                    copy.extent.depth),
-                img_bpp));
+            offset, std::max(copy_size(in_copy, src.info.format),
+                             copy_size(out_copy, dst.info.format)));
     }
-    const VkBuffer copy_buffer = GetTemporaryBuffer(total_size);
+    if (!std::in_range<size_t>(total_size)) {
+        throw VideoCommon::InvalidImageSize{"Reinterpret staging size exceeds host address space"};
+    }
+    const VkBuffer copy_buffer = GetTemporaryBuffer(static_cast<size_t>(total_size));
     const VkImage dst_image = dst.Handle();
     const VkImage src_image = src.Handle();
     scheduler.RequestOutsideRenderPassOperationContext();
@@ -1573,8 +1637,10 @@ void TextureCacheRuntime::CopyImage(Image& dst, Image& src,
             VkImageMemoryBarrier{
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
                 .pNext = nullptr,
+                // The copy only reads this image, but the layout transition can write it.
+                // Publish those transition writes to subsequent image accesses.
                 .srcAccessMask = 0,
-                .dstAccessMask = 0,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
                 .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 .newLayout = VK_IMAGE_LAYOUT_GENERAL,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -1636,6 +1702,13 @@ bool TextureCacheRuntime::CanReportMemoryUsage() const {
 
 void TextureCacheRuntime::TickFrame() {
     ++frame_count;
+    CollectPendingReadbackBuffers();
+    std::erase_if(pending_readback_images, [&](const auto& entry) {
+        return entry.owner.use_count() == 1 &&
+               (!entry.retired ||
+                (frame_count >= entry.frame + 10 && scheduler.IsFree(entry.tick)));
+    });
+
     // Views of a retired image are destroyed with the texture cache's delayed destruction
     // (TICKS_TO_DESTROY = 8 frames); the image outlives them and the GPU work that used it.
     constexpr u64 RETIRED_IMAGE_FRAMES = 10;
@@ -1651,9 +1724,10 @@ void TextureCacheRuntime::TickFrame() {
 Image::Image(TextureCacheRuntime& runtime_, const ImageInfo& info_, GPUVAddr gpu_addr_,
              VAddr cpu_addr_)
     : VideoCommon::ImageBase(info_, gpu_addr_, cpu_addr_), scheduler{&runtime_.scheduler},
-      runtime{&runtime_}, original_image(MakeImage(runtime_.device, runtime_.memory_allocator, info,
-                                                   runtime->ViewFormats(info.format, false))),
-      aspect_mask(ImageAspectMask(info.format)) {
+      runtime{&runtime_}, original_image(std::make_shared<vk::Image>(MakeImage(runtime_.device, runtime_.memory_allocator, info,
+                                                   runtime->ViewFormats(info.format, false)))),
+      aspect_mask(ImageAspectMask(info.format)),
+      image_format(MakeImageCreateInfo(runtime_.device, info).format) {
     const auto narrow = runtime->ViewFormats(info.format, false);
     wide_view_formats = std::ranges::all_of(runtime->ViewFormats(info.format, true),
                                             [narrow](VkFormat format) {
@@ -1687,9 +1761,9 @@ Image::Image(TextureCacheRuntime& runtime_, const ImageInfo& info_, GPUVAddr gpu
         flags |= VideoCommon::ImageFlagBits::CostlyLoad;
     }
     if (runtime->device.HasDebuggingToolAttached()) {
-        original_image.SetObjectNameEXT(VideoCommon::Name(*this).c_str());
+        original_image->SetObjectNameEXT(VideoCommon::Name(*this).c_str());
     }
-    current_image = *original_image;
+    current_image = **original_image;
     MakeStorageImageViews();
 }
 
@@ -1705,7 +1779,7 @@ void Image::MakeStorageImageViews() {
         const auto& device = runtime->device.GetLogical();
         for (u32 level = 0; level < mip_levels; ++level) {
             storage_image_views[level] =
-                MakeStorageView(device, level, *original_image, VK_FORMAT_A8B8G8R8_UNORM_PACK32);
+                MakeStorageView(device, level, **original_image, VK_FORMAT_A8B8G8R8_UNORM_PACK32);
         }
     }
 }
@@ -1754,14 +1828,15 @@ bool Image::WidenViewFormats() {
     }
     wide_view_formats = true;
     const auto formats = runtime->ViewFormats(info.format, true);
-    vk::Image new_original =
-        MakeImage(runtime->device, runtime->memory_allocator, info, formats);
-    vk::Image new_scaled{};
+    auto new_original = std::make_shared<vk::Image>(
+        MakeImage(runtime->device, runtime->memory_allocator, info, formats));
+    std::shared_ptr<vk::Image> new_scaled;
     if (scaled_image) {
-        new_scaled = MakeImage(runtime->device, runtime->memory_allocator, ScaledInfo(), formats);
+        new_scaled = std::make_shared<vk::Image>(
+            MakeImage(runtime->device, runtime->memory_allocator, ScaledInfo(), formats));
     }
     if (runtime->device.HasDebuggingToolAttached()) {
-        new_original.SetObjectNameEXT(VideoCommon::Name(*this).c_str());
+        new_original->SetObjectNameEXT(VideoCommon::Name(*this).c_str());
     }
     if (aspect_mask == 0) {
         aspect_mask = ImageAspectMask(info.format);
@@ -1769,9 +1844,9 @@ bool Image::WidenViewFormats() {
     if (initialized) {
         // Both images hold data once the image was scaled: the one in use and the one a scale
         // in the other direction copies back from.
-        CopyWholeImage(*scheduler, *original_image, *new_original, info, aspect_mask);
+        CopyWholeImage(*scheduler, **original_image, **new_original, info, aspect_mask);
         if (scaled_image) {
-            CopyWholeImage(*scheduler, *scaled_image, *new_scaled, ScaledInfo(), aspect_mask);
+            CopyWholeImage(*scheduler, **scaled_image, **new_scaled, ScaledInfo(), aspect_mask);
         }
     }
     runtime->RetireImage(std::move(original_image), std::move(scaled_image),
@@ -1780,67 +1855,28 @@ bool Image::WidenViewFormats() {
                          std::move(normal_view));
     original_image = std::move(new_original);
     scaled_image = std::move(new_scaled);
-    current_image = True(flags & ImageFlagBits::Rescaled) ? *scaled_image : *original_image;
+    current_image = True(flags & ImageFlagBits::Rescaled) ? **scaled_image : **original_image;
     MakeStorageImageViews();
     return true;
 }
 
 Image::~Image() = default;
 
-void Image::UploadMemory(VkBuffer buffer, VkDeviceSize offset,
-                         std::span<const VideoCommon::BufferImageCopy> copies) {
-    // TODO: Move this to another API
-    const bool is_rescaled = True(flags & ImageFlagBits::Rescaled);
-    if (is_rescaled) {
-        ScaleDown(true);
-    }
+Image& Image::operator=(Image&& other) noexcept {
+    static_assert(std::is_nothrow_move_constructible_v<Image>);
+    if (this != &other) { this->~Image(); std::construct_at(this, std::move(other)); }
+    return *this;
+}
+
+using namespace DepthStencilStaging;
+
+namespace {
+void RecordStagingDownload(Scheduler* scheduler, VkImage image_handle,
+                           VkImageAspectFlags aspect_mask, std::vector<VkBuffer> buffers_vector,
+                           std::vector<std::vector<VkBufferImageCopy>> vk_copies, bool host_visible = true) {
     scheduler->RequestOutsideRenderPassOperationContext();
-    auto vk_copies = TransformBufferImageCopies(copies, offset, aspect_mask);
-    const VkBuffer src_buffer = buffer;
-    const VkImage vk_image = *original_image;
-    const VkImageAspectFlags vk_aspect_mask = aspect_mask;
-    const bool is_initialized = std::exchange(initialized, true);
-    scheduler->Record([src_buffer, vk_image, vk_aspect_mask, is_initialized,
-                       vk_copies](vk::CommandBuffer cmdbuf) {
-        CopyBufferToImage(cmdbuf, src_buffer, vk_image, vk_aspect_mask, is_initialized, vk_copies);
-    });
-    if (is_rescaled) {
-        ScaleUp();
-    }
-}
-
-void Image::UploadMemory(const StagingBufferRef& map, std::span<const BufferImageCopy> copies) {
-    UploadMemory(map.buffer, map.offset, copies);
-}
-
-void Image::DownloadMemory(VkBuffer buffer, size_t offset,
-                           std::span<const VideoCommon::BufferImageCopy> copies) {
-    std::array buffer_handles{
-        buffer,
-    };
-    std::array buffer_offsets{
-        offset,
-    };
-    DownloadMemory(buffer_handles, buffer_offsets, copies);
-}
-
-void Image::DownloadMemory(std::span<VkBuffer> buffers_span, std::span<size_t> offsets_span,
-                           std::span<const VideoCommon::BufferImageCopy> copies) {
-    const bool is_rescaled = True(flags & ImageFlagBits::Rescaled);
-    if (is_rescaled) {
-        ScaleDown();
-    }
-    boost::container::small_vector<VkBuffer, 8> buffers_vector{};
-    boost::container::small_vector<boost::container::small_vector<VkBufferImageCopy, 16>, 8>
-        vk_copies;
-    for (size_t index = 0; index < buffers_span.size(); index++) {
-        buffers_vector.emplace_back(buffers_span[index]);
-        vk_copies.emplace_back(
-            TransformBufferImageCopies(copies, offsets_span[index], aspect_mask));
-    }
-    scheduler->RequestOutsideRenderPassOperationContext();
-    scheduler->Record([buffers = std::move(buffers_vector), image = *original_image,
-                       aspect_mask_ = aspect_mask, vk_copies](vk::CommandBuffer cmdbuf) {
+    scheduler->Record([buffers = std::move(buffers_vector), image = image_handle,
+                       aspect_mask_ = aspect_mask, vk_copies, host_visible](vk::CommandBuffer cmdbuf) {
         const VkImageMemoryBarrier read_barrier{
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = nullptr,
@@ -1894,12 +1930,286 @@ void Image::DownloadMemory(std::span<VkBuffer> buffers_span, std::span<size_t> o
         // HOST: the CPU reads the copies once the fence signals, and a fence alone does not make
         // device writes visible to the host (Vulkan spec, synchronization chapter).
         cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
-                               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_HOST_BIT, 0,
+                               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | (host_visible ? VK_PIPELINE_STAGE_HOST_BIT : 0u), 0,
                                memory_write_barrier, nullptr, image_write_barrier);
     });
+}
+} // namespace
+
+namespace {
+void CopyDmaBaseline(Scheduler& scheduler, VkBuffer src, size_t src_offset, VkBuffer dst,
+                     size_t dst_offset, size_t size, bool host = false) {
+    scheduler.RequestOutsideRenderPassOperationContext();
+    scheduler.Record([=](vk::CommandBuffer cmdbuf) {
+        const VkMemoryBarrier before{VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr,
+                                     VK_ACCESS_MEMORY_WRITE_BIT,
+                                     VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT};
+        const VkBufferMemoryBarrier after{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,nullptr,
+            VK_ACCESS_TRANSFER_WRITE_BIT,VK_ACCESS_MEMORY_READ_BIT|VK_ACCESS_MEMORY_WRITE_BIT|
+                (host?VK_ACCESS_HOST_READ_BIT:0u),VK_QUEUE_FAMILY_IGNORED,VK_QUEUE_FAMILY_IGNORED,
+                dst,dst_offset,size};
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               0, before);
+        const VkBufferCopy copy{src_offset, dst_offset, size};
+        cmdbuf.CopyBuffer(src, dst, copy);
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT |
+                                   (host ? VK_PIPELINE_STAGE_HOST_BIT : 0u),
+                               0, nullptr, after, nullptr);
+    });
+}
+void ConvertDmaPlanes(TextureCacheRuntime& runtime, const StagingBufferRef& packed, size_t size,
+                      const StagingBufferRef& planes, size_t plane_size,
+                      const StagingDepthStencilCopies& plan, DS::GuestLayout guest,
+                      DS::DepthFormat host, bool pack) {
+    if (packed.offset || planes.offset) {
+        throw std::invalid_argument("DMA scratch buffers must have zero offsets");
+    }
+    for (const auto& t : plan.transfers) {
+        runtime.depth_stencil_dma_pass->Run(
+            packed.buffer, static_cast<u32>(size), planes.buffer, static_cast<u32>(plane_size),
+            {static_cast<u32>(t.region.width), static_cast<u32>(t.region.height),
+             static_cast<u32>(t.region.layers), static_cast<u32>(t.packed.row_pitch),
+             static_cast<u32>(t.packed.layer_pitch), static_cast<u32>(t.packed.offset),
+             static_cast<u32>(t.depth.offset), static_cast<u32>(t.stencil.offset),
+             static_cast<u32>(guest), pack ? 1u : 0u, pack ? 0u : static_cast<u32>(t.depth.offset),
+             static_cast<u32>(pack ? size : t.end), static_cast<u32>(host)});
+    }
+}
+} // namespace
+
+bool Image::CanDepthStencilDma(std::span<const BufferImageCopy> copies, size_t size) const {
+    if (!NeedsSynchronousDownloadBaseline()) {
+        return true;
+    }
+    if (!size || size % 4 || size > runtime->device.GetMaxStorageBufferRange()) {
+        return false;
+    }
+    const auto guest = GuestDepthStencilFormat(info.format);
+    const auto host = HostDepthStencilFormat(image_format);
+    if (!IsSupportedDmaFormat(guest, host))
+        return false;
+    try {
+        const auto plan = PlanStagingDepthStencilCopies(info, guest, host, copies, size);
+        return !plan.transfers.empty() && plan.size <= runtime->device.GetMaxStorageBufferRange();
+    } catch (const std::invalid_argument&) {
+        return false;
+    } catch (const VideoCommon::InvalidImageSize&) {
+        return false;
+    }
+}
+
+void Image::UploadMemoryDma(VkBuffer buffer, size_t offset, size_t size,
+                            std::span<const BufferImageCopy> copies) {
+    if (!NeedsSynchronousDownloadBaseline()) {
+        UploadMemory(buffer, offset, copies);
+        return;
+    }
+    if (offset % 4 || !CanDepthStencilDma(copies, size)) {
+        throw std::invalid_argument("Unsupported depth/stencil DMA upload");
+    }
+    const auto guest = GuestDepthStencilFormat(info.format);
+    auto plan = PlanStagingDepthStencilCopies(info, guest, HostDepthStencilFormat(image_format),
+                                              copies, size);
+    // Pool entries carry CurrentTick and cannot recycle before KnownGpuTick reaches it.
+    // DeviceLocal requests never use the upload stream; both offsets are zero/aligned.
+    const auto packed = runtime->staging_buffer_pool.Request(size, MemoryUsage::DeviceLocal);
+    const auto planes = runtime->staging_buffer_pool.Request(plan.size, MemoryUsage::DeviceLocal);
+    CopyDmaBaseline(*scheduler, buffer, offset, packed.buffer, packed.offset, size);
+    ConvertDmaPlanes(*runtime, packed, size, planes, plan.size, plan, guest,
+                     HostDepthStencilFormat(image_format), false);
+    const bool scaled = True(flags & ImageFlagBits::Rescaled);
+    if (scaled) {
+        ScaleDown(true);
+    }
+    scheduler->RequestOutsideRenderPassOperationContext();
+    const bool was_initialized = std::exchange(initialized, true);
+    scheduler->Record([plane_buffer = planes.buffer, image = **original_image, aspects = aspect_mask,
+                       was_initialized,
+                       regions = std::move(plan.regions)](vk::CommandBuffer cmdbuf) {
+        CopyBufferToImage(cmdbuf, plane_buffer, image, aspects, was_initialized, regions);
+    });
+    if (scaled) {
+        ScaleUp();
+    }
+}
+
+void Image::DownloadMemoryDma(std::span<VkBuffer> buffers, std::span<size_t> offsets, size_t size,
+                              std::span<const BufferImageCopy> copies) {
+    if (!NeedsSynchronousDownloadBaseline()) {
+        DownloadMemory(buffers, offsets, copies);
+        return;
+    }
+    if (buffers.empty() || buffers.size() != offsets.size() ||
+        std::ranges::any_of(offsets, [](size_t offset) { return offset % 4 != 0; }) ||
+        !CanDepthStencilDma(copies, size)) {
+        throw std::invalid_argument("Unsupported depth/stencil DMA readback");
+    }
+    const auto guest = GuestDepthStencilFormat(info.format);
+    auto plan = PlanStagingDepthStencilCopies(info, guest, HostDepthStencilFormat(image_format),
+                                              copies, size);
+    const auto packed = runtime->staging_buffer_pool.Request(size, MemoryUsage::DeviceLocal);
+    const auto planes = runtime->staging_buffer_pool.Request(plan.size, MemoryUsage::DeviceLocal);
+    CopyDmaBaseline(*scheduler, buffers[0], offsets[0], packed.buffer, packed.offset, size);
+    const bool scaled = True(flags & ImageFlagBits::Rescaled);
+    if (scaled) {
+        ScaleDown();
+    }
+    RecordStagingDownload(scheduler, **original_image, aspect_mask, {planes.buffer}, {plan.regions},
+                          false);
+    ConvertDmaPlanes(*runtime, packed, size, planes, plan.size, plan, guest,
+                     HostDepthStencilFormat(image_format), true);
+    for (size_t i = 0; i < buffers.size(); ++i) {
+        CopyDmaBaseline(*scheduler, packed.buffer, packed.offset, buffers[i], offsets[i], size,
+                        i != 0);
+    }
+    if (scaled) {
+        ScaleUp(true);
+    }
+}
+
+void Image::UploadMemory(VkBuffer buffer, VkDeviceSize offset,
+                         std::span<const VideoCommon::BufferImageCopy> copies) {
+    // TODO: Move this to another API
+    const bool is_rescaled = True(flags & ImageFlagBits::Rescaled);
+    if (is_rescaled) {
+        ScaleDown(true);
+    }
+    scheduler->RequestOutsideRenderPassOperationContext();
+    auto vk_copies = TransformBufferImageCopies(copies, offset, aspect_mask);
+    const VkBuffer src_buffer = buffer;
+    const VkImage vk_image = **original_image;
+    const VkImageAspectFlags vk_aspect_mask = aspect_mask;
+    const bool is_initialized = std::exchange(initialized, true);
+    scheduler->Record([src_buffer, vk_image, vk_aspect_mask, is_initialized,
+                       vk_copies](vk::CommandBuffer cmdbuf) {
+        CopyBufferToImage(cmdbuf, src_buffer, vk_image, vk_aspect_mask, is_initialized, vk_copies);
+    });
+    if (is_rescaled) {
+        ScaleUp();
+    }
+}
+
+void Image::UploadMemory(const StagingBufferRef& map, std::span<const BufferImageCopy> copies) {
+    if (aspect_mask != (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) ||
+        copies.empty()) {
+        UploadMemory(map.buffer, map.offset, copies);
+        return;
+    }
+    UploadDepthStencil(map.mapped_span, copies);
+}
+
+void Image::UploadDepthStencil(std::span<const u8> packed,
+                              std::span<const BufferImageCopy> copies) {
+    if (!NeedsSynchronousDownloadBaseline()) {
+        throw std::invalid_argument("CPU depth/stencil upload requires a combined format");
+    }
+    if (copies.empty()) {
+        return;
+    }
+    const auto guest = GuestDepthStencilFormat(info.format);
+    const auto host = HostDepthStencilFormat(image_format);
+    auto plan = PlanStagingDepthStencilCopies(info, guest, host, copies, packed.size());
+    const auto planes = runtime->UploadStagingBuffer(plan.size);
+    for (const auto& transfer : plan.transfers) {
+        if (!DS::UnpackTransfer(guest, host, transfer, packed, planes.mapped_span)) {
+            throw std::invalid_argument("Invalid staging depth/stencil unpack");
+        }
+    }
+    for (auto& region : plan.regions) {
+        region.bufferOffset += planes.offset;
+    }
+    const bool rescaled = True(flags & ImageFlagBits::Rescaled);
+    if (rescaled) {
+        ScaleDown(true);
+    }
+    scheduler->RequestOutsideRenderPassOperationContext();
+    const bool was_initialized = std::exchange(initialized, true);
+    scheduler->Record([buffer = planes.buffer, image = **original_image, aspects = aspect_mask,
+                       was_initialized,
+                       regions = std::move(plan.regions)](vk::CommandBuffer cmdbuf) {
+        CopyBufferToImage(cmdbuf, buffer, image, aspects, was_initialized, regions);
+    });
+    if (rescaled) {
+        ScaleUp();
+    }
+}
+
+void Image::DownloadMemory(VkBuffer buffer, size_t offset,
+                           std::span<const VideoCommon::BufferImageCopy> copies) {
+    std::array buffer_handles{
+        buffer,
+    };
+    std::array buffer_offsets{
+        offset,
+    };
+    DownloadMemory(buffer_handles, buffer_offsets, copies);
+}
+
+void Image::DownloadMemory(std::span<VkBuffer> buffers_span, std::span<size_t> offsets_span,
+                           std::span<const VideoCommon::BufferImageCopy> copies) {
+    const bool is_rescaled = True(flags & ImageFlagBits::Rescaled);
+    if (is_rescaled) {
+        ScaleDown();
+    }
+    std::vector<VkBuffer> buffers_vector{};
+    std::vector<std::vector<VkBufferImageCopy>> vk_copies;
+    for (size_t index = 0; index < buffers_span.size(); index++) {
+        buffers_vector.emplace_back(buffers_span[index]);
+        const auto transformed =
+            TransformBufferImageCopies(copies, offsets_span[index], aspect_mask);
+        vk_copies.emplace_back(transformed.begin(), transformed.end());
+    }
+    RecordStagingDownload(scheduler, **original_image, aspect_mask, std::move(buffers_vector),
+                          std::move(vk_copies));
     if (is_rescaled) {
         ScaleUp(true);
     }
+}
+
+bool Image::NeedsSynchronousDownloadBaseline() const {
+    return aspect_mask == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+}
+
+std::function<void()> Image::PrepareStagingReadback(const StagingBufferRef& map,
+                                                    std::span<const BufferImageCopy> copies) {
+    if (!NeedsSynchronousDownloadBaseline() || copies.empty()) {
+        DownloadMemory(map, copies);
+        return [] {};
+    }
+    if (map.offset > map.mapped_span.size()) {
+        throw std::invalid_argument("Invalid staging map offset");
+    }
+    auto destination = map.mapped_span.subspan(static_cast<size_t>(map.offset));
+    const auto guest = GuestDepthStencilFormat(info.format);
+    const auto host = HostDepthStencilFormat(image_format);
+    auto plan = PlanStagingDepthStencilCopies(info, guest, host, copies, destination.size());
+    // Deferred ownership prevents recycling across recording, GPU completion and CPU packing.
+    auto planes = runtime->ReservePendingReadbackBuffer(plan.size);
+    for (auto& region : plan.regions) {
+        region.bufferOffset += planes->offset;
+    }
+    const bool rescaled = True(flags & ImageFlagBits::Rescaled);
+    if (rescaled) {
+        ScaleDown();
+    }
+    RecordStagingDownload(scheduler, **original_image, aspect_mask, {planes->buffer},
+                          {std::move(plan.regions)});
+    if (rescaled) {
+        ScaleUp(true);
+    }
+    return [planes, destination, guest, host, transfers = plan.transfers,
+            completion_scheduler = scheduler, tick = scheduler->CurrentTick()] {
+        if (!completion_scheduler->IsFree(tick)) {
+            throw std::logic_error("Staging readback consumed before GPU completion");
+        }
+        const auto source = planes->mapped_span.subspan(static_cast<size_t>(planes->offset));
+        for (const auto& transfer : transfers) {
+            if (!DS::PackTransfer(guest, host, transfer, source, destination)) {
+                throw std::invalid_argument("Invalid staging depth/stencil pack");
+            }
+        }
+    };
 }
 
 void Image::DownloadMemory(const StagingBufferRef& map, std::span<const BufferImageCopy> copies) {
@@ -1939,11 +2249,12 @@ bool Image::ScaleUp(bool ignore) {
     flags |= ImageFlagBits::Rescaled;
     has_scaled = true;
     if (!scaled_image) {
-        scaled_image = MakeImage(runtime->device, runtime->memory_allocator, ScaledInfo(),
-                                 runtime->ViewFormats(info.format, wide_view_formats));
+        scaled_image = std::make_shared<vk::Image>(MakeImage(
+            runtime->device, runtime->memory_allocator, ScaledInfo(),
+            runtime->ViewFormats(info.format, wide_view_formats)));
         ignore = false;
     }
-    current_image = *scaled_image;
+    current_image = **scaled_image;
     if (ignore) {
         return true;
     }
@@ -1953,7 +2264,7 @@ bool Image::ScaleUp(bool ignore) {
     if (NeedsScaleHelper()) {
         return BlitScaleHelper(true);
     } else {
-        BlitScale(*scheduler, *original_image, *scaled_image, info, aspect_mask, resolution);
+        BlitScale(*scheduler, **original_image, **scaled_image, info, aspect_mask, resolution);
     }
     return true;
 }
@@ -1968,7 +2279,7 @@ bool Image::ScaleDown(bool ignore) {
     }
     assert(info.type != ImageType::Linear);
     flags &= ~ImageFlagBits::Rescaled;
-    current_image = *original_image;
+    current_image = **original_image;
     if (ignore) {
         return true;
     }
@@ -1978,7 +2289,7 @@ bool Image::ScaleDown(bool ignore) {
     if (NeedsScaleHelper()) {
         return BlitScaleHelper(false);
     } else {
-        BlitScale(*scheduler, *scaled_image, *original_image, info, aspect_mask, resolution, false);
+        BlitScale(*scheduler, **scaled_image, **original_image, info, aspect_mask, resolution, false);
     }
     return true;
 }
@@ -2073,6 +2384,7 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
       device{&runtime.device}, image_handle{image.Handle()},
       samples(ConvertSampleCount(image.info.num_samples)),
       physical_image_type{image.info.type} {
+    image_owner = image.RetainCurrentImage();
     using Shader::TextureType;
 
     const VkImageAspectFlags aspect_mask = ImageViewAspectMask(info);
@@ -2138,7 +2450,7 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
         if (device->HasDebuggingToolAttached()) {
             handle.SetObjectNameEXT(VideoCommon::Name(*this, gpu_addr).c_str());
         }
-        image_views[static_cast<size_t>(tex_type)] = std::move(handle);
+        image_views[static_cast<size_t>(tex_type)] = std::make_shared<vk::ImageView>(std::move(handle));
     };
     switch (info.type) {
     case VideoCommon::ImageViewType::e1D:
@@ -2191,14 +2503,21 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::NullImageV
     ImageInfo info{};
     info.format = PixelFormat::A8B8G8R8_UNORM;
 
-    null_image = MakeImage(*device, runtime.memory_allocator, info, {});
-    image_handle = *null_image;
+    null_image = std::make_shared<vk::Image>(MakeImage(*device, runtime.memory_allocator, info, {}));
+    image_owner = null_image;
+    image_handle = **null_image;
     for (u32 i = 0; i < Shader::NUM_TEXTURE_TYPES; i++) {
-        image_views[i] = MakeView(VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_ASPECT_COLOR_BIT);
+        image_views[i] = std::make_shared<vk::ImageView>(MakeView(VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_ASPECT_COLOR_BIT));
     }
 }
 
 ImageView::~ImageView() = default;
+
+ImageView& ImageView::operator=(ImageView&& other) noexcept {
+    static_assert(std::is_nothrow_move_constructible_v<ImageView>);
+    if (this != &other) { this->~ImageView(); std::construct_at(this, std::move(other)); }
+    return *this;
+}
 
 VkImageView ImageView::DepthView() {
     if (!image_handle) {

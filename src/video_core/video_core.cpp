@@ -56,16 +56,28 @@ GuestMemoryExport ExportGuestMemory([[maybe_unused]] Core::Frontend::EmuWindow& 
                                     [[maybe_unused]] u64 total_size,
                                     [[maybe_unused]] u64 chunk_size) {
 #ifdef __ANDROID__
-    // Every backend is Vulkan
-    const auto context = emu_window.CreateSharedContext();
-    if (const auto library = Vulkan::OpenLibrary(context.get())) {
-        return Vulkan::ExportGuestMemory(*library, total_size, chunk_size);
+    if (Settings::values.renderer_backend.GetValue() == Settings::RendererBackend::Vulkan) {
+        const auto context = emu_window.CreateSharedContext();
+        if (const auto library = Vulkan::OpenLibrary(context.get())) {
+            return Vulkan::ExportGuestMemory(*library, total_size, chunk_size);
+        }
     }
-    // No driver yet: it can be loaded before the next game starts
+    // No driver yet, or another backend: both can change before the next game starts
     return {};
 #else
     return {.fds = {}, .retry = false};
 #endif
+}
+
+std::shared_ptr<Common::GuestBackingExporter> CreateGuestBackingExporter(
+    [[maybe_unused]] Core::Frontend::EmuWindow& emu_window) {
+#ifdef __ANDROID__
+    if (Settings::values.renderer_backend.GetValue() == Settings::RendererBackend::Vulkan) {
+        const auto context = emu_window.CreateSharedContext();
+        return Vulkan::CreateGuestBackingExporter(Vulkan::OpenLibrary(context.get()));
+    }
+#endif
+    return {};
 }
 
 } // namespace VideoCore

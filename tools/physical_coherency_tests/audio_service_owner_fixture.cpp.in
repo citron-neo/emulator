@@ -1,0 +1,246 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <numeric>
+#include <ranges>
+#include <span>
+#include <string>
+#include <thread>
+#include <vector>
+#include "audio_core/audio_manager.h"
+#include "common/scope_exit.h"
+#include "common/terminal_fail_stop.h"
+#include "core/hle/service/audio/errors.h"
+#undef UNREACHABLE
+#define UNREACHABLE() std::abort()
+using namespace std::chrono_literals;
+static void Require(bool b,const char* s) {
+    if(!b) {std::fprintf(stderr,"FAIL %s\n",s);std::fflush(stderr);std::_Exit(91);}
+}
+struct Gate {
+    std::mutex mutex;std::condition_variable cv;bool set{};
+    void Set(){std::scoped_lock l{mutex};set=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{mutex};Require(cv.wait_for(l,5s,[&]{return set;}),"rendezvous timeout");}
+};
+static std::string mode;
+static std::atomic<bool> audio_joined{},gpu_drained{};
+static std::atomic<unsigned> joins{},callbacks{},effects{},service_joins{};
+static std::atomic<bool> service_work_active{};
+static Gate service_lock_held,callback_lock_wait;
+static Gate entered,release_callback,closing,joining,reg_entered,reg_release,publish_entered,publish_release;
+static Gate worker_paused;
+void ObserveHostPause(){worker_paused.Set();}
+static bool block_registration{},block_publication{};
+struct Target {std::string kind;bool live=true;unsigned active{},calls{};};
+static std::mutex targets_mutex;
+static std::map<void*,Target> targets;
+static std::map<std::string,void*> addresses;
+static void ConstructTarget(void* p,const char* kind) {
+    std::scoped_lock l{targets_mutex};targets[p]=Target{kind};addresses[kind]=p;
+}
+static void EnterTarget(void* p) {
+    {std::scoped_lock l{targets_mutex};auto& t=targets.at(p);Require(t.live,"raw callback used retired target");++t.active;++t.calls;}
+    ++callbacks;entered.Set();
+    if(mode!="both") release_callback.Wait();
+}
+static void LeaveTarget(void* p) {std::scoped_lock l{targets_mutex};Require(targets.at(p).live,"target disappeared inside callback");--targets.at(p).active;}
+static void InjectTargetFailure() {if(mode.ends_with("failure")&&!mode.ends_with("join-failure")){++effects;throw 7;}}
+static void RetireTarget(void* p) {
+    std::scoped_lock l{targets_mutex};auto& t=targets.at(p);
+    Require(service_joins>0,"service target lost its server owner path");
+    Require(t.active==0,"target retired before callback drain");
+    Require(audio_joined,"target retired before Audio worker join");
+    t.live=false;std::fprintf(stderr,"TARGET_RETIRED %s\n",t.kind.c_str());
+}
+static void ObserveAudioClose(){Require(gpu_drained,"Audio join preceded native GPU drain");closing.Set();}
+static void BeforeAudioJoin(){Require(!service_work_active,"Audio join preceded service work drain");joining.Set();if(mode.ends_with("join-failure"))throw std::runtime_error("injected join failure");}
+static void BeforeTargetLock(std::recursive_mutex& mutex) {
+    if(mode.ends_with("service-active")) {
+        Require(!mutex.try_lock(),"service work did not hold target mutex");callback_lock_wait.Set();
+    }
+}
+[[maybe_unused]] static void ObserveAudioJoined(){audio_joined=true;++joins;}
+[[maybe_unused]] static void BeforeRegistrationLock(){if(block_registration){reg_entered.Set();reg_release.Wait();}}
+[[maybe_unused]] static void BeforeRegistrationLockAfterCheck(){if(block_registration){reg_entered.Set();reg_release.Wait();}}
+static void BeforeRegistrationPublish(){if(block_publication){publish_entered.Set();publish_release.Wait();}}
+static void BeforeAudioReset(){}
+namespace Common {void SetCurrentThreadName(const char*){}}
+namespace Core {class System;}
+namespace AudioCore {
+namespace Sink {struct Sink{virtual ~Sink(){Require(audio_joined,"sink owner released before Audio worker join");}};}
+namespace ADSP {struct ADSP{ADSP(Core::System&,Sink::Sink&) {}~ADSP(){Require(audio_joined,"ADSP owner released before Audio worker join");}};}
+@CORE_DECL@
+namespace Renderer::AudioDevice {struct AudioDeviceName{};}
+namespace AudioOut {
+struct AudioOutParameterInternal{};struct AudioOutParameter{};
+class Out {public:void StartSession(){}void ReleaseAndRegisterBuffers(){}};
+}
+namespace AudioIn {
+struct AudioInParameterInternal{};struct AudioInParameter{};
+class In {public:void StartSession(){}void ReleaseAndRegisterBuffers(){}};
+}
+}
+@TARGET_DECLS@
+namespace Kernel {class KProcess;}
+namespace Service {
+class SessionRequestHandler {public:virtual ~SessionRequestHandler()=default;};
+using SessionRequestHandlerFactory=std::function<std::shared_ptr<SessionRequestHandler>()>;
+template<class T> class ServiceFramework:public SessionRequestHandler {
+public:
+    ServiceFramework(Core::System&,const char*){}
+    template<auto F>static constexpr int D=0;
+    struct FunctionInfo{int id,dispatch;const char* name;};
+    template<size_t N>void RegisterHandlers(const FunctionInfo(&)[N]){}
+};
+constexpr int BufferAttr_HipcMapAlias=1,BufferAttr_HipcAutoSelect=2;
+template<class T,int N>struct OutArray{};
+template<class T,int N>struct InArray{};
+template<class T>struct Out{};
+template<class T>using SharedPointer=std::shared_ptr<T>;
+template<class T>struct InCopyHandle{};
+struct ClientAppletResourceUserId{};
+class ServerManager {
+    std::vector<SessionRequestHandlerFactory> ports;
+    std::stop_source m_stop_source;
+    struct Wakeup{void Signal(){}} wakeup;
+    Wakeup* m_wakeup_event=&wakeup;
+    struct Stopped{void Wait(){++service_joins;}} m_stopped;
+    std::vector<std::jthread> m_threads;
+public:
+    explicit ServerManager(Core::System&){}
+    // Kernel port/IPC worker waits are fixtures; factory ownership is real code below.
+    ~ServerManager(){
+@SERVER_JOIN@
+    }
+    @SERVICE_HOOK_DECL@
+    void StartServiceWork(std::recursive_mutex& mutex) {
+        auto token=m_stop_source.get_token();
+        m_threads.emplace_back([&mutex,token]{
+            std::scoped_lock l{mutex};service_work_active=true;service_lock_held.Set();
+            while(!token.stop_requested()) std::this_thread::yield();
+            service_work_active=false;
+        });
+    }
+    Result RegisterNamedService(const std::string&,std::shared_ptr<SessionRequestHandler>&&,u32);
+    Result RegisterNamedService(const std::string&,SessionRequestHandlerFactory&& f,u32){ports.push_back(std::move(f));return ResultSuccess;}
+};
+@REGISTER@
+}
+struct KernelFixture {
+    std::mutex server_lock;
+    std::vector<std::unique_ptr<Service::ServerManager>> server_managers;
+    std::shared_ptr<Common::ProducerDrain> domain=std::make_shared<Common::ProducerDrain>();
+    const auto& AudioCallbackDomain(){return domain;}
+    void SuspendEmulation(bool){}
+    void ShutdownCores(){}
+    @CLOSE_SERVICES@
+};
+struct NativeGpu {void NotifyShutdown(){}void Shutdown(){gpu_drained=true;}};
+struct Timing {void SyncPause(bool){}void ClearPendingEvents(){}};
+struct Dummy{};
+namespace Network {void CancelPendingSocketOperations(){}}
+namespace Core {
+class System {
+public:
+    KernelFixture kernel;
+    std::unique_ptr<NativeGpu> gpu_core=std::make_unique<NativeGpu>();
+    std::stop_source stop_event;Timing core_timing;
+    std::unique_ptr<Dummy> cheat_engine,services,service_manager,app_loader,host1x_core;
+    struct Fs{void Reset(){}} fs_controller;
+    std::unique_ptr<::AudioCore::AudioCore> audio_core;
+    System();~System();
+    KernelFixture& Kernel(){return kernel;}
+    ::AudioCore::AudioCore& AudioCore(){return *audio_core;}
+    void ShutdownSlice(){
+@SHUTDOWN@
+    }
+};
+}
+namespace AudioCore {
+void AudioCore::CreateSinks(){output_sink=std::make_unique<Sink::Sink>();input_sink=std::make_unique<Sink::Sink>();}
+@CORE_METHODS@
+}
+@TARGET_METHODS@
+@SERVICES@
+@EVENT@
+@AUDIO_METHODS@
+Core::System::System():audio_core{std::make_unique<::AudioCore::AudioCore>(*this)}{}
+Core::System::~System()=default;
+
+template<class T>static T Ready(std::future<T>& f) {Require(f.wait_for(5s)==std::future_status::ready,"operation timeout");return f.get();}
+using Service::ServerManager;
+static void Install(Core::System& system,Service::ServerManager& server,const std::string& direction) {
+    std::shared_ptr<Service::SessionRequestHandler> service;
+    if(direction=="out") service=std::make_shared<Service::Audio::IAudioOutManager>(system);
+    else service=std::make_shared<Service::Audio::IAudioInManager>(system);
+    Require(server.RegisterNamedService(direction,std::move(service),64)==ResultSuccess,"actual handler registration failed");
+    // No client shared owner remains: the real handler-factory capture retains the service.
+    service.reset();
+    void* target;{std::scoped_lock l{targets_mutex};target=addresses.at(direction);}
+    if(direction=="out") Require(static_cast<AudioCore::AudioOut::Manager*>(target)->LinkToManager()==ResultSuccess,"out target link failed");
+    else Require(static_cast<AudioCore::AudioIn::Manager*>(target)->LinkToManager()==ResultSuccess,"in target link failed");
+}
+int main(int argc,char**argv) {
+    Require(argc==2,"expected case");mode=argv[1];std::atexit([]{std::fprintf(stderr,"ATEXIT\n");});
+    Core::System system;
+    if(mode.starts_with("registration")) {
+        // Single owning teardown caller; setter may race that close.
+        gpu_drained=true;std::atomic<unsigned> calls{};
+        block_registration=mode=="registration-loses";
+        block_publication=mode=="registration-wins";
+        auto registering=std::async(std::launch::async,[&]{return system.AudioCore().GetAudioManager().SetOutManager([&]{++calls;});});
+        if(block_registration) {
+            reg_entered.Wait();system.AudioCore().Shutdown();reg_release.Set();
+            Require(Ready(registering)==Service::Audio::ResultOperationFailed,"closed registration returned success");
+            Require(calls==0,"closed registration invoked callback");
+        } else {
+            publish_entered.Wait();
+            auto stopping=std::async(std::launch::async,[&]{system.AudioCore().Shutdown();});
+            closing.Wait();Require(stopping.wait_for(0ms)!=std::future_status::ready,"close bypassed admitted registration lock");
+            publish_release.Set();Require(Ready(registering)==ResultSuccess,"admitted registration lost success");Ready(stopping);
+        }
+        block_registration=false;block_publication=false;
+        Require(system.AudioCore().GetAudioManager().SetInManager([]{})==Service::Audio::ResultOperationFailed,"shutdown reopened registration");
+        system.ShutdownSlice();Require(joins==1,"repeat shutdown joined worker twice");
+    } else {
+        std::optional<Common::ProducerDrain::Closure> closed;
+        if(mode.ends_with("paused")) {auto c=system.kernel.domain->TryClose(256);Require(bool(c),"callback close refused");closed.emplace(std::move(*c));}
+@SERVER_SETUP@
+@DRAIN_FAILURE_SETUP@
+        auto* registry=server_manager.get();system.kernel.server_managers.push_back(std::move(server_manager));
+        if(mode=="both") {Install(system,*registry,"out");Install(system,*registry,"in");}
+        else Install(system,*registry,mode.starts_with("in")?"in":"out");
+        if(closed) worker_paused.Wait();
+        if(!closed) entered.Wait();
+        if(mode.ends_with("service-active")) {
+            void* target;{std::scoped_lock l{targets_mutex};target=addresses.at(mode.starts_with("in")?"in":"out");}
+            if(mode.starts_with("in")) registry->StartServiceWork(static_cast<AudioCore::AudioIn::Manager*>(target)->mutex);
+            else registry->StartServiceWork(static_cast<AudioCore::AudioOut::Manager*>(target)->mutex);
+            service_lock_held.Wait();release_callback.Set();callback_lock_wait.Wait();
+        }
+        if(mode=="both") {
+            // The registry targets and real slots are both installed; normal callbacks may run.
+            release_callback.Set();
+        }
+        auto stopping=std::async(std::launch::async,[&]{system.ShutdownSlice();});
+        if(!closed&&mode!="both"&&!mode.ends_with("service-active")) {
+            joining.Wait();Require(stopping.wait_for(0ms)!=std::future_status::ready,"owner teardown skipped active Audio join");
+            {std::scoped_lock l{targets_mutex};for(auto&[p,t]:targets)Require(t.live,"service target released while join pending");}
+            release_callback.Set();
+        }
+        Ready(stopping);
+        Require(audio_joined&&joins==1,"terminal Audio worker did not join exactly once");
+        {std::scoped_lock l{targets_mutex};for(auto&[p,t]:targets)Require(!t.live&&t.active==0,"service target failed final retirement");}
+        if(closed) Require(callbacks==0,"closed callback domain invoked raw target");
+        if(mode.ends_with("failure")) Require(effects==1&&!system.kernel.domain->TryClose(8),"partial callback failure lost Unknown seal");
+    }
+    std::cout<<"PASS audio-service-owner "<<mode<<"\n";
+}

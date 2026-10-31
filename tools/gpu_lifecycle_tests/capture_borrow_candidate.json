@@ -1,0 +1,41 @@
+{
+  "replacements": [
+    [
+      "                                          VkDeviceSize buffer_size) {",
+      "                                          VkDeviceSize buffer_size) {\n    scheduler.RequireNativeBorrowAdmission();"
+    ],
+    [
+      "std::vector<u8> RendererVulkan::GetAppletCaptureBuffer() {",
+      "std::vector<u8> RendererVulkan::GetAppletCaptureBuffer() {\n    scheduler.RequireNativeBorrowAdmission();"
+    ],
+    [
+      "                 std::span<const u8> initial_contents) {",
+      "                 std::span<const u8> initial_contents) {\n    scheduler.RequireNativeBorrowAdmission();"
+    ],
+    [
+      "    blit_capture.DrawToFrame(",
+      "    try {\n    blit_capture.DrawToFrame("
+    ],
+    [
+      "    const auto dst_buffer =\n        CreateWrappedBuffer(memory_allocator, out_size, MemoryUsage::Download);",
+      "    const auto dst_buffer =\n        CreateWrappedBuffer(memory_allocator, out_size, MemoryUsage::Download);\n\n    try {"
+    ],
+    [
+      "    scheduler.Finish();\n\n    // Copy backing image data",
+      "    scheduler.FinishNativeBorrow();\n    } catch (const vk::Exception& error) {\n        Common::TerminalFailStop(\"capture.render\", \"vulkan_exception\", static_cast<int>(error.GetResult()));\n    } catch (...) {\n        Common::TerminalFailStop(\"capture.render\", \"host_exception\");\n    }\n\n    // Copy backing image data"
+    ],
+    [
+      "    scheduler.Finish();\n\n    // Copy linear image data",
+      "    scheduler.FinishNativeBorrow();\n    } catch (const vk::Exception& error) {\n        Common::TerminalFailStop(\"capture.applet\", \"vulkan_exception\", static_cast<int>(error.GetResult()));\n    } catch (...) {\n        Common::TerminalFailStop(\"capture.applet\", \"host_exception\");\n    }\n\n    // Copy linear image data"
+    ],
+    [
+      "    scheduler.RequestOutsideRenderPassOperationContext();\n    scheduler.Record([&](vk::CommandBuffer cmdbuf) {\n        TransitionImageLayout",
+      "    try {\n    scheduler.RequestOutsideRenderPassOperationContext();\n    scheduler.Record([&](vk::CommandBuffer cmdbuf) {\n        TransitionImageLayout"
+    ],
+    [
+      "    scheduler.Finish();\n}",
+      "    scheduler.FinishNativeBorrow();\n    } catch (const vk::Exception& error) {\n        Common::TerminalFailStop(\"helper.upload\", \"vulkan_exception\", static_cast<int>(error.GetResult()));\n    } catch (...) {\n        Common::TerminalFailStop(\"helper.upload\", \"host_exception\");\n    }\n}"
+    ]
+  ],
+  "checked_methods": "void Scheduler::RequireNativeBorrowAdmission() const {\n    if (!submission_owner->load(std::memory_order_acquire))\n        Common::TerminalFailStop(\"native_borrow.entry\", \"closed_admission\");\n}\n\nvoid Scheduler::FinishNativeBorrow() {\n    RequireNativeBorrowAdmission();\n    const auto tick = CurrentTick();\n    Finish();\n    // Even a completed device tick does not end a queued host reference's lifetime.\n    WaitWorker();\n    const auto result = master_semaphore->PollNativeResourceLifetime(tick);\n    if (result != VK_SUCCESS)\n        Common::TerminalFailStop(\"native_borrow.completion\", \"vulkan_result\", static_cast<int>(result));\n}"
+}

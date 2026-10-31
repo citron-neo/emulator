@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdio>
+#include <cstdlib>
+#include <future>
+#include <memory>
+#include <mutex>
+#include <stop_token>
+#include <string>
+#include <thread>
+#include <vector>
+#include "common/terminal_fail_stop.h"
+using u64 = unsigned long long;
+using u32 = unsigned;
+constexpr int VK_SUCCESS=0, VK_TIMEOUT=2, VK_ERROR_DEVICE_LOST=-4;
+constexpr int VK_WHOLE_SIZE=-1, VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET=1;
+constexpr int VK_DESCRIPTOR_TYPE_STORAGE_BUFFER=1, VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO=1;
+constexpr int VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT=1, VK_PIPELINE_BIND_POINT_COMPUTE=1;
+constexpr int VK_STRUCTURE_TYPE_SUBMIT_INFO=1;
+struct VkDescriptorBufferInfo { int buffer,offset,range; };
+struct VkWriteDescriptorSet {
+    int sType; const void* pNext; int dstSet,dstBinding,dstArrayElement,descriptorCount,descriptorType;
+    const void* pImageInfo; const void* pBufferInfo; const void* pTexelBufferView;
+};
+struct VkCommandBufferBeginInfo { int sType; const void* pNext; int flags; const void* pInheritanceInfo; };
+struct VkSubmitInfo {
+    int sType; const void* pNext; int waitSemaphoreCount; const void* pWaitSemaphores;
+    const void* pWaitDstStageMask; int commandBufferCount; const void* pCommandBuffers;
+    int signalSemaphoreCount; const void* pSignalSemaphores;
+};
+void Mark(const char* s) { std::puts(s); std::fflush(stdout); }
+void Require(bool ok,const char* message) { if(!ok) {Mark(message);std::_Exit(91);} }
+std::string scenario;
+std::stop_source stop;
+bool pending=false;
+int resets=0,submits=0,waits=0,metrics=0,timeouts=0,idles=0;
+std::promise<void> wait_entered,wait_release;
+std::vector<int> results;
+namespace vk {
+struct Exception { int GetResult() const {return -4;} };
+struct Handle { int value=1; int operator*() const {return value;} const int* address() const {return &value;} };
+struct Fence : Handle {
+    void Reset() {Require(!pending,"UNSAFE pending fence reset");++resets;}
+    int Wait(u64) {
+        Require(pending,"UNSAFE wait without accepted dispatch");
+        if(scenario=="stop-pending") {wait_entered.set_value();wait_release.get_future().wait();}
+        const int result=results.at(static_cast<size_t>(waits++));
+        if(result==VK_SUCCESS) pending=false;
+        if(static_cast<size_t>(waits)==results.size())stop.request_stop();
+        return result;
+    }
+};
+struct Commands : Handle {
+    void Begin(VkCommandBufferBeginInfo) {Require(!pending,"UNSAFE pending command buffer begin");}
+    void FillBuffer(int,int,int,int) {}
+    void BindDescriptorSets(int,int,int,std::array<int,1>,std::array<int,0>) {}
+    void BindPipeline(int,int) {}
+    void Dispatch(u32,u32,u32) {}
+    void End() {}
+};
+}
+struct Device {
+    Device& GetLogical() {return *this;}
+    Device& GetGraphicsQueue() {return *this;}
+    void UpdateDescriptorSets(std::array<VkWriteDescriptorSet,1>,std::array<int,0>) {
+        Require(!pending,"UNSAFE pending descriptor update");
+    }
+    int Submit(std::array<VkSubmitInfo,1>,int) {
+        Require(!pending,"UNSAFE pending dispatch resubmitted");++submits;
+        if(scenario=="submit-error") {stop.request_stop();return -4;}
+        pending=true;return VK_SUCCESS;
+    }
+    int WaitIdle() {++idles;Mark("NATIVE_IDLE");pending=false;return VK_SUCCESS;}
+};
+namespace Common {
+void SetCurrentThreadName(const char*) {}
+template<class CV,class Lock,class Pred>
+void CondvarWait(CV&,Lock&,std::stop_token,Pred) {}
+}
+template<class... T> void Log(const T&...) {}
+#define LOG_INFO(category, format, ...) Log(__VA_ARGS__)
+#define LOG_WARNING(category, format, ...) Log(__VA_ARGS__)
+struct TurboMode {
+    struct Resources {
+        vk::Handle buffer,pipeline_layout,pipeline; int descriptor_set=1;
+        vk::Fence fence; vk::Commands command_buffer;
+    };
+    std::unique_ptr<Resources> resources=std::make_unique<Resources>();
+    Device m_device;
+    std::jthread m_thread;
+    std::mutex m_submission_lock;
+    std::condition_variable_any m_submission_cv;
+    std::chrono::steady_clock::time_point m_submission_time{};
+    std::atomic<bool> turbo_enabled{true},resources_initialized{true};
+    struct Stats {
+        std::atomic<u64> total_submissions{},total_execution_time_ns{},max_execution_time_ns{},min_execution_time_ns{};
+        std::atomic<u64> overflow_count{},timeout_count{},adaptive_timeout_ns{1};
+    } performance_stats;
+    static constexpr std::chrono::milliseconds SUBMISSION_TIMEOUT{100},PERFORMANCE_LOG_INTERVAL{5000};
+    static constexpr u32 DISPATCH_GROUP_SIZE_X=1,DISPATCH_GROUP_SIZE_Y=1,DISPATCH_GROUP_SIZE_Z=1;
+    const Stats& GetPerformanceStats() {return performance_stats;}
+    void UpdatePerformanceMetrics(std::chrono::nanoseconds) {++metrics;}
+    void UpdateAdaptiveTimeout(bool timeout) {if(timeout)++timeouts;}
+    void CleanupResources() {Require(!pending,"UNSAFE pending resource destruction");Mark("CLEANUP");resources.reset();}
+    void Run(std::stop_token stop_token);
+    ~TurboMode();
+};
+// @METHODS@
+int main(int argc,char** argv) {
+    Require(argc==2,"bad arguments");scenario=argv[1];
+    if(scenario=="success")results={VK_SUCCESS,VK_SUCCESS};
+    else if(scenario=="retry")results={VK_TIMEOUT,VK_TIMEOUT,VK_SUCCESS,VK_SUCCESS};
+    else if(scenario=="stop-pending")results={VK_TIMEOUT};
+    else if(scenario=="wait-error")results={VK_ERROR_DEVICE_LOST};
+    else if(scenario=="submit-error")results={};
+    else return 98;
+    {
+        TurboMode turbo;
+        if(scenario=="stop-pending") {
+            turbo.m_thread=std::jthread([&]{turbo.Run(stop.get_token());});
+            wait_entered.get_future().wait();stop.request_stop();wait_release.set_value();
+            turbo.m_thread.join();
+            Require(pending && resets==1 && submits==1 && waits==1 && metrics==0,
+                    "UNSAFE stop lost pending native owner");
+        } else turbo.Run(stop.get_token());
+        if(scenario=="success" || scenario=="retry") {
+            Require(metrics==2 && resets==2 && submits==2 && !pending,"UNSAFE success accounting or reuse");
+            Require(timeouts==(scenario=="retry"?2:0),"UNSAFE timeout result accounting");
+        }
+        Require(scenario!="wait-error" && scenario!="submit-error","UNSAFE native error returned");
+    }
+    Require(idles==1 && !pending,"UNSAFE missing idle before resource release");
+    Mark("PASS turbo dispatch ownership");
+}

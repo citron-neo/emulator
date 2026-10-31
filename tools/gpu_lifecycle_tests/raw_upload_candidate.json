@@ -1,0 +1,38 @@
+{
+  "replacements": [
+    [
+      "    candidate.ticks.resize(image_count);",
+      "    candidate.ticks.resize(image_count);\n    candidate.uploads.resize(image_count);"
+    ],
+    [
+      "    static_assert(noexcept(resource_ticks.swap(candidate.ticks)));",
+      "    static_assert(noexcept(resource_ticks.swap(candidate.ticks)));\n    static_assert(noexcept(raw_upload_states.swap(candidate.uploads)));"
+    ],
+    [
+      "    resource_ticks.swap(candidate.ticks);",
+      "    resource_ticks.swap(candidate.ticks);\n    raw_upload_states.swap(candidate.uploads);"
+    ],
+    [
+      "bool Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t image_index) {",
+      "bool Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t image_index) {\n    scheduler.RequireNativeBorrowAdmission();\n    if (image_index >= raw_upload_states.size() ||\n        raw_upload_states[image_index] == RawUploadState::Recording ||\n        raw_upload_states[image_index] == RawUploadState::Failed) {\n        return false;\n    }"
+    ],
+    [
+      "    scheduler.Record([this, copy, index = image_index](vk::CommandBuffer cmdbuf) {\n        const VkImage image = *raw_images[index];\n        const VkImageMemoryBarrier base_barrier{\n            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,\n            .pNext = nullptr,\n            .srcAccessMask = 0,\n            .dstAccessMask = 0,\n            .oldLayout = VK_IMAGE_LAYOUT_GENERAL,\n            .newLayout = VK_IMAGE_LAYOUT_GENERAL,\n            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,\n            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,\n            .image = image,\n            .subresourceRange{\n                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,\n                .baseMipLevel = 0,\n                .levelCount = 1,\n                .baseArrayLayer = 0,\n                .layerCount = 1,\n            },\n        };\n        VkImageMemoryBarrier read_barrier = base_barrier;\n        read_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;\n        read_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;\n        read_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;\n\n        VkImageMemoryBarrier write_barrier = base_barrier;\n        write_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;\n        write_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;\n        write_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;\n        write_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;\n\n        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,\n                               read_barrier);\n        cmdbuf.CopyBufferToImage(*buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copy);\n        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,\n                               VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |\n                                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,\n                               0, write_barrier);\n    });\n",
+      "    // Once Record starts, an exception cannot prove that nothing was enqueued.\n    // Preserve this slot until replacement drains old uses; other slots stay usable.\n    raw_upload_states[image_index] = RawUploadState::Recording;\n    try {\n        scheduler.Record([this, copy, index = image_index](vk::CommandBuffer cmdbuf) {\n            try {\n                const VkImage image = *raw_images[index];\n                const VkImageMemoryBarrier base_barrier{\n                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,\n                    .pNext = nullptr,\n                    .srcAccessMask = 0,\n                    .dstAccessMask = 0,\n                    .oldLayout = VK_IMAGE_LAYOUT_GENERAL,\n                    .newLayout = VK_IMAGE_LAYOUT_GENERAL,\n                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,\n                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,\n                    .image = image,\n                    .subresourceRange{\n                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,\n                        .baseMipLevel = 0,\n                        .levelCount = 1,\n                        .baseArrayLayer = 0,\n                        .layerCount = 1,\n                    },\n                };\n                VkImageMemoryBarrier read_barrier = base_barrier;\n                read_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;\n                read_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;\n                read_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;\n\n                VkImageMemoryBarrier write_barrier = base_barrier;\n                write_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;\n                write_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;\n                write_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;\n                write_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;\n\n                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,\n                                       read_barrier);\n                cmdbuf.CopyBufferToImage(*buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copy);\n                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,\n                                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |\n                                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,\n                                       0, write_barrier);\n            } catch (const vk::Exception& error) {\n                Common::TerminalFailStop(\"layer.raw_upload.recording\", \"vulkan_exception\",\n                                         static_cast<int>(error.GetResult()));\n            } catch (...) {\n                Common::TerminalFailStop(\"layer.raw_upload.recording\", \"host_exception\");\n            }\n        });\n    } catch (...) {\n        raw_upload_states[image_index] = RawUploadState::Failed;\n        throw;\n    }\n    // The callback may still be queued. Same-queue ordering and the existing slot\n    // wait govern consumption/reuse; this is not a host/native completion receipt.\n    raw_upload_states[image_index] = RawUploadState::Recorded;\n"
+    ]
+  ],
+  "header_replacements": [
+    [
+      "    struct RawResources {",
+      "    // Owner-thread recording eligibility only; Recorded is not native completion.\n    enum class RawUploadState { Empty, Recording, Recorded, Failed };\n    struct RawResources {"
+    ],
+    [
+      "        std::vector<u64> ticks;",
+      "        std::vector<u64> ticks;\n        std::vector<RawUploadState> uploads;"
+    ],
+    [
+      "    std::vector<u64> resource_ticks{};",
+      "    std::vector<u64> resource_ticks{};\n    std::vector<RawUploadState> raw_upload_states{};"
+    ]
+  ]
+}

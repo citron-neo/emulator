@@ -65,6 +65,7 @@ set(SHADER_FILES
     vulkan_taa.frag
     vulkan_taa.vert
     vulkan_turbo_mode.comp
+    vulkan_depth_stencil_dma.comp
     vulkan_uint8.comp
 )
 

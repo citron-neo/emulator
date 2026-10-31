@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <stdexcept>
 
 #include "common/scope_exit.h"
 #include "common/settings.h"
@@ -504,7 +505,8 @@ Result KPageTableBase::FinalizeProcess() {
     R_SUCCEED();
 }
 
-void KPageTableBase::Finalize() {
+void KPageTableBase::Finalize(const Core::Memory::Memory::MappingTeardown* teardown) {
+    m_memory->ValidateMappingTeardown(teardown);
     this->FinalizeProcess();
 
     auto BlockCallback = [&](KProcessAddress addr, u64 size) {
@@ -532,6 +534,7 @@ void KPageTableBase::Finalize() {
     // Finalize memory blocks.
     {
         KScopedLightLock lk(m_general_lock);
+        this->FinalizeIncompleteMapGroups(teardown);
         m_memory_block_manager.Finalize(m_memory_block_slab_manager, std::move(BlockCallback));
     }
 
@@ -558,6 +561,28 @@ void KPageTableBase::Finalize() {
 
     // Close the backing page table, as the destructor is not called for guest objects.
     m_impl.reset();
+}
+
+void KPageTableBase::FinalizeIncompleteMapGroups(
+    const Core::Memory::Memory::MappingTeardown* teardown) {
+    assert(this->IsLockedByCurrentThread());
+    m_memory->ValidateMappingTeardown(teardown);
+    while (m_incomplete_map_groups) {
+        auto& pending = *m_incomplete_map_groups;
+        // No post-success block metadata was published for this group. Detach its
+        // complete range before the normal metadata walk can rediscover its PTEs.
+        if (teardown) {
+            m_memory->UnmapRegionForTeardown(*m_impl, pending.address,
+                                            pending.num_pages * PageSize,
+                                            pending.separate_heap, *teardown);
+        } else {
+            m_memory->UnmapRegion(*m_impl, pending.address, pending.num_pages * PageSize,
+                                  pending.separate_heap);
+        }
+        pending.pages.CloseAndReset();
+        auto next = std::move(pending.next);
+        m_incomplete_map_groups = std::move(next);
+    }
 }
 
 KProcessAddress KPageTableBase::GetRegionAddress(Svc::MemoryState state) const {
@@ -1575,8 +1600,12 @@ KProcessAddress KPageTableBase::FindFreeArea(KProcessAddress region_start, size_
 
                 KMemoryInfo info;
                 Svc::PageInfo page_info;
-                R_ASSERT(this->QueryInfoImpl(std::addressof(info), std::addressof(page_info),
-                                             candidate));
+                const auto query_result = this->QueryInfoImpl(
+                    std::addressof(info), std::addressof(page_info), candidate);
+                R_ASSERT(query_result);
+                if (R_FAILED(query_result)) {
+                    continue;
+                }
 
                 if (info.m_state != KMemoryState::Free) {
                     continue;
@@ -2107,7 +2136,8 @@ Result KPageTableBase::SetProcessMemoryPermission(KProcessAddress addr, size_t s
     // Ensure cache coherency, if we're setting pages as executable.
     if (is_x) {
         for (const auto& block : pg) {
-            StoreDataCache(GetHeapVirtualPointer(m_kernel, block.GetAddress()), block.GetSize());
+            StoreDataCache(GetHeapVirtualPointer(m_kernel, block.GetAddress(), block.GetSize()),
+                           block.GetSize());
         }
         InvalidateInstructionCache(m_kernel, this, addr, size);
     }
@@ -2870,7 +2900,9 @@ Result KPageTableBase::MapPages(KProcessAddress address, size_t num_pages, KMemo
     R_SUCCEED();
 }
 
-Result KPageTableBase::UnmapPages(KProcessAddress address, size_t num_pages, KMemoryState state) {
+Result KPageTableBase::UnmapPages(KProcessAddress address, size_t num_pages, KMemoryState state,
+                                  const Core::Memory::Memory::MappingTeardown* teardown) {
+    if (teardown) m_memory->ValidateMappingTeardown(*teardown);
     // Check that the unmap is in range.
     const size_t size = num_pages * PageSize;
     R_UNLESS(this->Contains(address, size), ResultInvalidCurrentMemory);
@@ -2898,7 +2930,7 @@ Result KPageTableBase::UnmapPages(KProcessAddress address, size_t num_pages, KMe
     const KPageProperties unmap_properties = {KMemoryPermission::None, false, false,
                                               DisableMergeAttribute::None};
     R_TRY(this->Operate(updater.GetPageList(), address, num_pages, 0, false, unmap_properties,
-                        OperationType::Unmap, false));
+                        OperationType::Unmap, false, teardown));
 
     // Update the blocks.
     m_memory_block_manager.Update(std::addressof(allocator), address, num_pages, KMemoryState::Free,
@@ -3113,7 +3145,8 @@ Result KPageTableBase::InvalidateProcessDataCache(KProcessAddress address, size_
             // Invalidate the block.
             if (cur_size > 0) {
                 // NOTE: Nintendo does not check the result of invalidation.
-                InvalidateDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size);
+                InvalidateDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size),
+                                    cur_size);
             }
 
             // Advance.
@@ -3137,7 +3170,7 @@ Result KPageTableBase::InvalidateProcessDataCache(KProcessAddress address, size_
     // Invalidate the last block.
     if (cur_size > 0) {
         // NOTE: Nintendo does not check the result of invalidation.
-        InvalidateDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size);
+        InvalidateDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size), cur_size);
     }
 
     R_SUCCEED();
@@ -3206,7 +3239,7 @@ Result KPageTableBase::ReadDebugMemory(KProcessAddress dst_address, KProcessAddr
         // Copy as much aligned data as we can.
         if (cur_size >= sizeof(u32)) {
             const size_t copy_size = Common::AlignDown(cur_size, sizeof(u32));
-            const void* copy_src = GetLinearMappedVirtualPointer(m_kernel, cur_addr);
+            const void* copy_src = GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size);
             FlushDataCache(copy_src, copy_size);
             R_UNLESS(dst_memory.WriteBlock(dst_address, copy_src, copy_size), ResultInvalidPointer);
 
@@ -3217,7 +3250,7 @@ Result KPageTableBase::ReadDebugMemory(KProcessAddress dst_address, KProcessAddr
 
         // Copy remaining data.
         if (cur_size > 0) {
-            const void* copy_src = GetLinearMappedVirtualPointer(m_kernel, cur_addr);
+            const void* copy_src = GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size);
             FlushDataCache(copy_src, cur_size);
             R_UNLESS(dst_memory.WriteBlock(dst_address, copy_src, cur_size), ResultInvalidPointer);
         }
@@ -3302,11 +3335,11 @@ Result KPageTableBase::WriteDebugMemory(KProcessAddress dst_address, KProcessAdd
         // Copy as much aligned data as we can.
         if (cur_size >= sizeof(u32)) {
             const size_t copy_size = Common::AlignDown(cur_size, sizeof(u32));
-            void* copy_dst = GetLinearMappedVirtualPointer(m_kernel, cur_addr);
+            void* copy_dst = GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size);
             R_UNLESS(src_memory.ReadBlock(src_address, copy_dst, copy_size),
                      ResultInvalidCurrentMemory);
 
-            StoreDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr), copy_size);
+            StoreDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size), copy_size);
 
             src_address += copy_size;
             cur_addr += copy_size;
@@ -3315,11 +3348,11 @@ Result KPageTableBase::WriteDebugMemory(KProcessAddress dst_address, KProcessAdd
 
         // Copy remaining data.
         if (cur_size > 0) {
-            void* copy_dst = GetLinearMappedVirtualPointer(m_kernel, cur_addr);
+            void* copy_dst = GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size);
             R_UNLESS(src_memory.ReadBlock(src_address, copy_dst, cur_size),
                      ResultInvalidCurrentMemory);
 
-            StoreDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size);
+            StoreDataCache(GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size), cur_size);
         }
 
         R_SUCCEED();
@@ -3393,7 +3426,7 @@ Result KPageTableBase::ReadIoMemoryImpl(KProcessAddress dst_addr, KPhysicalAddre
 
     // Read the memory.
     const KProcessAddress read_addr = io_addr + (GetInteger(phys_addr) & (PageSize - 1));
-    dst_memory.CopyBlock(dst_addr, read_addr, size);
+    R_UNLESS(dst_memory.CopyBlock(dst_addr, read_addr, size), ResultInvalidPointer);
 
     R_SUCCEED();
 }
@@ -3811,7 +3844,8 @@ Result KPageTableBase::CopyMemoryFromLinearToUser(
             if (cur_size >= sizeof(u32)) {
                 const size_t copy_size = Common::AlignDown(cur_size, sizeof(u32));
                 R_UNLESS(dst_memory.WriteBlock(dst_addr,
-                                               GetLinearMappedVirtualPointer(m_kernel, cur_addr),
+                                               GetLinearMappedVirtualPointer(m_kernel, cur_addr,
+                                                                             cur_size),
                                                copy_size),
                          ResultInvalidCurrentMemory);
 
@@ -3823,7 +3857,8 @@ Result KPageTableBase::CopyMemoryFromLinearToUser(
             // Copy remaining data.
             if (cur_size > 0) {
                 R_UNLESS(dst_memory.WriteBlock(
-                             dst_addr, GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size),
+                             dst_addr, GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size),
+                             cur_size),
                          ResultInvalidCurrentMemory);
             }
 
@@ -3902,7 +3937,7 @@ Result KPageTableBase::CopyMemoryFromLinearToKernel(
             R_UNLESS(IsLinearMappedPhysicalAddress(cur_addr), ResultInvalidCurrentMemory);
 
             // Copy the data.
-            std::memcpy(buffer, GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size);
+            std::memcpy(buffer, GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size), cur_size);
 
             R_SUCCEED();
         };
@@ -3985,7 +4020,8 @@ Result KPageTableBase::CopyMemoryFromUserToLinear(
             if (cur_size >= sizeof(u32)) {
                 const size_t copy_size = Common::AlignDown(cur_size, sizeof(u32));
                 R_UNLESS(src_memory.ReadBlock(src_addr,
-                                              GetLinearMappedVirtualPointer(m_kernel, cur_addr),
+                                              GetLinearMappedVirtualPointer(m_kernel, cur_addr,
+                                                                            cur_size),
                                               copy_size),
                          ResultInvalidCurrentMemory);
                 src_addr += copy_size;
@@ -3996,7 +4032,8 @@ Result KPageTableBase::CopyMemoryFromUserToLinear(
             // Copy remaining data.
             if (cur_size > 0) {
                 R_UNLESS(src_memory.ReadBlock(
-                             src_addr, GetLinearMappedVirtualPointer(m_kernel, cur_addr), cur_size),
+                             src_addr, GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size),
+                             cur_size),
                          ResultInvalidCurrentMemory);
             }
 
@@ -4077,7 +4114,7 @@ Result KPageTableBase::CopyMemoryFromKernelToLinear(KProcessAddress dst_addr, si
             R_UNLESS(IsLinearMappedPhysicalAddress(cur_addr), ResultInvalidCurrentMemory);
 
             // Copy the data.
-            std::memcpy(GetLinearMappedVirtualPointer(m_kernel, cur_addr), buffer, cur_size);
+            std::memcpy(GetLinearMappedVirtualPointer(m_kernel, cur_addr, cur_size), buffer, cur_size);
 
             R_SUCCEED();
         };
@@ -4228,8 +4265,8 @@ Result KPageTableBase::CopyMemoryFromHeapToHeap(
                 R_UNLESS(IsHeapPhysicalAddress(cur_dst_addr), ResultInvalidCurrentMemory);
 
                 // Copy the data.
-                std::memcpy(GetHeapVirtualPointer(m_kernel, cur_dst_addr),
-                            GetHeapVirtualPointer(m_kernel, cur_src_addr), cur_copy_size);
+                std::memcpy(GetHeapVirtualPointer(m_kernel, cur_dst_addr, cur_copy_size),
+                            GetHeapVirtualPointer(m_kernel, cur_src_addr, cur_copy_size), cur_copy_size);
 
                 // Update.
                 cur_src_block_addr = src_next_entry.phys_addr;
@@ -4362,8 +4399,8 @@ Result KPageTableBase::CopyMemoryFromHeapToHeapWithoutCheckDestination(
                 R_UNLESS(IsHeapPhysicalAddress(cur_dst_addr), ResultInvalidCurrentMemory);
 
                 // Copy the data.
-                std::memcpy(GetHeapVirtualPointer(m_kernel, cur_dst_addr),
-                            GetHeapVirtualPointer(m_kernel, cur_src_addr), cur_copy_size);
+                std::memcpy(GetHeapVirtualPointer(m_kernel, cur_dst_addr, cur_copy_size),
+                            GetHeapVirtualPointer(m_kernel, cur_src_addr, cur_copy_size), cur_copy_size);
 
                 // Update.
                 cur_src_block_addr = src_next_entry.phys_addr;
@@ -5199,6 +5236,11 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
     KProcessAddress cur_address;
     size_t mapped_size;
 
+    // After pressure recovery, reserve only the guest's demand for the rest of this call.
+    // Keep this outside the mapping retry loop so a concurrent mapping change cannot re-enable
+    // speculative allocation or repeat the pressure recovery indefinitely.
+    bool retried_without_prefetch = false;
+
     // The entire mapping process can be retried.
     while (true) {
         size_t guest_free_extents = 0;
@@ -5290,7 +5332,7 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
             const bool continuous_retry_allowed =
                 map_call_id >= m_physical_map_continuous_retry_after_call;
             const bool will_attempt_new_window =
-                !can_consume_window && mapped_size == 0 &&
+                !retried_without_prefetch && !can_consume_window && mapped_size == 0 &&
                 requested_pages <= PhysicalMapWindowPages && continuous_retry_allowed;
             const size_t reservation_size =
                 can_consume_window
@@ -5299,7 +5341,21 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
                                                : size - mapped_size);
             KScopedResourceReservation memory_reservation(
                 m_resource_limit, Svc::LimitableResource::PhysicalMemoryMax, reservation_size);
-            R_UNLESS(memory_reservation.Succeeded(), ResultLimitReached);
+            if (!memory_reservation.Succeeded()) {
+                R_UNLESS(!retried_without_prefetch, ResultLimitReached);
+                // Unmapped window tails are optional, but are charged to the same guest limit.
+                // Release only those tails under m_map_physical_memory_lock before reporting
+                // failure. Restart selection because releasing the windows invalidates slots.
+                const u64 released_before = m_physical_map_released_tail_pages;
+                this->ReleaseAllPhysicalMapWindows();
+                LOG_WARNING(HW_Memory,
+                            "MapPhysicalMemory reservation retry: address={:#x} demand={} "
+                            "reservation={} released_tail_bytes={} prefetch_disabled=true",
+                            GetInteger(address), size - mapped_size, reservation_size,
+                            (m_physical_map_released_tail_pages - released_before) * PageSize);
+                retried_without_prefetch = true;
+                continue;
+            }
 
             // Allocate pages for the new memory.
             KPageGroup pg(m_kernel, m_block_info_manager);
@@ -6025,8 +6081,18 @@ Result KPageTableBase::UnmapProcessMemory(KProcessAddress dst_address, size_t si
 Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_addr,
                                size_t num_pages, KPhysicalAddress phys_addr, bool is_pa_valid,
                                const KPageProperties properties, OperationType operation,
-                               bool reuse_ll) {
+                               bool reuse_ll,
+                               const Core::Memory::Memory::MappingTeardown* teardown) {
     assert(this->IsLockedByCurrentThread());
+    if (teardown) {
+        m_memory->ValidateMappingTeardown(*teardown);
+        if (operation != OperationType::Unmap && operation != OperationType::UnmapPhysical) {
+            throw std::runtime_error("teardown permits unmap only");
+        }
+    }
+    if (m_incomplete_map_groups && !teardown) {
+        throw std::runtime_error("page table has an incomplete mapping transaction");
+    }
     assert(num_pages > 0);
     assert(Common::IsAligned(GetInteger(virt_addr), PageSize));
     assert(this->ContainsPages(virt_addr, num_pages));
@@ -6039,17 +6105,23 @@ Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_a
     case OperationType::UnmapPhysical: {
         const bool separate_heap = operation == OperationType::UnmapPhysical;
 
-        // Ensure that any pages we track are closed on exit.
+        // Keep the mapping's references if the actual unmap refuses or throws.
         KPageGroup pages_to_close(m_kernel, this->GetBlockInfoManager());
-        SCOPE_EXIT {
-            pages_to_close.CloseAndReset();
-        };
 
         // Make a page group representing the region to unmap.
         this->MakePageGroup(pages_to_close, virt_addr, num_pages);
 
         // Unmap.
-        m_memory->UnmapRegion(*m_impl, virt_addr, num_pages * PageSize, separate_heap);
+        if (teardown) {
+            m_memory->UnmapRegionForTeardown(*m_impl, virt_addr, num_pages * PageSize,
+                                            separate_heap, *teardown);
+        } else {
+            m_memory->UnmapRegion(*m_impl, virt_addr, num_pages * PageSize, separate_heap);
+        }
+
+        // Only a successful unmap can release the backing references. In particular,
+        // a controlled-entry refusal has left the original mapping intact.
+        pages_to_close.CloseAndReset();
 
         R_SUCCEED();
     }
@@ -6087,6 +6159,9 @@ Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_a
                                const KPageProperties properties, OperationType operation,
                                bool reuse_ll) {
     assert(this->IsLockedByCurrentThread());
+    if (m_incomplete_map_groups) {
+        throw std::runtime_error("page table has an incomplete mapping transaction");
+    }
     assert(Common::IsAligned(GetInteger(virt_addr), PageSize));
     assert(num_pages > 0);
     assert(num_pages == page_group.GetNumPages());
@@ -6102,15 +6177,39 @@ Result KPageTableBase::Operate(PageLinkedList* page_list, KProcessAddress virt_a
 
         // We want to maintain a new reference to every page in the group.
         KScopedPageGroup spg(page_group, operation == OperationType::MapGroup);
-
+        // Prepare durable recovery bookkeeping before the first mapping effect.
+        auto pending = std::make_unique<IncompleteMapGroup>(
+            m_kernel, m_block_info_manager, virt_addr, num_pages, separate_heap);
         for (const auto& node : page_group) {
-            const size_t size{node.GetNumPages() * PageSize};
+            R_TRY(pending->pages.AddBlock(node.GetAddress(), node.GetNumPages()));
+        }
+        size_t completed_nodes = 0;
+        auto retain = [&] {
+            spg.CancelClose();
+            pending->next = std::move(m_incomplete_map_groups);
+            m_incomplete_map_groups = std::move(pending);
+        };
+        try {
+            for (const auto& node : page_group) {
+                const size_t size{node.GetNumPages() * PageSize};
 
-            // Map the pages.
-            m_memory->MapMemoryRegion(*m_impl, virt_addr, size, node.GetAddress(),
-                                      ConvertToMemoryPermission(properties.perm), separate_heap);
+                // Map the pages.
+                m_memory->MapMemoryRegion(*m_impl, virt_addr, size, node.GetAddress(),
+                                          ConvertToMemoryPermission(properties.perm), separate_heap);
 
-            virt_addr += size;
+                virt_addr += size;
+                ++completed_nodes;
+            }
+        } catch (const Core::Memory::ControlledMappingPublication::Refused&) {
+            // A known first-entry refusal has no effects. A published prefix
+            // still owns its references and must be detached by teardown.
+            if (completed_nodes != 0) retain();
+            throw;
+        } catch (...) {
+            // Unknown effects include the attempted node; retain the whole group,
+            // including untouched suffix references, under explicit table ownership.
+            retain();
+            throw;
         }
 
         // We succeeded! We want to persist the reference to the pages.

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <atomic>
+#include <optional>
 #include <string>
 
 #include <boost/intrusive/rbtree.hpp>
@@ -219,6 +220,14 @@ public:
         if (m_obj != nullptr) {
             m_obj->Open();
         }
+    }
+
+    // Open may race the final Close. Never adopt a pointer when Open refused.
+    static std::optional<KScopedAutoObject> TryOpen(T* object) {
+        if (!object || !object->Open()) return std::nullopt;
+        KScopedAutoObject owner;
+        owner.m_obj = object;
+        return owner;
     }
 
     ~KScopedAutoObject() {

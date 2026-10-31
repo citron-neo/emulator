@@ -34,6 +34,7 @@ class ServiceContext;
 namespace Service::Nvidia::NvCore {
 class NvMap;
 } // namespace Service::Nvidia::NvCore
+namespace Service::Nvidia { class Module; }
 
 namespace Service::android {
 
@@ -45,7 +46,7 @@ class BufferQueueProducer final : public IBinder {
 public:
     explicit BufferQueueProducer(Service::KernelHelpers::ServiceContext& service_context_,
                                  std::shared_ptr<BufferQueueCore> buffer_queue_core_,
-                                 Service::Nvidia::NvCore::NvMap& nvmap_);
+                                 std::shared_ptr<Service::Nvidia::Module> nvdrv_);
     ~BufferQueueProducer() override;
 
     void Transact(u32 code, std::span<const u8> parcel_data, std::span<u8> parcel_reply,
@@ -79,6 +80,8 @@ private:
     Kernel::KEvent* buffer_wait_event{};
     Service::KernelHelpers::ServiceContext& service_context;
 
+    // Provider survives this producer's core/slot references.
+    std::shared_ptr<Service::Nvidia::Module> nvdrv;
     std::shared_ptr<BufferQueueCore> core;
     BufferQueueDefs::SlotsType& slots;
     u32 sticky_transform{};
@@ -88,7 +91,6 @@ private:
     std::condition_variable_any callback_condition;
     std::unique_ptr<Common::WallClock> clock;
 
-    Service::Nvidia::NvCore::NvMap& nvmap;
 };
 
 } // namespace Service::android

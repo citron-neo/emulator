@@ -176,6 +176,7 @@ struct InstanceDispatch {
     PFN_vkGetPhysicalDeviceMemoryProperties2 vkGetPhysicalDeviceMemoryProperties2{};
     PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties{};
     PFN_vkGetPhysicalDeviceProperties2 vkGetPhysicalDeviceProperties2{};
+    PFN_vkGetPhysicalDeviceExternalBufferProperties vkGetPhysicalDeviceExternalBufferProperties{};
     PFN_vkGetPhysicalDeviceToolProperties vkGetPhysicalDeviceToolProperties{};
     PFN_vkGetPhysicalDeviceQueueFamilyProperties vkGetPhysicalDeviceQueueFamilyProperties{};
     PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR vkGetPhysicalDeviceSurfaceCapabilitiesKHR{};
@@ -318,6 +319,7 @@ struct DeviceDispatch : InstanceDispatch {
     PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements{};
     PFN_vkGetPipelineCacheData vkGetPipelineCacheData{};
     PFN_vkGetMemoryFdKHR vkGetMemoryFdKHR{};
+    PFN_vkGetMemoryFdPropertiesKHR vkGetMemoryFdPropertiesKHR{};
 #ifdef _WIN32
     PFN_vkGetMemoryWin32HandleKHR vkGetMemoryWin32HandleKHR{};
 #endif
@@ -750,6 +752,9 @@ public:
 
     void Invalidate() const;
 
+    [[nodiscard]] VkResult FlushChecked() const;
+    [[nodiscard]] VkResult InvalidateChecked() const;
+
     void SetObjectNameEXT(const char* name) const;
 
 private:
@@ -772,6 +777,8 @@ public:
     /// Construct a queue handle.
     constexpr Queue(VkQueue queue_, const DeviceDispatch& dld_) noexcept
         : queue{queue_}, dld{&dld_} {}
+
+    VkQueue Handle() const noexcept { return queue; }
 
     VkResult Submit(Span<VkSubmitInfo> submit_infos,
                     VkFence fence = VK_NULL_HANDLE) const noexcept {
@@ -919,6 +926,19 @@ class Semaphore : public Handle<VkSemaphore, VkDevice, DeviceDispatch> {
     using Handle<VkSemaphore, VkDevice, DeviceDispatch>::Handle;
 
 public:
+    [[nodiscard]] VkResult GetCounterChecked(u64& value) const noexcept {
+        value = 0;
+        return dld->vkGetSemaphoreCounterValue(owner, handle, &value);
+    }
+    [[nodiscard]] VkResult WaitChecked(u64 value, u64 timeout) const noexcept {
+        const VkSemaphoreWaitInfo info{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+                                        .pNext = nullptr,
+                                        .flags = 0,
+                                       .semaphoreCount = 1,
+                                       .pSemaphores = &handle,
+                                       .pValues = &value};
+        return dld->vkWaitSemaphores(owner, &info, timeout);
+    }
     /// Set object name.
     void SetObjectNameEXT(const char* name) const;
 
@@ -963,6 +983,8 @@ public:
     static Device Create(VkPhysicalDevice physical_device, Span<VkDeviceQueueCreateInfo> queues_ci,
                          Span<const char*> enabled_extensions, const void* next,
                          DeviceDispatch& dispatch);
+
+    const DeviceDispatch& Dispatch() const noexcept { return *dld; }
 
     Queue GetQueue(u32 family_index) const noexcept;
 
@@ -1077,6 +1099,9 @@ public:
     constexpr operator VkPhysicalDevice() const noexcept {
         return physical_device;
     }
+
+    VkExternalBufferProperties GetExternalBufferProperties(VkBufferUsageFlags usage,
+        VkExternalMemoryHandleTypeFlagBits handle_type) const noexcept;
 
     VkPhysicalDeviceProperties GetProperties() const noexcept;
 

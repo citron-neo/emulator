@@ -4,6 +4,7 @@
 #pragma once
 
 #include <deque>
+#include <functional>
 #include <memory>
 #include <span>
 #include <vector>
@@ -13,6 +14,7 @@
 #include "shader_recompiler/shader_info.h"
 #include "video_core/renderer_vulkan/vk_compute_pass.h"
 #include "video_core/renderer_vulkan/vk_staging_buffer_pool.h"
+#include "video_core/renderer_vulkan/vk_presentation_source.h"
 #include "video_core/texture_cache/image_view_base.h"
 #include "video_core/vulkan_common/vulkan_memory_allocator.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
@@ -50,6 +52,20 @@ public:
                                  DescriptorPool& descriptor_pool,
                                  ComputePassDescriptorQueue& compute_pass_descriptor_queue);
     ~TextureCacheRuntime();
+
+    std::shared_ptr<StagingBufferRef> ReservePendingReadbackBuffer(size_t size);
+    void CollectPendingReadbackBuffers();
+    // Only the recording thread edits this list/pool. Async consumers only drop
+    // shared references, so no allocator cache is modified on the fence thread.
+    std::deque<std::shared_ptr<StagingBufferRef>> pending_readback_buffers;
+    std::shared_ptr<Image> ReservePendingReadbackImage();
+    void RetirePendingReadbackImage(const std::shared_ptr<Image>& owner);
+    struct PendingReadbackImage {
+        std::shared_ptr<Image> owner;
+        u64 tick{}, frame{};
+        bool retired{};
+    };
+    std::deque<PendingReadbackImage> pending_readback_images;
 
     void Finish();
 
@@ -125,7 +141,8 @@ public:
 
     /// Keeps the replaced images of an image that was made again with the wide format list (and
     /// what was made from them) until the GPU and the delayed view destruction are done with them.
-    void RetireImage(vk::Image original, vk::Image scaled,
+    void RetireImage(std::shared_ptr<vk::Image> original,
+                     std::shared_ptr<vk::Image> scaled,
                      std::vector<vk::ImageView> storage_views,
                      std::unique_ptr<Framebuffer> scale_framebuffer,
                      std::unique_ptr<ImageView> scale_view,
@@ -142,6 +159,7 @@ public:
     RenderPassCache& render_pass_cache;
     std::optional<ASTCDecoderPass> astc_decoder_pass;
     std::unique_ptr<MSAACopyPass> msaa_copy_pass;
+    std::unique_ptr<DepthStencilDmaPass> depth_stencil_dma_pass;
     const Settings::ResolutionScalingInfo& resolution;
     std::array<std::vector<VkFormat>, VideoCore::Surface::MaxPixelFormat> view_formats;
     std::array<std::vector<VkFormat>, VideoCore::Surface::MaxPixelFormat> narrow_view_formats;
@@ -172,7 +190,14 @@ public:
     Image& operator=(const Image&) = delete;
 
     Image(Image&&) = default;
-    Image& operator=(Image&&) = default;
+    Image& operator=(Image&&) noexcept;
+
+    bool CanDepthStencilDma(std::span<const VideoCommon::BufferImageCopy> copies,
+                            size_t size) const;
+    void UploadMemoryDma(VkBuffer buffer, size_t offset, size_t size,
+                         std::span<const VideoCommon::BufferImageCopy> copies);
+    void DownloadMemoryDma(std::span<VkBuffer> buffers, std::span<size_t> offsets, size_t size,
+                           std::span<const VideoCommon::BufferImageCopy> copies);
 
     void UploadMemory(VkBuffer buffer, VkDeviceSize offset,
                       std::span<const VideoCommon::BufferImageCopy> copies);
@@ -180,17 +205,37 @@ public:
     void UploadMemory(const StagingBufferRef& map,
                       std::span<const VideoCommon::BufferImageCopy> copies);
 
+    // Consume cached CPU guest-layout bytes synchronously. Only the converted
+    // aspect planes are placed in upload memory and retained for GPU execution.
+    void UploadDepthStencil(std::span<const u8> packed,
+                           std::span<const VideoCommon::BufferImageCopy> copies);
+
     void DownloadMemory(VkBuffer buffer, size_t offset,
                         std::span<const VideoCommon::BufferImageCopy> copies);
 
     void DownloadMemory(std::span<VkBuffer> buffers, std::span<size_t> offsets,
                         std::span<const VideoCommon::BufferImageCopy> copies);
 
+    bool NeedsSynchronousDownloadBaseline() const;
+
+    // Keep the destination alive and wait with runtime.Finish() or the matching
+    // asynchronous fence, then invoke completion before consuming guest-layout bytes.
+    // Destroying the operation releases its deferred intermediate after the current tick.
+    [[nodiscard]] std::function<void()>
+    PrepareStagingReadback(const StagingBufferRef& map,
+                           std::span<const VideoCommon::BufferImageCopy> copies);
+
     void DownloadMemory(const StagingBufferRef& map,
                         std::span<const VideoCommon::BufferImageCopy> copies);
 
     [[nodiscard]] VkImage Handle() const noexcept {
         return current_image;
+    }
+
+    std::shared_ptr<const vk::Image> RetainCurrentImage() const noexcept {
+        if (original_image && **original_image == current_image) return original_image;
+        if (scaled_image && **scaled_image == current_image) return scaled_image;
+        return {};
     }
 
     [[nodiscard]] VkImageAspectFlags AspectMask() const noexcept {
@@ -235,13 +280,14 @@ private:
     Scheduler* scheduler{};
     TextureCacheRuntime* runtime{};
 
-    vk::Image original_image;
+    std::shared_ptr<vk::Image> original_image;
     std::vector<vk::ImageView> storage_image_views;
     VkImageAspectFlags aspect_mask = 0;
     bool initialized = false;
+    std::shared_ptr<vk::Image> scaled_image;
+    VkFormat image_format = VK_FORMAT_UNDEFINED;
     /// Whether the image was made with the wide view format list
     bool wide_view_formats = false;
-    vk::Image scaled_image{};
     VkImage current_image{};
 
     std::unique_ptr<Framebuffer> scale_framebuffer;
@@ -266,7 +312,7 @@ public:
     ImageView& operator=(const ImageView&) = delete;
 
     ImageView(ImageView&&) = default;
-    ImageView& operator=(ImageView&&) = default;
+    ImageView& operator=(ImageView&&) noexcept;
 
     [[nodiscard]] VkImageView DepthView();
 
@@ -280,7 +326,14 @@ public:
     [[nodiscard]] bool IsRescaled() const noexcept;
 
     [[nodiscard]] VkImageView Handle(Shader::TextureType texture_type) const noexcept {
-        return *image_views[static_cast<size_t>(texture_type)];
+        const auto& view = image_views[static_cast<size_t>(texture_type)];
+        return view ? **view : VK_NULL_HANDLE;
+    }
+
+    std::shared_ptr<const PresentationSource> RetainPresentationSource() const {
+        const auto& view = image_views[static_cast<size_t>(Shader::TextureType::Color2D)];
+        if (!image_owner || !view || **image_owner != image_handle) return {};
+        return std::make_shared<const PresentationSource>(image_owner, view);
     }
 
     [[nodiscard]] VkImageView HandleNonSrgb(Shader::TextureType texture_type);
@@ -336,13 +389,15 @@ private:
     const Device* device = nullptr;
     const SlotVector<Image>* slot_images = nullptr;
 
-    std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> image_views;
+    // Parent precedes children; reverse destruction releases native views first.
+    std::shared_ptr<const vk::Image> image_owner;
+    std::array<std::shared_ptr<vk::ImageView>, Shader::NUM_TEXTURE_TYPES> image_views;
     std::array<vk::ImageView, Shader::NUM_TEXTURE_TYPES> non_srgb_image_views;
     std::unique_ptr<StorageViews> storage_views;
     vk::ImageView depth_view;
     vk::ImageView stencil_view;
     vk::ImageView color_view;
-    vk::Image null_image;
+    std::shared_ptr<vk::Image> null_image;
     VkImage image_handle = VK_NULL_HANDLE;
     VkImageView render_target = VK_NULL_HANDLE;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;

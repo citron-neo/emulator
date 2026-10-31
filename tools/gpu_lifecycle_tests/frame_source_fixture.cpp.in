@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <functional>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <span>
+#include <string>
+#include <thread>
+#include <type_traits>
+#include <vector>
+#include "core/hle/service/nvnflinger/hwc_layer.h"
+#include "core/hle/service/nvnflinger/ui/graphic_buffer.h"
+#include "core/hle/service/nvnflinger/buffer_item.h"
+#include "core/hle/service/nvnflinger/status.h"
+#include "video_core/framebuffer_config.h"
+#include "video_core/host1x/syncpoint_manager.h"
+using namespace std::chrono_literals;
+#define LOG_ERROR(...) ((void)0)
+void Require(bool value,const char* why){if(!value){std::cerr<<"FAIL "<<why<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Gate{std::mutex mutex;std::condition_variable cv;bool ready=false;
+    void Set(){std::scoped_lock l{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{mutex};Require(cv.wait_for(l,5s,[&]{return ready;}),"rendezvous timeout");}};
+thread_local int identity;
+struct ObservedMutex{std::mutex actual;std::atomic<const void*> owner=nullptr;
+    void lock(){actual.lock();owner=&identity;}void unlock(){owner=nullptr;actual.unlock();}
+    bool HeldByCurrent()const{return owner==&identity;}};
+struct Token{std::array<u8,4> bytes{11,22,33,44};};
+namespace Service::Nvidia{
+struct Module:std::enable_shared_from_this<Module>{
+    std::shared_ptr<Common::ProducerDrain> domain=std::make_shared<Common::ProducerDrain>();
+    std::shared_ptr<Common::OwnedRetirementQueue> queue=std::make_shared<Common::OwnedRetirementQueue>(domain);
+    std::shared_ptr<Token> backing=std::make_shared<Token>();int retired=0;std::function<void()> retire_hook;
+    auto RetirementQueue(){return queue;}
+    Common::OwnedRetirementQueue::Owner PrepareGraphicBufferRetirement(u32,const Common::ProducerDrain::Entry&){
+        return Common::OwnedRetirementQueue::Prepare([owner=shared_from_this(),storage=backing]{if(owner->retire_hook)owner->retire_hook();++owner->retired;return bool(storage);});}
+};}
+@GRAPHIC@
+template<class F>void CheckPacket(const F& frame){if constexpr(requires{frame.source_owner;}){
+    Require(frame.source_owner&&frame.source_owner->owner&&frame.source_owner->descriptor.Width()==32,"immutable source descriptor lost");}}
+struct Renderer{
+    std::weak_ptr<Service::android::GraphicBuffer> source;std::weak_ptr<Token> backing;
+    Gate* entered=nullptr;Gate* release=nullptr;bool throws=false,active=false,native_inflight=false;int reads=0;std::array<u8,4> native_snapshot{};
+    void SetMainApplicationAruid(u64){}
+    void Composite(const std::vector<Tegra::FramebufferConfig>& frames){
+        Require(!source.expired()&&!backing.expired(),active?"active source read lost owner":"source read outlived captured owner");
+        Require(frames.size()==1&&frames[0].width==32&&frames[0].address==4096,"frame snapshot changed");CheckPacket(frames[0]);
+        const u8* source_bytes=backing.lock()->bytes.data(); // Borrow, no extra owning ref across the gate.
+        if(entered){entered->Set();release->Wait();}
+        Require(!source.expired()&&!backing.expired(),"active source read lost owner");
+        std::copy_n(source_bytes,4,native_snapshot.begin());Require(native_snapshot[0]==11&&native_snapshot[3]==44,"source bytes changed");++reads;if(throws)throw 7;
+        native_inflight=true; // Separate upload/image marker; deliberately not a completion proof.
+    }
+};
+namespace VideoCore{using RendererBase=::Renderer;}
+struct Points{
+    Tegra::Host1x::SyncpointManager real;int registrations=0,fail_at=0;bool fail_after=false;
+    std::vector<std::pair<u32,u64>> handles;
+    template<class F>auto RegisterGuestAction(u32 id,u32 value,F action){const int n=++registrations;
+        if(n==fail_at&&!fail_after)throw 7;
+        auto h=real.RegisterGuestAction(id,value,std::move(action));handles.emplace_back(id,h);
+        if(n==fail_at&&fail_after){throw 7;}
+        return h;}
+    void Fire(u32 id){real.IncrementGuest(id);}
+    void Cancel(){for(auto [id,h]:handles)real.DeregisterGuestAction(id,h);handles.clear();}
+};
+struct Host{Points points;auto& GetSyncpointManager(){return points;}};
+struct GPU{
+    Host& host1x;int requests=0,waits=0;Gate* close_entered=nullptr;
+    @STATE@
+    std::shared_ptr<CompositeState> composite_state=std::make_shared<CompositeState>();
+    struct Thread{void TickGPU(){}}gpu_thread;
+    explicit GPU(Host& h,Renderer& r):host1x{h}{composite_state->renderer=&r;}
+    template<class F>u64 RequestSyncOperation(F action){++requests;action();return 1;}
+    bool WaitForSyncOperation(u64){++waits;return true;}
+    @REQUEST@
+    @CLOSE@
+};
+struct System{
+    ::GPU& gpu;::Renderer& renderer;auto& GPU(){return gpu;}auto& Renderer(){return renderer;}
+    u64 GetMainApplicationAruid(){return 1;}
+    struct Limiter{void DoSpeedLimiting(u64){}}limiter{};auto& SpeedLimiter(){return limiter;}
+    struct Timing{u64 GetGlobalTimeUs(){return 0;}}timing{};auto& CoreTiming(){return timing;}
+    struct Stats{void EndSystemFrame(){}void BeginSystemFrame(){}}stats{};auto& GetPerfStats(){return stats;}
+};
+namespace Service::Nvidia::Devices{
+struct nvdisp_disp0{
+    ::System& system;struct NvMap{int lookups=0;u64 GetHandleAddress(u32){++lookups;return 4096;}
+        Common::FrameMappingDomain mappings;
+        auto GetDisplayMapping(u32 id){return mappings.Capture(GetHandleAddress(id),4096);}}nvmap;
+    void Composite(std::span<const Nvnflinger::HwcLayer>);
+};
+@BLEND@
+@NVDISP@
+}
+namespace boost::container{template<class T,int>using small_vector=std::vector<T>;}
+namespace Service::Nvnflinger{
+struct Consumer{android::BufferItem item;bool acquired=false;
+    android::Status AcquireBuffer(android::BufferItem* out,std::chrono::nanoseconds,bool){if(acquired)return android::Status::NoBufferAvailable;*out=item;acquired=true;return android::Status::NoError;}
+    void ReleaseBuffer(const android::BufferItem&,android::Fence){}
+};
+struct Layer{std::shared_ptr<Consumer> buffer_item_consumer;int consumer_id=1;u64 owner_aruid=1;bool visible=true,is_overlay=false;int z_index=0;LayerBlending blending=LayerBlending::None;};
+struct Display{struct Stack{std::vector<std::shared_ptr<Layer>> layers;
+    auto FindLayer(s32 id){for(auto& l:layers)if(l->consumer_id==id)return l;return std::shared_ptr<Layer>{};}}stack;};
+using ConsumerId=s32;
+struct HardwareComposer{
+    struct Framebuffer{android::BufferItem item;u64 release_frame_number=0;bool is_acquired=false;};
+    enum class CacheStatus{NoBufferAvailable,BufferAcquired,CachedBufferReused};
+    std::map<ConsumerId,Framebuffer> m_framebuffers;u64 m_frame_number=0;
+    u32 ComposeLocked(f32*,Display&,Nvidia::Devices::nvdisp_disp0&);
+    void RemoveLayerLocked(Display&,ConsumerId);bool TryAcquireFramebufferLocked(Layer&,Framebuffer&);CacheStatus CacheFramebufferLocked(Layer&,ConsumerId);
+};
+@NORMALIZER@
+@COMPOSER@
+}
+using Service::android::GraphicBuffer;using Service::android::NvGraphicBuffer;
+struct Fixture{
+    Host host;Renderer renderer;::GPU gpu{host,renderer};System system{gpu,renderer};
+    Service::Nvidia::Devices::nvdisp_disp0 nvdisp{system,{}};
+    std::shared_ptr<Service::Nvidia::Module> module=std::make_shared<Service::Nvidia::Module>();
+    std::shared_ptr<GraphicBuffer> original;
+    Service::Nvnflinger::Display display;Service::Nvnflinger::HardwareComposer composer;
+    std::shared_ptr<Service::Nvnflinger::Consumer> consumer=std::make_shared<Service::Nvnflinger::Consumer>();
+    Fixture(){module->retire_hook=[&]{Require(!renderer.active||renderer.reads!=0,"active source read lost owner");host.points.real.RegisterGuestAction(3,1,[]{});};
+        auto d=std::make_shared<NvGraphicBuffer>();d->buffer_id=1;d->width=32;d->height=16;d->stride=32;
+        auto entry=module->domain->EnterCold();original=GraphicBuffer::TryCreate(module,d,*entry);
+        consumer->item.graphic_buffer=original;consumer->item.swap_interval=1;
+        auto layer=std::make_shared<Service::Nvnflinger::Layer>();layer->buffer_item_consumer=consumer;display.stack.layers.push_back(layer);
+        renderer.source=original;renderer.backing=module->backing;}
+    void Fences(int n){consumer->item.fence.num_fences=n;for(int i=0;i<n;++i)consumer->item.fence.fences[i]={i,1};}
+    void Compose(){float speed{};composer.ComposeLocked(&speed,display,nvdisp);}
+    void DropOriginal(){original.reset();consumer->item.graphic_buffer.reset();composer.RemoveLayerLocked(display,1);display.stack.layers.clear();module->backing.reset();}
+    void Alive(const char* why){Require(!renderer.source.expired()&&!renderer.backing.expired(),why);}
+    void Gone(){Require(renderer.source.expired()&&renderer.backing.expired(),"completed/cancelled request retained source indefinitely");}
+};
+void Deferred(const std::string& mode){Fixture f;int n=mode=="multi-fence"?2:1;f.Fences(n);f.Compose();
+    if(mode=="snapshot")f.original->width=99;
+    f.DropOriginal();f.Alive("deferred request lost original source owner");
+    Require(f.renderer.reads==0&&f.gpu.waits==1,"registration became source-read completion");
+    f.host.points.Fire(0);if(n==2){Require(f.renderer.reads==0,"first fence presented shared request early");f.Alive("first fence released shared source");f.host.points.Fire(1);}
+    Require(f.renderer.reads==1&&f.renderer.native_inflight,"deferred source callback missing");f.Gone();
+}
+void Immediate(bool ready){Fixture f;f.Fences(ready?2:0);if(ready){f.host.points.Fire(0);f.host.points.Fire(1);}f.Compose();f.DropOriginal();f.Gone();Require(f.renderer.reads==1,"ready/no-fence callback semantics changed");}
+void Registration(bool after){Fixture f;f.Fences(2);f.host.points.fail_at=2;f.host.points.fail_after=after;bool failed=false;
+    try{f.Compose();}catch(int){failed=true;}Require(failed,"registration failure disappeared");f.DropOriginal();f.Alive("partial registration lost source owner");
+    f.host.points.Fire(0);if(after)f.host.points.Fire(1);Require(f.renderer.reads==0,"partially failed registration executed source read");f.Gone();}
+void ReadyFailure(bool after){Fixture f;f.Fences(2);f.host.points.Fire(0);if(after)f.host.points.Fire(1);
+    f.host.points.fail_at=2;f.host.points.fail_after=after;bool failed=false;try{f.Compose();}catch(int){failed=true;}
+    Require(failed&&f.renderer.reads==(after?1:0),"ready registration failure lost partial-effect boundary");
+    f.DropOriginal();f.Gone();f.host.points.Fire(0);f.host.points.Fire(1);
+    Require(f.renderer.reads==(after?1:0),"ready registration failure replayed source access");}
+void Shutdown(bool active){Fixture f;f.Fences(1);f.Compose();f.DropOriginal();f.Alive("deferred request lost original source owner");
+    if(!active){f.gpu.CloseCompositeRequests();f.host.points.Fire(0);Require(f.renderer.reads==0,"closed request accessed renderer");f.Gone();return;}
+    Gate entered,release,close_entered;f.renderer.entered=&entered;f.renderer.release=&release;f.renderer.active=true;f.gpu.close_entered=&close_entered;
+    std::thread read([&]{f.host.points.Fire(0);});entered.Wait();std::thread close([&]{f.gpu.CloseCompositeRequests();});close_entered.Wait();
+    f.Alive("active source read lost owner");release.Set();read.join();close.join();Require(f.renderer.reads==1,"active source callback did not finish");f.Gone();}
+void ReadThrow(bool reenter){Fixture f;f.Fences(1);f.Compose();f.DropOriginal();f.renderer.throws=true;bool caught=false;
+    try{f.host.points.Fire(0);}catch(int){caught=true;}Require(caught&&f.renderer.reads==1,"source exception swallowed");f.Alive("throwing action discarded source before explicit cancellation");
+    if(reenter){try{f.host.points.Fire(0);}catch(int){}Require(f.renderer.reads==1,"failed source callback replayed");}
+    else {f.host.points.Cancel();}
+    f.Gone();}
+template<class L>void Mismatched(L& layer,const std::shared_ptr<GraphicBuffer>& buffer){if constexpr(requires{layer.source_owner;}){
+    using Packet=typename std::remove_reference_t<decltype(layer.source_owner)>::element_type;
+    layer.source_owner=std::make_shared<Packet>(buffer);layer.buffer_handle=2;}}
+void Invalid(){Fixture f;Service::Nvnflinger::HwcLayer layer{};layer.buffer_handle=1;layer.acquire_fence.num_fences=1;layer.acquire_fence.fences[0]={0,1};f.nvdisp.Composite(std::span(&layer,1));
+    Require(f.gpu.requests==0&&f.nvdisp.nvmap.lookups==0,"unowned framebuffer entered GPU request");
+    Mismatched(layer,f.original);f.nvdisp.Composite(std::span(&layer,1));Require(f.gpu.requests==0&&f.nvdisp.nvmap.lookups==0,"mismatched source owner entered request");f.DropOriginal();}
+int main(int argc,char** argv){Require(argc==2,"missing case");std::string c=argv[1];
+    if(c=="deferred"||c=="multi-fence"||c=="snapshot")Deferred(c);else if(c=="ready"||c=="no-fence")Immediate(c=="ready");
+    else if(c=="register-before"||c=="register-after")Registration(c=="register-after");else if(c=="ready-prefix-failure"||c=="ready-after-failure")ReadyFailure(c=="ready-after-failure");else if(c=="shutdown-pending"||c=="shutdown-active")Shutdown(c=="shutdown-active");
+    else if(c=="read-throw"||c=="read-throw-reentry")ReadThrow(c=="read-throw-reentry");else if(c=="invalid-owner")Invalid();else Require(false,"unknown case");
+    std::cout<<"PASS frame source "<<c<<'\n';}

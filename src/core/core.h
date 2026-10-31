@@ -477,6 +477,9 @@ public:
     [[nodiscard]] bool IsQLaunchSession() const;
 
 private:
+    friend struct SystemTestAccess;
+    friend class RestrictedProcessOwner;
+    void InitializeRestrictedOwner(Frontend::EmuWindow&);
     struct Impl;
     std::unique_ptr<Impl> impl;
 };

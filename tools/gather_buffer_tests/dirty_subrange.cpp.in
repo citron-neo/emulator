@@ -1,0 +1,229 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <deque>
+#include <iostream>
+#include <numeric>
+#include <optional>
+#include <span>
+#include <string>
+#include <vector>
+#include <boost/container/small_vector.hpp>
+#include "common/alignment.h"
+#include "common/range_sets.inc"
+#include "video_core/buffer_cache/memory_tracker_base.h"
+
+constexpr u64 BASE = 0x400000;
+constexpr u64 DEVICE_PAGESIZE = Core::DEVICE_PAGESIZE;
+using BufferId = size_t;
+struct DeviceTracker {
+    void UpdatePagesCachedCount(u64, u64, int) { ++notifications; }
+    unsigned notifications{};
+};
+struct BufferCopy { u64 src_offset{}, dst_offset{}, size{}; };
+struct Buffer {
+    std::vector<u8> guest = std::vector<u8>(3 * DEVICE_PAGESIZE, 10);
+    std::vector<u8> native = guest;
+    std::vector<u64> page_gpu_tick;
+    bool shared{};
+    u64 CpuAddr() const { return BASE; }
+    u64 Offset(u64 addr) const { return addr - BASE; }
+};
+struct Policy { using Buffer = ::Buffer; };
+enum class ObtainBufferSynchronize { NoSynchronize, FullSynchronize };
+enum class ObtainBufferOperation { None, MarkAsWritten, DiscardWrite };
+namespace Uma { void StampPages(std::vector<u64>&, u64, u64, u64) {} }
+struct AsyncBuffer { std::span<u8> mapped_span; size_t offset{}; };
+struct PendingDownload {
+    std::vector<BufferCopy> copies;
+    Common::RangeSet<DAddr> valid_ranges;
+    // Keep saved pre-fix methods compilable for negative controls.
+    auto begin() { return copies.begin(); }
+    auto end() { return copies.end(); }
+};
+template <class P> struct BufferCache {
+    using Buffer = typename P::Buffer;
+    DeviceTracker device_tracker;
+    VideoCommon::MemoryTrackerBase<DeviceTracker> memory_tracker{device_tracker};
+    Common::RangeSet<DAddr> gpu_modified_ranges, uncommitted_gpu_modified_ranges;
+    std::deque<Common::RangeSet<DAddr>> committed_gpu_modified_ranges;
+    Common::OverlapRangeSet<DAddr> async_downloads;
+    std::deque<PendingDownload> pending_downloads;
+    std::deque<std::optional<AsyncBuffer>> async_buffers;
+    std::vector<AsyncBuffer> async_buffers_death_ring;
+    Buffer buffer;
+    std::vector<Buffer> slot_buffers;
+    std::vector<u8> readback;
+    unsigned uploads{}, barriers{}, end_access{}, checks{}, downloads{}, gather_notifications{};
+    struct { u64 CurrentTick() const { return 7; } } runtime;
+    bool SynchronizeBuffer(Buffer&, DAddr, u32);
+    bool IsRegionGpuModified(DAddr, size_t);
+    void WriteMemory(DAddr, u64);
+    void ClearDownload(DAddr, u64);
+    void PopAsyncBuffers();
+    std::pair<Buffer*, u32> ObtainCPUBuffer(DAddr, u32, ObtainBufferSynchronize, ObtainBufferOperation);
+    void CheckControlledSynchronization(DAddr, u64) { ++checks; }
+    void ResolveScatter(DAddr, u64) {}
+    void WaitGuestBacking(DAddr, u64) {}
+    u64 WidenHotWrite(DAddr, u64 size) { return size; } // cold writes only
+    void NotifyGatherWrite(DAddr, u64) { ++gather_notifications; }
+    bool IsDirectGuest(const Buffer& b) { return b.shared; }
+    void EndGuestCpuAccess(Buffer&) { ++end_access; }
+    void GuestMemoryBarrier(bool) { ++barriers; }
+    size_t FindBuffer(DAddr, u32) { return 0; }
+    void MarkWrittenBuffer(size_t, DAddr, u32) {}
+    void UploadMemory(Buffer& b, u64 total, u64 largest, std::span<BufferCopy> copies) {
+        u64 sum = 0, max_size = 0;
+        for (const auto& c : copies) {
+            if (c.src_offset != sum || c.dst_offset > b.native.size() ||
+                c.size > b.native.size() - c.dst_offset) throw std::runtime_error("copy bounds");
+            std::copy_n(b.guest.begin() + c.dst_offset, c.size, b.native.begin() + c.dst_offset);
+            sum += c.size;
+            max_size = std::max(max_size, c.size);
+        }
+        if (total != sum || largest != max_size) throw std::runtime_error("copy accounting");
+        ++uploads;
+    }
+    void WriteBackDownload(DAddr addr, const u8* data, u64 size) {
+        std::copy_n(data, size, buffer.guest.begin() + (addr - BASE));
+        ++downloads;
+    }
+    void clean() {
+        memory_tracker.ForEachUploadRange(BASE, buffer.guest.size(), [](u64, u64) {});
+    }
+    void gpu(size_t start, size_t size, u8 value = 99) {
+        std::fill_n(buffer.native.begin() + start, size, value);
+        gpu_modified_ranges.Add(BASE + start, size);
+        uncommitted_gpu_modified_ranges.Add(BASE + start, size);
+        memory_tracker.MarkRegionAsGpuModified(BASE + start, size);
+    }
+    void cpu(size_t start, size_t size, u8 value = 77) {
+        WriteMemory(BASE + start, size);
+        std::fill_n(buffer.guest.begin() + start, size, value);
+    }
+    void queue_readback(size_t start, size_t size) {
+        readback = buffer.native;
+        // CommitAsyncFlushesHigh queries the real GPU tracker without clearing it.
+        memory_tracker.ForEachDownloadRange(BASE + start, size, false, [](u64, u64) {});
+        committed_gpu_modified_ranges.emplace_back(std::move(uncommitted_gpu_modified_ranges));
+        PendingDownload download;
+        download.copies.push_back(BufferCopy{BASE + start, start, size});
+        download.valid_ranges.Add(BASE + start, size);
+        pending_downloads.push_back(std::move(download));
+        async_downloads.Add(BASE + start, size);
+        async_buffers.push_back(AsyncBuffer{readback});
+    }
+};
+// @METHODS@
+
+using Cache = BufferCache<Policy>;
+bool has(Common::RangeSet<DAddr>& ranges, u64 addr, size_t bytes) {
+    bool result = false;
+    ranges.ForEachInRange(addr, bytes, [&](u64, u64) { result = true; });
+    return result;
+}
+bool pending(Cache& c, size_t offset) {
+    bool result = false;
+    c.async_downloads.ForEachInRange(BASE + offset, 1, [&](u64, u64, s32) { result = true; });
+    return result;
+}
+
+bool page_upload() {
+    auto c = std::make_unique<Cache>(); c->clean();
+    c->gpu(16, 16); c->gpu(80, 20); c->cpu(48, 1);
+    c->SynchronizeBuffer(c->buffer, BASE + 48, 1);
+    return c->buffer.native[48] == 77 && c->buffer.native[16] == 99 &&
+           c->buffer.native[99] == 99 && c->uploads == 1 &&
+           !c->memory_tracker.IsRegionCpuModified(BASE, DEVICE_PAGESIZE) &&
+           has(c->gpu_modified_ranges, BASE + 16, 16);
+}
+bool coarse_write_gate() {
+    auto c = std::make_unique<Cache>(); c->clean(); c->gpu(16, 32);
+    c->queue_readback(16, 32);
+    // This neighboring store makes the page CPU-dirty/untracked. The already
+    // queued readback and the precise GPU-owned bytes must survive it.
+    c->cpu(64, 1);
+    if (c->memory_tracker.IsRegionGpuModified(BASE + 24, 1)) return false;
+    c->cpu(24, 1);
+    const bool cancelled = !pending(*c, 24) && pending(*c, 23) && pending(*c, 25) &&
+                           !has(c->gpu_modified_ranges, BASE + 24, 1);
+    c->PopAsyncBuffers();
+    c->SynchronizeBuffer(c->buffer, BASE + 24, 1);
+    return cancelled && c->buffer.guest[24] == 77 && c->buffer.guest[23] == 99 &&
+           c->buffer.native[24] == 77 && c->buffer.native[25] == 99 &&
+           c->async_buffers.empty() && c->pending_downloads.empty() &&
+           c->async_buffers_death_ring.size() == 1;
+}
+bool rounded_discard() {
+    auto c = std::make_unique<Cache>(); c->clean(); c->gpu(0, 64); c->queue_readback(0, 64);
+    c->slot_buffers.emplace_back();
+    c->ObtainCPUBuffer(BASE + 20, 12, ObtainBufferSynchronize::NoSynchronize,
+                      ObtainBufferOperation::DiscardWrite);
+    const bool exact = pending(*c, 19) && !pending(*c, 20) && !pending(*c, 31) &&
+                       pending(*c, 32) && has(c->gpu_modified_ranges, BASE + 19, 1) &&
+                       !has(c->gpu_modified_ranges, BASE + 20, 12);
+    std::fill_n(c->buffer.guest.begin() + 20, 12, 77);
+    c->PopAsyncBuffers();
+    return exact && c->buffer.guest[19] == 99 && c->buffer.guest[20] == 77 &&
+           c->buffer.guest[31] == 77 && c->buffer.guest[32] == 99;
+}
+bool controls() {
+    // No CPU dirtiness: GPU-only work must not cause any host upload.
+    { auto c=std::make_unique<Cache>(); c->clean(); c->gpu(16,16);
+      if (!c->SynchronizeBuffer(c->buffer,BASE,128) || c->uploads) return false; }
+    // No GPU ownership: ordinary CPU bytes must still reach the native buffer.
+    { auto c=std::make_unique<Cache>(); c->clean(); c->cpu(12,1);
+      c->SynchronizeBuffer(c->buffer,BASE+12,1);
+      if(c->buffer.native[12]!=77 || c->uploads!=1) return false; }
+    // No payload upload for imported/shared buffers; retain their access handoff.
+    { auto c=std::make_unique<Cache>(); c->clean(); c->buffer.shared=true; c->cpu(12,1);
+      c->SynchronizeBuffer(c->buffer,BASE+12,1);
+      if(c->uploads || c->end_access!=1 || c->barriers!=1) return false; }
+    { auto c=std::make_unique<Cache>(); c->clean(); c->buffer.shared=true;
+      c->gpu(16,16); c->cpu(48,1); const auto before=c->gather_notifications;
+      c->SynchronizeBuffer(c->buffer,BASE+48,1);
+      if(c->uploads || c->end_access!=1 || c->barriers!=1 ||
+         c->gather_notifications!=before+1) return false; }
+    // Zero-size query is inert and must not consume dirty state elsewhere.
+    { auto c=std::make_unique<Cache>(); c->clean(); c->cpu(12,1);
+      c->SynchronizeBuffer(c->buffer,BASE,0);
+      if(c->uploads || !c->memory_tracker.IsRegionCpuModified(BASE+12,1)) return false; }
+    return true;
+}
+bool boundaries() {
+    // Completely GPU-owned upload page: no stale CPU bytes may be uploaded.
+    { auto c=std::make_unique<Cache>(); c->clean(); c->gpu(0,DEVICE_PAGESIZE);
+      c->memory_tracker.MarkRegionAsCpuModified(BASE+8,1);
+      c->SynchronizeBuffer(c->buffer,BASE+8,1);
+      if(c->uploads || c->buffer.native[8]!=99) return false; }
+    // Multiple pages, clipped intervals, adjacent intervals and page-edge stores.
+    for(size_t offset : {size_t{0},size_t{4095},size_t{4096},size_t{8191},size_t{12287}}) {
+        auto c=std::make_unique<Cache>(); c->clean();
+        c->gpu(0,c->buffer.native.size()); c->cpu(offset,1);
+        c->SynchronizeBuffer(c->buffer,BASE+offset,1);
+        for(size_t i=0;i<c->buffer.native.size();++i)
+            if(c->buffer.native[i] != (i==offset ? 77 : 99)) return false;
+    }
+    // Several stores on an already CPU-dirty page must release precise ownership,
+    // even after the first store hides the coarse GPU bit.
+    { auto c=std::make_unique<Cache>(); c->clean(); c->gpu(0,DEVICE_PAGESIZE);
+      for(size_t offset : {size_t{1},size_t{15},size_t{63},size_t{4095}}) c->cpu(offset,1);
+      c->SynchronizeBuffer(c->buffer,BASE,DEVICE_PAGESIZE);
+      for(size_t i=0;i<DEVICE_PAGESIZE;++i) {
+        const bool written=i==1||i==15||i==63||i==4095;
+        if(c->buffer.native[i]!=(written?77:99)) return false;
+      } }
+    return true;
+}
+int main(int argc, char** argv) {
+    (void)argc; (void)argv;
+    const std::string control = argc > 1 ? argv[1] : "";
+    const bool a=page_upload(), b=coarse_write_gate(), c=rounded_discard(), d=controls(), e=boundaries();
+    std::cout << "page_upload=" << a << " coarse_write_gate=" << b
+              << " rounded_discard=" << c << " controls=" << d << " boundaries=" << e << '\n';
+    if(control=="broken") return (!a && !b && !c && d && !e) ? 0 : 2;
+    if(control=="page_upload") return (!a && b && c && d && !e) ? 0 : 3;
+    if(control=="coarse_write_gate") return (a && !b && c && d && !e) ? 0 : 4;
+    if(control=="rounded_discard") return (a && b && !c && d && e) ? 0 : 5;
+    return (a && b && c && d && e) ? 0 : 1;
+}

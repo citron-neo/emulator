@@ -42,6 +42,7 @@ public:
     u32 GetSvcNumber() const override;
 
     void SignalInterrupt(Kernel::KThread* thread) override;
+    bool RequestNonblockingGuestStop(Kernel::KThread* thread) override;
     void ClearInstructionCache() override;
     void InvalidateCacheRange(u64 addr, std::size_t size) override;
 

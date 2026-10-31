@@ -14,6 +14,7 @@
 
 #include "common/bit_field.h"
 #include "common/common_types.h"
+#include "common/frame_mapping.h"
 #include "common/profiling.h"
 #include "core/hle/service/nvdrv/core/container.h"
 #include "core/hle/service/nvdrv/nvdata.h"
@@ -126,6 +127,7 @@ public:
     std::shared_ptr<Handle> GetHandle(Handle::Id handle);
 
     DAddr GetHandleAddress(Handle::Id handle);
+    std::optional<Common::FrameMappingDomain::Stamp> GetDisplayMapping(Handle::Id handle);
 
     /**
      * @brief Maps a handle into the SMMU address space
@@ -174,7 +176,7 @@ private:
      * @brief Unmaps and frees the SMMU memory region a handle is mapped to
      * @note Both `unmap_queue_lock` and `handle_description.mutex` MUST be locked when calling this
      */
-    void UnmapHandle(Handle& handle_description);
+    [[nodiscard]] bool UnmapHandle(Handle& handle_description);
 
     /**
      * @brief Removes a handle from the map taking its dupes into account

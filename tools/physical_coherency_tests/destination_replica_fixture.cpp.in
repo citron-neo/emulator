@@ -1,0 +1,182 @@
+// Controlled mixed-target replacement; actual methods, simulated Vulkan execution.
+void TestDestinationReplicaCopy() {
+    using Scheduler = Vulkan::Scheduler;
+    using Content = Vulkan::TransferContent;
+    using Provenance = Vulkan::ReplicaCopyProvenance;
+    using RootSpan = Provenance::RootSpan;
+    struct Byte {u32 root;u64 offset;u8 value;};
+    for (int mode = 0; mode < 51; ++mode) {
+        auto s = std::make_unique<Scenario>();
+        Vulkan::StorageObserverHarness observation{s->scheduler, s->runtime};
+        std::array<std::unique_ptr<Vulkan::Buffer>, 6> buffers;
+        std::vector<Scheduler::TransferBuffer> targets;
+        std::vector<Content::Command> fills;
+        std::array<std::array<Byte,64>,6> oracle;
+        for (u32 slot = 0; slot < buffers.size(); ++slot) {
+            buffers[slot] = std::make_unique<Vulkan::Buffer>(s->runtime, A + slot * 131072, 4096);
+            targets.push_back({*buffers[slot]->PinStagedRepresentation(0,64), s->runtime.PhysicalIdentityForBinding(*buffers[slot],0,64)});
+            const u8 value = slot ? slot * 10 : 99;
+            fills.push_back({Content::Kind::Fill,slot,0,0,0,64,value * 0x01010101u});
+            for(u64 byte=0;byte<64;++byte) oracle[slot][byte]={slot,byte,value};
+        }
+        const auto copy_oracle = [&](u32 from,u32 to,u64 offset,u64 size) {
+            for(u64 byte=offset;byte<offset+size;++byte) oracle[to][byte]=oracle[from][byte];
+        };
+        const auto partition = [&](u32 slot,u64 begin,u64 end) {
+            std::vector<RootSpan> result;
+            for(u64 byte=begin;byte<end;++byte) {
+                const auto label=oracle[slot][byte];
+                if(result.empty() || result.back().fill!=label.root || result.back().root_offset+result.back().size!=label.offset)
+                    result.push_back({byte,1,label.root,label.offset});
+                else ++result.back().size;
+            }
+            return result;
+        };
+        const auto anchor=s->scheduler.RecordTransferBatch(targets,fills);
+        assert(anchor);s->scheduler.RunWorker();s->gpu.Complete();
+        const auto first=s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+            {anchor,0,1,16,16,16,0,1,16,0});
+        assert(first);s->scheduler.RunWorker();s->gpu.Complete();copy_oracle(0,1,16,16);
+        const auto incoming=partition(1,8,40);
+        const auto prior=s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+            {anchor,1,2,8,8,32,0,2,8,0,first,incoming});
+        assert(prior);
+        if(mode==11) driver->submit_result=VK_ERROR_DEVICE_LOST;
+        bool prior_loss{};try{s->scheduler.RunWorker();}catch(const vk::Exception&){prior_loss=true;}
+        assert(prior_loss==(mode==11));
+        if(mode!=13 && mode!=48) s->gpu.Complete();
+        driver->submit_result=VK_SUCCESS;copy_oracle(1,2,8,32);
+        const auto prior_bytes=oracle[2];
+        const auto prior_history=prior->PlannedReplicaCopy();
+        const auto anchor_history=anchor->PlannedContent();
+        const auto make_complements = [&](u64 begin,u64 size) {
+            auto parts=partition(2,0,begin);
+            const auto right=partition(2,begin+size,64);
+            parts.insert(parts.end(),right.begin(),right.end());return parts;
+        };
+        auto complements=make_complements(12,16);
+        const auto saved_complements=complements;
+        const auto source_parts=partition(1,12,28);
+        Scheduler::ReplicaCopyRequest request{anchor,3,2,12,12,16,3,2,12,0,{}, {},prior,complements};
+        if(mode==1) {request.source=1;request.source_receipt=first;request.source_roots=source_parts;}
+        if(mode==47 || mode==48) {
+            request.source_offset=request.destination_offset=request.source_root_offset=0;request.size=64;
+            complements.clear();request.destination_roots=complements;
+        }
+        // A uniform target demonstrates why a declaration crossing the overwritten hole is invalid.
+        const std::array<RootSpan,1> crossing{{{0,64,1,0}}};
+        assert(!Provenance::Build(anchor_history,3,1,12,12,16,64,3,12,1,0,{}, {},{},crossing));
+        const auto remap=[&] {s->runtime.test_mapping.generation+=2;
+            s->runtime.test_mapping.epoch->generation.store(s->runtime.test_mapping.generation);};
+        if(mode==2) s->scheduler.RecordBufferFill(targets[2].pin.Handle(),16,4,0x4d4d4d4d); // Overwritten bytes need no old content.
+        if(mode>=3 && mode<=6) s->scheduler.RecordBufferFill(targets[2].pin.Handle(),mode==3?4:mode==4?48:mode==5?8:28,4,0x4d4d4d4d);
+        if(mode==7 || mode==8) s->scheduler.RecordBufferFill(targets[3].pin.Handle(),mode==7?12:0,4,0x4d4d4d4d);
+        if(mode==9) s->scheduler.Record([](vk::CommandBuffer){});
+        if(mode==14) remap();
+        if(mode==17 || mode==18) buffers[mode==17?3:2]->RevokeContentEligibility();
+        if(mode==23) s->scheduler.BreakReplicaSyncForTest(prior,0);
+        if(mode==27) {(void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();}
+        if(mode==29) {complements.pop_back();s->scheduler.RecordBufferFill(targets[2].pin.Handle(),52,4,0x4d4d4d4d);}
+        if(mode==30) {
+            complements={{0,4,2,0},{0,4,2,0},{8,4,1,8},{28,4,0,28},{32,8,1,32},{40,24,2,40}};
+            s->scheduler.RecordBufferFill(targets[2].pin.Handle(),4,4,0x4d4d4d4d);
+        }
+        if(mode==31) complements.back().fill=0;
+        if(mode==32) complements.back().root_offset=44;
+        if(mode==33) complements[1].fill=Content::Unknown;
+        if(mode==34) complements[1].size=0;
+        if(mode==35) complements[0].size=16;
+        if(mode==36) request.destination_receipt=first;
+        if(mode==37) request.source_receipt=prior;
+        if(mode==46) request.destination_receipt.reset();
+        if(mode==50) complements.assign(Provenance::MaxRootSpans+1,{0,1,2,0});
+        request.destination_roots=complements; // Keep the view current after vector reallocations.
+        const auto updated=s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,request);
+        const bool refused=(mode>=3&&mode<=7)||mode==9||mode==11||mode==13||mode==14||mode==17||mode==18||mode==23||
+            (mode>=29&&mode<=37)||mode==46||mode==48||mode==50;
+        assert(bool(updated)==!refused);
+        if(refused) {
+            assert(prior->PlannedReplicaCopy()==prior_history && anchor->PlannedContent()==anchor_history);
+            (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();s->scheduler.RetireCheckedWritesAfterDeviceIdle();continue;
+        }
+        assert(updated!=prior && updated->PlannedReplicaCopy()->DestinationCopy()==prior_history);
+        assert(updated->PlannedReplicaCopy()->Depth()==3);
+        assert(std::ranges::equal(updated->PlannedReplicaCopy()->DestinationRoots(),complements));
+        copy_oracle(request.source,2,request.destination_offset,request.size);
+        const auto expected=oracle[2];
+        if(mode==12) driver->submit_result=VK_ERROR_DEVICE_LOST;
+        if(mode==15) remap();
+        if(mode==19 || mode==20) buffers[mode==19?3:2]->RevokeContentEligibility();
+        if(mode==28) driver->queue_id=2;
+        if(mode==38) {complements[0].fill=3;complements.clear();}
+        if(mode==44 || mode==45) {
+            s->scheduler.RecordBufferFill(targets[mode==44?3:2].pin.Handle(),mode==44?12:4,4,0x4d4d4d4d);
+            (void)s->scheduler.Flush();
+        }
+        std::weak_ptr<const void> payload=targets[2].pin.RetainedOwner();
+        if(mode==39) {targets.clear();for(auto& buffer:buffers) buffer.reset();}
+        if(mode==39 || mode==40) {
+            if(mode==40) s->scheduler.RunOneWorkerCommandForTest();
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();assert(updated->ResourcesRetained() && !payload.expired());
+        }
+        bool loss{};try{s->scheduler.RunWorker();}catch(const vk::Exception&){loss=true;}
+        assert(loss==(mode==12));assert(!s->scheduler.CompletedReplicaCopy(updated,anchor));s->gpu.Complete();
+        if(mode==16) remap();
+        if(mode==21 || mode==22) buffers[mode==21?0:2]->RevokeContentEligibility();
+        if(mode==24) s->scheduler.BreakReplicaSyncForTest(prior,1);
+        if(mode==25) s->scheduler.BreakReplicaSyncForTest(first,0);
+        if(mode==26) s->scheduler.BreakReplicaSyncForTest(updated,0);
+        if(mode==49) s->scheduler.BreakDestinationDependencyForTest(updated,first);
+        const bool rejected=mode==12||mode==15||mode==16||mode==19||mode==20||mode==21||mode==22||
+            (mode>=24&&mode<=28)||mode==45||mode==49;
+        const bool no_copy=mode==12||mode==15||mode==19||mode==20||mode==27||mode==28;
+        const auto current=[&] {
+            for(u64 byte=0;byte<64;++byte) {
+                if(!s->scheduler.CurrentReplicaCopyHasRoot(updated,s->runtime.test_mapping,anchor,
+                    byte,1,expected[byte].root,expected[byte].offset)) return false;
+            }
+            return true;
+        };
+        assert(current()==!rejected);
+        assert(std::ranges::equal(updated->PlannedReplicaCopy()->DestinationRoots(),mode==47?std::vector<RootSpan>{}:saved_complements));
+        for(u64 byte=0;byte<64;++byte) {
+            const auto label=expected[byte];assert(updated->PlannedReplicaCopy()->HasRoot(byte,1,label.root,label.offset));
+            if(!targets.empty()) {
+                const auto& bytes=reinterpret_cast<Allocation*>(buffers[2]->Handle())->bytes;
+                assert(bytes[byte]==(mode==45 && byte>=4&&byte<8?77:no_copy?prior_bytes[byte].value:label.value));
+            }
+        }
+        if(mode==10||mode==42||mode==43) {
+            if(mode==10) s->scheduler.Record([](vk::CommandBuffer){});
+            else s->scheduler.RecordBufferFill(targets[mode==42?3:2].pin.Handle(),16,4,0x58585858);
+            (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();
+            assert(current()==(mode==42));assert(s->scheduler.CompletedReplicaCopy(updated,anchor));
+            if(mode==43) {
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(updated,s->runtime.test_mapping,anchor,12,4,3,12));
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(updated,s->runtime.test_mapping,anchor,20,8,3,20));
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(updated,s->runtime.test_mapping,anchor,8,4,1,8));
+            }
+        }
+        if(mode==41) {
+            const auto fourth_complements=make_complements(20,16);
+            const auto fourth=s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+                {anchor,4,2,20,20,16,4,2,20,0,{}, {},updated,fourth_complements});
+            assert(fourth);s->scheduler.RunWorker();s->gpu.Complete();copy_oracle(4,2,20,16);
+            for(u64 byte=0;byte<64;++byte) {
+                const auto label=oracle[2][byte];
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(fourth,s->runtime.test_mapping,anchor,byte,1,label.root,label.offset));
+                assert(reinterpret_cast<Allocation*>(buffers[2]->Handle())->bytes[byte]==label.value);
+            }
+            assert(fourth->PlannedReplicaCopy()->Depth()==4);
+            const auto fifth_complements=make_complements(12,16);
+            assert(!s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+                {anchor,3,2,12,12,16,3,2,12,0,{}, {},fourth,fifth_complements}));
+        }
+        assert(prior->PlannedReplicaCopy()==prior_history && anchor->PlannedContent()==anchor_history);
+        for(u64 byte=0;byte<64;++byte) assert(prior_history->HasRoot(byte,1,prior_bytes[byte].root,prior_bytes[byte].offset));
+        s->scheduler.RetireCheckedWritesAfterDeviceIdle();assert(!updated->ResourcesRetained() && !current());
+        if(mode==39) assert(payload.expired());
+    }
+    std::cout<<"PASS 51 mixed-target partial-copy modes: separate source/complement qualification, byte oracle, immutable ancestry, "
+                 "overwrites, Unknown, checked failure/barriers, remap/retirement and four-hop boundary; simulated Vulkan\n";
+}

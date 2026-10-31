@@ -13,6 +13,7 @@
 #include "core/core_timing.h"
 #include "core/cpu_manager.h"
 #include "core/hle/kernel/k_interrupt_manager.h"
+#include "core/hle/kernel/k_hardware_timer.h"
 #include "core/hle/kernel/k_scheduler.h"
 #include "core/hle/kernel/k_thread.h"
 #include "core/hle/kernel/kernel.h"
@@ -23,6 +24,26 @@ namespace Core {
 
 CpuManager::CpuManager(System& system_) : system{system_} {}
 CpuManager::~CpuManager() = default;
+
+std::optional<Memory::ControlledCpuWriteRequest::SchedulerAction>
+CpuManager::AwaitControlledCpuWrite(const Memory::ControlledCpuWriteRequestPtr& request) {
+    using Action = Memory::ControlledCpuWriteRequest::SchedulerAction;
+    if (!request) return Action::DoNotExecute;
+    auto& kernel = system.Kernel();
+    auto& thread = Kernel::GetCurrentThread(kernel);
+    if (Kernel::KScheduler::IsSchedulerLockedByCurrentThread(kernel) ||
+        thread.IsDummyThread() || thread.GetDisableDispatchCount() != 0)
+        return std::nullopt; // unsupported/locked context cannot become a host wait
+    while (true) {
+        const auto action = request->Action();
+        if (action != Action::AwaitOwner) return action;
+        // Timer wakeup, rather than a GPU callback acquiring the kernel scheduler lock.
+        // Sleep switches through the actual KThread/KScheduler fiber machinery.
+        if (thread.IsTerminationRequested() ||
+            R_FAILED(thread.Sleep(kernel.HardwareTimer().GetTick() + 1'000'000)))
+            return std::nullopt;
+    }
+}
 
 void CpuManager::Initialize() {
     num_cores = is_multicore ? Core::Hardware::NUM_CPU_CORES : 1;

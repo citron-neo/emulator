@@ -1,0 +1,1888 @@
+{
+  "date": "2026-10-24 Asia/Taipei",
+  "baseline": "96d993457dd0cf2078b9538854b566ceec3b9146",
+  "branch": "codex/issue-372-fixes",
+  "main_unchanged": "b6a2ce9488d78efdbbeb0efe14c2ec5c0a263e76",
+  "outcome": "Revocable queued frame mapping stamp through bounded owned CPU copy and cache view selection; no native completion or permanent session admission claim.",
+  "test_first": "Candidate and actual pre-fix raw remap/reuse witness executed before production integration; historical baseline reproducible by revision.",
+  "known_open": [
+    "Post-selection native image ownership/completion",
+    "New source capture via escaped producer after shutdown/stale-session retirement",
+    "Device-wide cancellation performance",
+    "HostMemory VMA/protection lifetime",
+    "CPU/GPU content coherency F2/F3; GuestBackingAdmission Unknown"
+  ],
+  "manifests": {
+    "baseline": {
+      "baseline": true,
+      "revision": "96d993457d",
+      "candidate": false,
+      "repetitions": 3,
+      "protocol_cases": [],
+      "controls": [],
+      "raw_cases": [
+        "normal",
+        "unmap",
+        "reuse",
+        "session",
+        "hole",
+        "bounds",
+        "noncontiguous",
+        "actual-map",
+        "actual-unmap",
+        "callback-failure",
+        "unregister",
+        "partial-hole",
+        "accelerated-normal",
+        "accelerated-retired",
+        "accelerated-pending",
+        "active-unmap",
+        "after-copy-reuse"
+      ],
+      "raw_controls": [],
+      "sha256": {
+        "src/core/device_memory_manager.h": "0682440942f177be40641063c72d75574ec0f4de1b4a74bda46f064901148f7e",
+        "src/core/device_memory_manager.inc": "061daf2a79618bd424f81e397a62e2b1f4f42d0d8bdf29a37b757efc42ffdee4",
+        "src/video_core/renderer_vulkan/present/layer.cpp": "af6b63318ace1ccf2b3d0802041982ae4ec14f2185ac3a7245e22e993a21282f",
+        "tools/gpu_lifecycle_tests/frame_mapping_observer.h": "f5ff3c2b910a07e87c6699eddb156f3ec5ce405ff18b932318968f92937c0cbd",
+        "tools/gpu_lifecycle_tests/frame_mapping_read_fixture.cpp.in": "7ebbce3bcb6fcf23e53afeb9117b081dd78c7386ea497d319c5d9b69405ae15a"
+      },
+      "limits": "Actual GetPointer, new copy/capture methods and raw UpdateRawImage prefix. PTE arrays, physical backing and unswizzle/flush are controlled fixtures; no native GPU."
+    },
+    "candidate": {
+      "baseline": false,
+      "revision": null,
+      "candidate": true,
+      "repetitions": 3,
+      "protocol_cases": [
+        "normal",
+        "unmap",
+        "reuse",
+        "session",
+        "failure",
+        "active",
+        "nested",
+        "range",
+        "close",
+        "foreign"
+      ],
+      "controls": [
+        "omit-generation",
+        "omit-pending",
+        "omit-poison",
+        "omit-range",
+        "omit-close",
+        "omit-identity"
+      ],
+      "raw_cases": [],
+      "raw_controls": [],
+      "sha256": {
+        "tools/gpu_lifecycle_tests/frame_mapping_candidate.h": "806a7cb44b63613ca63d7762aad4f4942d2d3416e1d4159cc1c2f723dbf74c68",
+        "tools/gpu_lifecycle_tests/frame_mapping_observer.h": "f5ff3c2b910a07e87c6699eddb156f3ec5ce405ff18b932318968f92937c0cbd",
+        "tools/gpu_lifecycle_tests/frame_mapping_protocol.cpp": "23a66e2bd2715f4f611bc251d7ee621be4c8b7ae3b9f83819859e51f63df5376"
+      },
+      "limits": "Actual GetPointer, new copy/capture methods and raw UpdateRawImage prefix. PTE arrays, physical backing and unswizzle/flush are controlled fixtures; no native GPU."
+    },
+    "fixed": {
+      "baseline": false,
+      "revision": null,
+      "candidate": false,
+      "repetitions": 3,
+      "protocol_cases": [
+        "normal",
+        "unmap",
+        "reuse",
+        "session",
+        "failure",
+        "active",
+        "nested",
+        "range",
+        "close",
+        "foreign"
+      ],
+      "controls": [
+        "omit-generation",
+        "omit-pending",
+        "omit-poison",
+        "omit-range",
+        "omit-close",
+        "omit-identity"
+      ],
+      "raw_cases": [
+        "normal",
+        "unmap",
+        "reuse",
+        "session",
+        "hole",
+        "bounds",
+        "noncontiguous",
+        "actual-map",
+        "actual-unmap",
+        "callback-failure",
+        "unregister",
+        "partial-hole",
+        "accelerated-normal",
+        "accelerated-retired",
+        "accelerated-pending",
+        "active-unmap",
+        "after-copy-reuse"
+      ],
+      "raw_controls": [
+        "omit-cache-use",
+        "omit-copy-use",
+        "late-map-intent",
+        "late-unmap-intent"
+      ],
+      "sha256": {
+        "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+        "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+        "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+        "src/video_core/renderer_vulkan/present/layer.cpp": "ba0de6f8963b33b7fb8fb6a19796a3cab3b344665314ce700c9eff5cbc09f205",
+        "src/video_core/renderer_vulkan/vk_rasterizer.cpp": "59e902fdfd5def20fdd7b04a8e87fb524e3a795f48915fde92773ff4ab81b5a1",
+        "tools/gpu_lifecycle_tests/frame_mapping_observer.h": "f5ff3c2b910a07e87c6699eddb156f3ec5ce405ff18b932318968f92937c0cbd",
+        "tools/gpu_lifecycle_tests/frame_mapping_protocol.cpp": "23a66e2bd2715f4f611bc251d7ee621be4c8b7ae3b9f83819859e51f63df5376",
+        "tools/gpu_lifecycle_tests/frame_mapping_read_fixture.cpp.in": "7ebbce3bcb6fcf23e53afeb9117b081dd78c7386ea497d319c5d9b69405ae15a"
+      },
+      "limits": "Actual GetPointer, new copy/capture methods and raw UpdateRawImage prefix. PTE arrays, physical backing and unswizzle/flush are controlled fixtures; no native GPU."
+    },
+    "packet": {
+      "sha256": {
+        "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+        "src/common/owned_retirement.h": "bd1f8cbb8aa4f70d20ec0dbb9ac082b037285549fe76f61ec2195304c51f59ea",
+        "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+        "src/core/hle/service/nvdrv/devices/nvdisp_disp0.cpp": "6be2e22a23816b6e8d524e24e9a798d7d94d65679b7be87ed8fdec5143edd1cb",
+        "src/core/hle/service/nvnflinger/hardware_composer.cpp": "8c017158fcb0037c424458390ae5ec6685d9ee0a93bea87ebbc0e2bdc2f940b6",
+        "src/core/hle/service/nvnflinger/hwc_layer.h": "af76eba7a524949d18b1b277689391759f839ea76b2263cdf51b48e247cc88c1",
+        "src/core/hle/service/nvnflinger/ui/graphic_buffer.cpp": "02f6edff23efa213a4063c1accca2301b927617416800cf56f6f230922f80329",
+        "src/core/hle/service/nvnflinger/ui/graphic_buffer.h": "4adc67d8cd73c5213917258efee352789178eb2ea90a48b1a054a4f3d1c3e99c",
+        "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+        "src/video_core/gpu.cpp": "adecb4d24aadd6a34d5964d307b02becc7945b8316ad480183d2c7f8dfb9d486",
+        "src/video_core/host1x/syncpoint_manager.cpp": "ce1a6d0bf0fe681cc2da4d80a957b37397268261cd55fe4e30244825117bb0b9",
+        "src/video_core/host1x/syncpoint_manager.h": "88c080ff6d193bfef4f20a6fb7b23c374551a2ae0a2563a7a8261af9b82735f1",
+        "tools/gpu_lifecycle_tests/frame_source_fixture.cpp.in": "9535635e7d0fb64fcaf3d071adda0aaaf607e0976eaff1183ef6f16103d791bd",
+        "tools/gpu_lifecycle_tests/run_frame_source_tests.py": "8f2503e330e49a46e8f67530c77a157091bdc81f134642b70e8e413b33d33f74"
+      },
+      "repetitions": 3,
+      "cases": [
+        "deferred",
+        "multi-fence",
+        "ready",
+        "no-fence",
+        "snapshot",
+        "register-before",
+        "register-after",
+        "ready-prefix-failure",
+        "ready-after-failure",
+        "shutdown-pending",
+        "shutdown-active",
+        "read-throw",
+        "read-throw-reentry",
+        "invalid-owner"
+      ],
+      "controls": [
+        "omit-composer-owner",
+        "omit-nvdisp-owner",
+        "clear-after-registration",
+        "omit-registration-cancel",
+        "omit-source-failure-cancel",
+        "borrow-only-until-call",
+        "omit-owner-validation",
+        "omit-close-lock"
+      ],
+      "actual": [
+        "HardwareComposer compose/cache/remove, nvdisp conversion, GPU RequestComposite/CloseCompositeRequests",
+        "Actual packet/descriptor/GraphicBuffer headers and factory/destructor",
+        "Linked actual SyncpointManager implementation"
+      ],
+      "fixtures": [
+        "Frame acquisition, Module retirement preparation/backing tokens, nvmap address lookup",
+        "Immediate GPU registration dispatch; registration before/after failure hooks",
+        "Renderer source-read gate and native-use marker; not actual memory or Vulkan"
+      ],
+      "boundary": "Per-frame immutable descriptor and source object retention through CPU source callback only; no mapping/native completion lease."
+    },
+    "address": {
+      "sha256": {
+        "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+        "src/core/hle/service/nvdrv/core/nvmap.cpp": "df345376da9b171bf74bfa50db77077d0ec96698a8657218668221747c561e86",
+        "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+        "src/core/hle/service/nvdrv/devices/nvdisp_disp0.cpp": "6be2e22a23816b6e8d524e24e9a798d7d94d65679b7be87ed8fdec5143edd1cb",
+        "src/core/hle/service/nvnflinger/ui/graphic_buffer.h": "4adc67d8cd73c5213917258efee352789178eb2ea90a48b1a054a4f3d1c3e99c",
+        "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+        "tools/gpu_lifecycle_tests/frame_address_fixture.cpp.in": "d4e407ef991fbd8fce749a9efb785843e63db2a5fa351bb1fb499d481d06bee2",
+        "tools/gpu_lifecycle_tests/run_frame_address_tests.py": "9bf12e553151eec5d07a882580c1cd54f147b9a0487549fd7bea755eabca2f66"
+      },
+      "repetitions": 3,
+      "cases": [
+        "guest-free",
+        "session-retire",
+        "free-failure",
+        "last-free",
+        "snapshot-retire",
+        "normal",
+        "zero",
+        "after-snapshot",
+        "display-free",
+        "display-session"
+      ],
+      "controls": [
+        "omit-display-handle-lock",
+        "omit-handle-lock",
+        "hold-table-over-handle",
+        "forget-zero-refusal",
+        "discard-valid-address",
+        "ignore-unmap-failure"
+      ],
+      "actual": [
+        "NvMap Handle layout/constructor, GetHandle/GetHandleAddress/TryRemoveHandle/FreeHandle/UnmapAllHandles",
+        "nvdisp Composite conversion and real packet/config headers"
+      ],
+      "fixtures": [
+        "UnmapHandle mutation gate/outcome; not actual GMMU/SMMU",
+        "Observed std::mutex, System/GPU publication and GraphicBuffer public ctor/destructor stand-ins"
+      ],
+      "boundary": "Linearized address snapshot and zero-address refusal; after-snapshot unmap still invalidates it, no sustained mapping lease."
+    },
+    "retirement": {
+      "sha256": {
+        "src/core/hle/service/nvdrv/nvdrv.cpp": "4fab3fd80c82a2bab9235c770af11ffd3490c6d27c05a1b827b2702a13f26916",
+        "src/core/hle/service/nvdrv/nvdrv.h": "7323b096c941c67c72b333f1f619427af36b7ebf2d4a56e70e1ad67dd614870f",
+        "src/core/hle/service/nvdrv/nvdrv_interface.cpp": "e83703e6d8e6e125f61c2d39d3530e44f77311fc4fced9a81c45ce1970bd20b8",
+        "src/core/hle/service/nvdrv/nvdrv_interface.h": "28cba3b46af5298bf0aed2b35a44dfe2ec955c3f7708d7bc989393ff998c435e",
+        "src/core/hle/service/nvdrv/core/container.cpp": "1ff6c6414c581cbb789c199ba7bfda07170281f0399bb230f4efe45d6f090118",
+        "src/core/hle/service/nvdrv/core/container.h": "3106d0ef4be898c853e09623766d84fe1b7e4f82a0764947186845a3a46d0663",
+        "src/core/hle/service/nvnflinger/ui/graphic_buffer.cpp": "02f6edff23efa213a4063c1accca2301b927617416800cf56f6f230922f80329",
+        "src/core/hle/service/nvnflinger/ui/graphic_buffer.h": "4adc67d8cd73c5213917258efee352789178eb2ea90a48b1a054a4f3d1c3e99c",
+        "src/core/hle/service/nvnflinger/buffer_queue_producer.cpp": "2edcadf0d308c0340c8fc2efce8f40ad3a1470f5f945e06a0303aba69b3ffaae",
+        "src/common/owned_retirement.h": "bd1f8cbb8aa4f70d20ec0dbb9ac082b037285549fe76f61ec2195304c51f59ea",
+        "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+        "tools/physical_coherency_tests/nvdrv_retirement_tests.cpp.in": "3a58999cd580f96f11beacca1f8c1458fef30eeb8283368c6754622cd4658c3a",
+        "tools/physical_coherency_tests/run_nvdrv_retirement_tests.py": "862a5adedb3bf0be437843b760fff86e21469e33ea15c5ee271d48628df43d2a",
+        "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb"
+      },
+      "positive_repeats": 3,
+      "controls": [
+        "omit-session-frame-retirement",
+        "discard-preparation-failure",
+        "borrow-module-owner",
+        "omit-graphic-lifetime",
+        "graphic-direct-cleanup",
+        "session-direct-cleanup",
+        "destroy-slot-before-admission",
+        "assign-session-members-first",
+        "ignore-free-refusal",
+        "release-unknown-session",
+        "retire-session-under-lock",
+        "hold-graphic-facade-through-retire",
+        "hold-session-facade-through-retire",
+        "allow-duplicate-session-retire",
+        "borrow-retired-session",
+        "discard-empty-descriptor",
+        "ignore-graphic-owner-epoch",
+        "discard-failed-process-backing",
+        "retry-failed-process-close",
+        "omit-process-failure-seal",
+        "close-process-after-epoch-death",
+        "omit-process-quarantine-ledger"
+      ],
+      "actual": [
+        "Module retirement factory bodies",
+        "GraphicBuffer factory/destructor",
+        "NVDRV destructor",
+        "SetPreallocatedBuffer",
+        "Session construction/move/destruction",
+        "OpenSession ownership/reuse prefix (heap optimization excluded)",
+        "CloseSession and RetainSession bodies"
+      ],
+      "fixtures": [
+        "Process reference primitive, backing allocation, nvmap/Container/device/native work"
+      ],
+      "boundary": "Local retained retirement owner protocol; no whole-device native completion or trusted terminal quarantine disposal."
+    },
+    "production": {
+      "platform": "Windows-11-10.0.26300-SP0",
+      "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+      "compiler": "g++.exe (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+      "boost_root": "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+      "boost_version_header": "//  Boost version.hpp configuration header file  ------------------------------//\n\n//  (C) Copyright John maddock 1999. Distributed under the Boost\n//  Software License, Version 1.0. (See accompanying file\n//  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)\n\n//  See http://www.boost.org/libs/config for documentation\n\n#ifndef BOOST_VERSION_HPP\n#define BOOST_VERSION_HPP\n\n//\n//  Caution: this is the only Boost header that is guaranteed\n//  to change with every Boost release. Including this header\n//  will cause a recompile every time a new Boost version is\n//  used.\n//\n//  BOOST_VERSION % 100 is the patch level\n//  BOOST_VERSION / 100 % 1000 is the minor version\n//  BOOST_VERSION / 100000 is the major version\n\n#define BOOST_VERSION 108700\n\n//\n//  BOOST_LIB_VERSION must be defined to be the same as BOOST_VERSION\n//  but as a *string* in the form \"x_y[_z]\" where x is the major version\n//  number, y is the minor version number, and z is the patch level if not 0.\n//  This is used by <config/auto_link.hpp> to select which library version to link to.\n\n#define BOOST_LIB_VERSION \"1_87\"\n\n#endif\n",
+      "boost_official_archive_sha256": null,
+      "sha256": {
+        "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+        "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+        "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+        "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+        "src/core/hle/service/nvdrv/core/container.cpp": "1ff6c6414c581cbb789c199ba7bfda07170281f0399bb230f4efe45d6f090118",
+        "src/core/hle/service/nvdrv/core/nvmap.cpp": "df345376da9b171bf74bfa50db77077d0ec96698a8657218668221747c561e86",
+        "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+        "src/core/hle/service/nvdrv/devices/nvdisp_disp0.cpp": "6be2e22a23816b6e8d524e24e9a798d7d94d65679b7be87ed8fdec5143edd1cb",
+        "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+        "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+        "src/core/hle/service/nvnflinger/hardware_composer.cpp": "8c017158fcb0037c424458390ae5ec6685d9ee0a93bea87ebbc0e2bdc2f940b6",
+        "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+        "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+        "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+        "src/video_core/gpu.cpp": "adecb4d24aadd6a34d5964d307b02becc7945b8316ad480183d2c7f8dfb9d486",
+        "src/video_core/gpu.h": "b55625f616af2deb74407ec05104babd5712211c56dce28bad5c3b9f73b68786",
+        "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+        "src/video_core/host1x/gpu_device_memory_manager.cpp": "59dd0ebfbf72851f5a4c01609c1b513cc060d3d0035dccef22a0a799759c222f",
+        "src/video_core/memory_manager.h": "db03427bd693d7b20812828e60a59c4e2cc6cf314b1c206cfd720e4f56906682",
+        "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+        "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+        "src/video_core/renderer_vulkan/present/layer.cpp": "ba0de6f8963b33b7fb8fb6a19796a3cab3b344665314ce700c9eff5cbc09f205",
+        "src/video_core/renderer_vulkan/present/layer.h": "2e4e393a863f87f5c746c88b4d93ef7502f7ee06648ae0e20715694e7e056d87",
+        "src/video_core/renderer_vulkan/present/window_adapt_pass.cpp": "4df3cd789488cd87dbabb96dadf0b87d9e4cb976880f260bd0c7beb5dc949c4a",
+        "src/video_core/renderer_vulkan/vk_rasterizer.cpp": "59e902fdfd5def20fdd7b04a8e87fb524e3a795f48915fde92773ff4ab81b5a1",
+        "src/video_core/renderer_vulkan/vk_rasterizer.h": "03c3f2a44a2010ef4c002db2b6d5ed71ff16f2ed2ec467ff799f529caceb0a79",
+        "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+        "tools/physical_coherency_tests/run_windows_production_checks.py": "de8172a1376f75de69c4585ce4beab096bb8700d349b17ea22c7400a3ca02020"
+      },
+      "objects": [
+        {
+          "source": "src/core/hle/service/nvdrv/core/nvmap.cpp",
+          "sha256": "df345376da9b171bf74bfa50db77077d0ec96698a8657218668221747c561e86",
+          "object_sha256": "00d8391b25135fe9aba9ab27d817fa7303e6a38171b9e123e4459e699ca43e5e",
+          "object_size": 57173,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\generated",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\nvdrv\\core\\nvmap.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\0-nvmap.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/core/hle/service/nvdrv/devices/nvdisp_disp0.cpp",
+          "sha256": "6be2e22a23816b6e8d524e24e9a798d7d94d65679b7be87ed8fdec5143edd1cb",
+          "object_sha256": "d1a9f5bb890650b1d5bf33f9bbf7aa2931b7611757cace581686ff156e1b4487",
+          "object_size": 16616,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\generated",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\nvdrv\\devices\\nvdisp_disp0.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\1-nvdisp_disp0.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/core/hle/service/nvdrv/core/container.cpp",
+          "sha256": "1ff6c6414c581cbb789c199ba7bfda07170281f0399bb230f4efe45d6f090118",
+          "object_sha256": "6a112867fc0b79f0fd87e75093641d82a251fd4390a74f429e65d49533722f19",
+          "object_size": 46312,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\generated",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\nvdrv\\core\\container.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\2-container.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/video_core/host1x/gpu_device_memory_manager.cpp",
+          "sha256": "59dd0ebfbf72851f5a4c01609c1b513cc060d3d0035dccef22a0a799759c222f",
+          "object_sha256": "0b176c4f5ab5c75a984384a564619308b028cd91756823aafe31a96ee856cbf3",
+          "object_size": 170686,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\generated",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\host1x\\gpu_device_memory_manager.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\3-gpu_device_memory_manager.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/video_core/renderer_vulkan/present/layer.cpp",
+          "sha256": "ba0de6f8963b33b7fb8fb6a19796a3cab3b344665314ce700c9eff5cbc09f205",
+          "object_sha256": "005531bdb654e1749298cfcc77778ddbbb409c6c3e716d59d9154d14f7d57473",
+          "object_size": 31615,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\generated",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\present\\layer.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\4-layer.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/video_core/renderer_vulkan/vk_rasterizer.cpp",
+          "sha256": "59e902fdfd5def20fdd7b04a8e87fb524e3a795f48915fde92773ff4ab81b5a1",
+          "object_sha256": "65ab05ec9dd468c518f7ac418ee54761abebfe8fecfafbe4feaf38966edb809f",
+          "object_size": 1136438,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\generated",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\vk_rasterizer.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\5-vk_rasterizer.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/video_core/renderer_vulkan/present/window_adapt_pass.cpp",
+          "sha256": "4df3cd789488cd87dbabb96dadf0b87d9e4cb976880f260bd0c7beb5dc949c4a",
+          "object_sha256": "6fa6ef97b8e6fd420b58b55f1e0ed32f50dad780ba3fec589ffdc6a784426a85",
+          "object_size": 25939,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\generated",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\present\\window_adapt_pass.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\6-window_adapt_pass.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/video_core/gpu.cpp",
+          "sha256": "adecb4d24aadd6a34d5964d307b02becc7945b8316ad480183d2c7f8dfb9d486",
+          "object_sha256": "fbe63fb5d522d21b524381b8b0ed4c12d5f2de5e11e1abed1bf8da8afbcaba8f",
+          "object_size": 152794,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\generated",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\gpu.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\7-gpu.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/core/hle/service/nvnflinger/hardware_composer.cpp",
+          "sha256": "8c017158fcb0037c424458390ae5ec6685d9ee0a93bea87ebbc0e2bdc2f940b6",
+          "object_sha256": "e57b3864f5af22815ce6c9347a406adace59d2e7dbe3c12185fb3e1abe1e1f5b",
+          "object_size": 75864,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\generated",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\nvnflinger\\hardware_composer.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\8-hardware_composer.o"
+          ],
+          "warnings": ""
+        }
+      ],
+      "shader_evidence": null,
+      "window_shader_evidence": {
+        "command": [
+          "glslangValidator",
+          "-V",
+          "--quiet",
+          "--variable-name",
+          "VULKAN_PRESENT_VERT_SPV",
+          "-o",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-use-production\\generated\\video_core\\host_shaders\\vulkan_present_vert_spv.h",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\host_shaders\\vulkan_present.vert",
+          "--target-env",
+          "spirv1.3"
+        ],
+        "source": "src/video_core/host_shaders/vulkan_present.vert",
+        "source_sha256": "1cad7789f1c75063a0cf0839316756dbd4b167b2e5e7ed8b3cd7e6d3724f1623",
+        "generated_sha256": "025bacec8a21a538e102edc8eb030aae1c0fb634a67440b1d52ce3f78bcaad28",
+        "compiler": "Glslang Version: 11:16.2.0\nESSL Version: OpenGL ES GLSL 3.20 glslang Khronos. 16.2.0\nGLSL Version: 4.60 glslang Khronos. 16.2.0\nSPIR-V Version 0x00010600, Revision 1\nGLSL.std.450 Version 100, Revision 1\nKhronos Tool ID 8\nSPIR-V Generator Version 11\nGL_KHR_vulkan_glsl version 100\nARB_GL_gl_spirv version 100\n"
+      },
+      "boundary": "Actual production Windows x64 object compilation with real headers. No application link, runtime, native Vulkan or Android claim."
+    }
+  },
+  "current_input_sha256": {
+    ".github/workflows/pr375-pr380-integration.yml": "b7081be3b237f8b7777462c25d6fcbdcb8f615224faae0a7637496a3eb0a3527",
+    "docs/M4_F3_WIP_HANDOFF.md": "980d4a4a7ad94d96642cb75bdcca37a04972daae1dbccffeb20f1892692674bf",
+    "docs/M4_P2_FRAME_MAPPING_USE.md": "ac8a3a0fbea2cf136df48937097cd22d49f2619e08bc0101f5c2c0118db03133",
+    "docs/M4_P2_REMAINING_PRODUCER_AUDIT.md": "df2babaa6eb41e05d70a42ff509277177c6608a9e31febdd131d8db91b32cef3",
+    "docs/M4_P2_SOURCE_ADDRESS_TRANSLATION.md": "c838bc61f39438ffb1060d2bdd2c8495ff7721511a49fca7119070ca98304fc0",
+    "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+    "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+    "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+    "src/core/hle/service/nvdrv/core/container.cpp": "1ff6c6414c581cbb789c199ba7bfda07170281f0399bb230f4efe45d6f090118",
+    "src/core/hle/service/nvdrv/core/nvmap.cpp": "df345376da9b171bf74bfa50db77077d0ec96698a8657218668221747c561e86",
+    "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+    "src/core/hle/service/nvdrv/devices/nvdisp_disp0.cpp": "6be2e22a23816b6e8d524e24e9a798d7d94d65679b7be87ed8fdec5143edd1cb",
+    "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+    "src/video_core/renderer_vulkan/present/layer.cpp": "ba0de6f8963b33b7fb8fb6a19796a3cab3b344665314ce700c9eff5cbc09f205",
+    "src/video_core/renderer_vulkan/present/layer.h": "2e4e393a863f87f5c746c88b4d93ef7502f7ee06648ae0e20715694e7e056d87",
+    "src/video_core/renderer_vulkan/present/window_adapt_pass.cpp": "4df3cd789488cd87dbabb96dadf0b87d9e4cb976880f260bd0c7beb5dc949c4a",
+    "src/video_core/renderer_vulkan/vk_rasterizer.cpp": "59e902fdfd5def20fdd7b04a8e87fb524e3a795f48915fde92773ff4ab81b5a1",
+    "tools/gpu_lifecycle_tests/README.md": "ffa8788d9194200c6dc6d1f4d2eb1b111d8524b43b81442ac47709779c3d60d5",
+    "tools/gpu_lifecycle_tests/frame_address_fixture.cpp.in": "d4e407ef991fbd8fce749a9efb785843e63db2a5fa351bb1fb499d481d06bee2",
+    "tools/gpu_lifecycle_tests/frame_mapping_candidate.h": "806a7cb44b63613ca63d7762aad4f4942d2d3416e1d4159cc1c2f723dbf74c68",
+    "tools/gpu_lifecycle_tests/frame_mapping_observer.h": "f5ff3c2b910a07e87c6699eddb156f3ec5ce405ff18b932318968f92937c0cbd",
+    "tools/gpu_lifecycle_tests/frame_mapping_protocol.cpp": "23a66e2bd2715f4f611bc251d7ee621be4c8b7ae3b9f83819859e51f63df5376",
+    "tools/gpu_lifecycle_tests/frame_mapping_read_fixture.cpp.in": "7ebbce3bcb6fcf23e53afeb9117b081dd78c7386ea497d319c5d9b69405ae15a",
+    "tools/gpu_lifecycle_tests/frame_source_fixture.cpp.in": "9535635e7d0fb64fcaf3d071adda0aaaf607e0976eaff1183ef6f16103d791bd",
+    "tools/gpu_lifecycle_tests/run_frame_address_tests.py": "9bf12e553151eec5d07a882580c1cd54f147b9a0487549fd7bea755eabca2f66",
+    "tools/gpu_lifecycle_tests/run_frame_mapping_tests.py": "8a23c8c064cfe4a01060eabdb04e50821108d18c3a045e0228a7269077bd6755",
+    "tools/gpu_lifecycle_tests/run_frame_source_tests.py": "8f2503e330e49a46e8f67530c77a157091bdc81f134642b70e8e413b33d33f74",
+    "tools/physical_coherency_tests/nvdrv_retirement_tests.cpp.in": "3a58999cd580f96f11beacca1f8c1458fef30eeb8283368c6754622cd4658c3a",
+    "tools/physical_coherency_tests/run_nvdrv_retirement_tests.py": "862a5adedb3bf0be437843b760fff86e21469e33ea15c5ee271d48628df43d2a",
+    "tools/physical_coherency_tests/run_windows_production_checks.py": "de8172a1376f75de69c4585ce4beab096bb8700d349b17ea22c7400a3ca02020"
+  },
+  "preserved_log_sha256": {
+    ".diagnostics/m4-use-results/baseline/actual-read-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/baseline/extraction.json": "b95064f89f72d7bb7f309ddab72d99b202524e924b275cd4d0ba2b91ba16e5ec",
+    ".diagnostics/m4-use-results/baseline/raw-reuse-0.log": "f7b47336345a07f57a03a5ca993d2bb0068107a4893ceb33a1ef32dcf48c9d05",
+    ".diagnostics/m4-use-results/baseline/raw-reuse-1.log": "f7b47336345a07f57a03a5ca993d2bb0068107a4893ceb33a1ef32dcf48c9d05",
+    ".diagnostics/m4-use-results/baseline/raw-reuse-2.log": "f7b47336345a07f57a03a5ca993d2bb0068107a4893ceb33a1ef32dcf48c9d05",
+    ".diagnostics/m4-use-results/candidate/extraction.json": "eb591f9e9ea848d98eb6ec3705366446dc67b9a9b856a587e466a09d37446c48",
+    ".diagnostics/m4-use-results/candidate/omit-close-0.log": "57e27da32e66503f683876e507b9ee41acf669561d64b29ef4c31c49b42e1331",
+    ".diagnostics/m4-use-results/candidate/omit-close-1.log": "57e27da32e66503f683876e507b9ee41acf669561d64b29ef4c31c49b42e1331",
+    ".diagnostics/m4-use-results/candidate/omit-close-2.log": "57e27da32e66503f683876e507b9ee41acf669561d64b29ef4c31c49b42e1331",
+    ".diagnostics/m4-use-results/candidate/omit-close-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/candidate/omit-generation-0.log": "6a9b5376f5e54582104aea59bbd49fde4a6cf984ba13828a0e8fbb57ac7b981f",
+    ".diagnostics/m4-use-results/candidate/omit-generation-1.log": "6a9b5376f5e54582104aea59bbd49fde4a6cf984ba13828a0e8fbb57ac7b981f",
+    ".diagnostics/m4-use-results/candidate/omit-generation-2.log": "6a9b5376f5e54582104aea59bbd49fde4a6cf984ba13828a0e8fbb57ac7b981f",
+    ".diagnostics/m4-use-results/candidate/omit-generation-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/candidate/omit-identity-0.log": "dd17671ffdaab4bd063d5b79157154e1131605428d861ac8a859f8e9de0fb5f4",
+    ".diagnostics/m4-use-results/candidate/omit-identity-1.log": "dd17671ffdaab4bd063d5b79157154e1131605428d861ac8a859f8e9de0fb5f4",
+    ".diagnostics/m4-use-results/candidate/omit-identity-2.log": "dd17671ffdaab4bd063d5b79157154e1131605428d861ac8a859f8e9de0fb5f4",
+    ".diagnostics/m4-use-results/candidate/omit-identity-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/candidate/omit-pending-0.log": "37956e471b4b751fa6921673ebede01c9e9f94457ed27acafd02cebef93cd90f",
+    ".diagnostics/m4-use-results/candidate/omit-pending-1.log": "37956e471b4b751fa6921673ebede01c9e9f94457ed27acafd02cebef93cd90f",
+    ".diagnostics/m4-use-results/candidate/omit-pending-2.log": "37956e471b4b751fa6921673ebede01c9e9f94457ed27acafd02cebef93cd90f",
+    ".diagnostics/m4-use-results/candidate/omit-pending-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/candidate/omit-poison-0.log": "fee6a87818a4ebf865f08db3eaa8f7208683c17ee28b99128939a9c420d0d6a1",
+    ".diagnostics/m4-use-results/candidate/omit-poison-1.log": "fee6a87818a4ebf865f08db3eaa8f7208683c17ee28b99128939a9c420d0d6a1",
+    ".diagnostics/m4-use-results/candidate/omit-poison-2.log": "fee6a87818a4ebf865f08db3eaa8f7208683c17ee28b99128939a9c420d0d6a1",
+    ".diagnostics/m4-use-results/candidate/omit-poison-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/candidate/omit-range-0.log": "03c800bb2090010ddf0952da89c2590f4db50ee281f6d1ac6d68fd57ebf9927b",
+    ".diagnostics/m4-use-results/candidate/omit-range-1.log": "03c800bb2090010ddf0952da89c2590f4db50ee281f6d1ac6d68fd57ebf9927b",
+    ".diagnostics/m4-use-results/candidate/omit-range-2.log": "03c800bb2090010ddf0952da89c2590f4db50ee281f6d1ac6d68fd57ebf9927b",
+    ".diagnostics/m4-use-results/candidate/omit-range-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/candidate/protocol-active-0.log": "463b92c8a535693090f966ade11c362f03ff471656c38a85b79176f9a4509451",
+    ".diagnostics/m4-use-results/candidate/protocol-active-1.log": "463b92c8a535693090f966ade11c362f03ff471656c38a85b79176f9a4509451",
+    ".diagnostics/m4-use-results/candidate/protocol-active-2.log": "463b92c8a535693090f966ade11c362f03ff471656c38a85b79176f9a4509451",
+    ".diagnostics/m4-use-results/candidate/protocol-close-0.log": "49f2f94e82133061330478187fcdfcb8abecb132005007969f21acba7a29e348",
+    ".diagnostics/m4-use-results/candidate/protocol-close-1.log": "49f2f94e82133061330478187fcdfcb8abecb132005007969f21acba7a29e348",
+    ".diagnostics/m4-use-results/candidate/protocol-close-2.log": "49f2f94e82133061330478187fcdfcb8abecb132005007969f21acba7a29e348",
+    ".diagnostics/m4-use-results/candidate/protocol-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/candidate/protocol-failure-0.log": "72cf21fe84ba44c118551fa1272f5a33530db82ddeafb567ed028439968dca0f",
+    ".diagnostics/m4-use-results/candidate/protocol-failure-1.log": "72cf21fe84ba44c118551fa1272f5a33530db82ddeafb567ed028439968dca0f",
+    ".diagnostics/m4-use-results/candidate/protocol-failure-2.log": "72cf21fe84ba44c118551fa1272f5a33530db82ddeafb567ed028439968dca0f",
+    ".diagnostics/m4-use-results/candidate/protocol-foreign-0.log": "f4b9a429d3067a5b34f44e0cebb56a41cf3a4538b97fea93400e7225398a7784",
+    ".diagnostics/m4-use-results/candidate/protocol-foreign-1.log": "f4b9a429d3067a5b34f44e0cebb56a41cf3a4538b97fea93400e7225398a7784",
+    ".diagnostics/m4-use-results/candidate/protocol-foreign-2.log": "f4b9a429d3067a5b34f44e0cebb56a41cf3a4538b97fea93400e7225398a7784",
+    ".diagnostics/m4-use-results/candidate/protocol-nested-0.log": "944fc0bf4bf8f52d00d42dd047b3750ad68860027fa84f08e6a4c1a28950bbdb",
+    ".diagnostics/m4-use-results/candidate/protocol-nested-1.log": "944fc0bf4bf8f52d00d42dd047b3750ad68860027fa84f08e6a4c1a28950bbdb",
+    ".diagnostics/m4-use-results/candidate/protocol-nested-2.log": "944fc0bf4bf8f52d00d42dd047b3750ad68860027fa84f08e6a4c1a28950bbdb",
+    ".diagnostics/m4-use-results/candidate/protocol-normal-0.log": "dae1a46677fc6453f8ee2340ecad3f0e6006875dc6846898739ff8b95199afdb",
+    ".diagnostics/m4-use-results/candidate/protocol-normal-1.log": "dae1a46677fc6453f8ee2340ecad3f0e6006875dc6846898739ff8b95199afdb",
+    ".diagnostics/m4-use-results/candidate/protocol-normal-2.log": "dae1a46677fc6453f8ee2340ecad3f0e6006875dc6846898739ff8b95199afdb",
+    ".diagnostics/m4-use-results/candidate/protocol-range-0.log": "73d6f6d753d928e10abe28772408dd3e20eba87f52c080ae77d430fdfd31367f",
+    ".diagnostics/m4-use-results/candidate/protocol-range-1.log": "73d6f6d753d928e10abe28772408dd3e20eba87f52c080ae77d430fdfd31367f",
+    ".diagnostics/m4-use-results/candidate/protocol-range-2.log": "73d6f6d753d928e10abe28772408dd3e20eba87f52c080ae77d430fdfd31367f",
+    ".diagnostics/m4-use-results/candidate/protocol-reuse-0.log": "278e124ca69ec81064cd6e9d894d6d0d4cd11c53f35a1c9304a45f5af746ca7a",
+    ".diagnostics/m4-use-results/candidate/protocol-reuse-1.log": "278e124ca69ec81064cd6e9d894d6d0d4cd11c53f35a1c9304a45f5af746ca7a",
+    ".diagnostics/m4-use-results/candidate/protocol-reuse-2.log": "278e124ca69ec81064cd6e9d894d6d0d4cd11c53f35a1c9304a45f5af746ca7a",
+    ".diagnostics/m4-use-results/candidate/protocol-session-0.log": "3ee448025339a18015c853d94be5f5fd3009dbdde76b81db53a0e28d5fbae1f4",
+    ".diagnostics/m4-use-results/candidate/protocol-session-1.log": "3ee448025339a18015c853d94be5f5fd3009dbdde76b81db53a0e28d5fbae1f4",
+    ".diagnostics/m4-use-results/candidate/protocol-session-2.log": "3ee448025339a18015c853d94be5f5fd3009dbdde76b81db53a0e28d5fbae1f4",
+    ".diagnostics/m4-use-results/candidate/protocol-unmap-0.log": "3f2d1f401dc5cd611c6422fe37b9fe203129bb583598d5425bfc07914fd50c1a",
+    ".diagnostics/m4-use-results/candidate/protocol-unmap-1.log": "3f2d1f401dc5cd611c6422fe37b9fe203129bb583598d5425bfc07914fd50c1a",
+    ".diagnostics/m4-use-results/candidate/protocol-unmap-2.log": "3f2d1f401dc5cd611c6422fe37b9fe203129bb583598d5425bfc07914fd50c1a",
+    ".diagnostics/m4-use-results/fixed/actual-read-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/extraction.json": "d4280a3d17d4b9165305a26ce7154eac991c233392418e35bf8d6d92be563bc0",
+    ".diagnostics/m4-use-results/fixed/late-map-intent-0.log": "1b7bd3f9686057ec89585c4288c2830723d05d6542174cf725b7fddd9fe12c0d",
+    ".diagnostics/m4-use-results/fixed/late-map-intent-1.log": "1b7bd3f9686057ec89585c4288c2830723d05d6542174cf725b7fddd9fe12c0d",
+    ".diagnostics/m4-use-results/fixed/late-map-intent-2.log": "1b7bd3f9686057ec89585c4288c2830723d05d6542174cf725b7fddd9fe12c0d",
+    ".diagnostics/m4-use-results/fixed/late-map-intent-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/late-unmap-intent-0.log": "1b7bd3f9686057ec89585c4288c2830723d05d6542174cf725b7fddd9fe12c0d",
+    ".diagnostics/m4-use-results/fixed/late-unmap-intent-1.log": "1b7bd3f9686057ec89585c4288c2830723d05d6542174cf725b7fddd9fe12c0d",
+    ".diagnostics/m4-use-results/fixed/late-unmap-intent-2.log": "1b7bd3f9686057ec89585c4288c2830723d05d6542174cf725b7fddd9fe12c0d",
+    ".diagnostics/m4-use-results/fixed/late-unmap-intent-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/omit-cache-use-0.log": "ea5c0f9ee52d8a2e357a26729030908374b3319d29e4dc6b250312bad2cac730",
+    ".diagnostics/m4-use-results/fixed/omit-cache-use-1.log": "ea5c0f9ee52d8a2e357a26729030908374b3319d29e4dc6b250312bad2cac730",
+    ".diagnostics/m4-use-results/fixed/omit-cache-use-2.log": "ea5c0f9ee52d8a2e357a26729030908374b3319d29e4dc6b250312bad2cac730",
+    ".diagnostics/m4-use-results/fixed/omit-cache-use-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/omit-close-0.log": "57e27da32e66503f683876e507b9ee41acf669561d64b29ef4c31c49b42e1331",
+    ".diagnostics/m4-use-results/fixed/omit-close-1.log": "57e27da32e66503f683876e507b9ee41acf669561d64b29ef4c31c49b42e1331",
+    ".diagnostics/m4-use-results/fixed/omit-close-2.log": "57e27da32e66503f683876e507b9ee41acf669561d64b29ef4c31c49b42e1331",
+    ".diagnostics/m4-use-results/fixed/omit-close-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/omit-copy-use-0.log": "f7b47336345a07f57a03a5ca993d2bb0068107a4893ceb33a1ef32dcf48c9d05",
+    ".diagnostics/m4-use-results/fixed/omit-copy-use-1.log": "f7b47336345a07f57a03a5ca993d2bb0068107a4893ceb33a1ef32dcf48c9d05",
+    ".diagnostics/m4-use-results/fixed/omit-copy-use-2.log": "f7b47336345a07f57a03a5ca993d2bb0068107a4893ceb33a1ef32dcf48c9d05",
+    ".diagnostics/m4-use-results/fixed/omit-copy-use-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/omit-generation-0.log": "6a9b5376f5e54582104aea59bbd49fde4a6cf984ba13828a0e8fbb57ac7b981f",
+    ".diagnostics/m4-use-results/fixed/omit-generation-1.log": "6a9b5376f5e54582104aea59bbd49fde4a6cf984ba13828a0e8fbb57ac7b981f",
+    ".diagnostics/m4-use-results/fixed/omit-generation-2.log": "6a9b5376f5e54582104aea59bbd49fde4a6cf984ba13828a0e8fbb57ac7b981f",
+    ".diagnostics/m4-use-results/fixed/omit-generation-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/omit-identity-0.log": "dd17671ffdaab4bd063d5b79157154e1131605428d861ac8a859f8e9de0fb5f4",
+    ".diagnostics/m4-use-results/fixed/omit-identity-1.log": "dd17671ffdaab4bd063d5b79157154e1131605428d861ac8a859f8e9de0fb5f4",
+    ".diagnostics/m4-use-results/fixed/omit-identity-2.log": "dd17671ffdaab4bd063d5b79157154e1131605428d861ac8a859f8e9de0fb5f4",
+    ".diagnostics/m4-use-results/fixed/omit-identity-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/omit-pending-0.log": "37956e471b4b751fa6921673ebede01c9e9f94457ed27acafd02cebef93cd90f",
+    ".diagnostics/m4-use-results/fixed/omit-pending-1.log": "37956e471b4b751fa6921673ebede01c9e9f94457ed27acafd02cebef93cd90f",
+    ".diagnostics/m4-use-results/fixed/omit-pending-2.log": "37956e471b4b751fa6921673ebede01c9e9f94457ed27acafd02cebef93cd90f",
+    ".diagnostics/m4-use-results/fixed/omit-pending-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/omit-poison-0.log": "fee6a87818a4ebf865f08db3eaa8f7208683c17ee28b99128939a9c420d0d6a1",
+    ".diagnostics/m4-use-results/fixed/omit-poison-1.log": "fee6a87818a4ebf865f08db3eaa8f7208683c17ee28b99128939a9c420d0d6a1",
+    ".diagnostics/m4-use-results/fixed/omit-poison-2.log": "fee6a87818a4ebf865f08db3eaa8f7208683c17ee28b99128939a9c420d0d6a1",
+    ".diagnostics/m4-use-results/fixed/omit-poison-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/omit-range-0.log": "03c800bb2090010ddf0952da89c2590f4db50ee281f6d1ac6d68fd57ebf9927b",
+    ".diagnostics/m4-use-results/fixed/omit-range-1.log": "03c800bb2090010ddf0952da89c2590f4db50ee281f6d1ac6d68fd57ebf9927b",
+    ".diagnostics/m4-use-results/fixed/omit-range-2.log": "03c800bb2090010ddf0952da89c2590f4db50ee281f6d1ac6d68fd57ebf9927b",
+    ".diagnostics/m4-use-results/fixed/omit-range-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/protocol-active-0.log": "463b92c8a535693090f966ade11c362f03ff471656c38a85b79176f9a4509451",
+    ".diagnostics/m4-use-results/fixed/protocol-active-1.log": "463b92c8a535693090f966ade11c362f03ff471656c38a85b79176f9a4509451",
+    ".diagnostics/m4-use-results/fixed/protocol-active-2.log": "463b92c8a535693090f966ade11c362f03ff471656c38a85b79176f9a4509451",
+    ".diagnostics/m4-use-results/fixed/protocol-close-0.log": "49f2f94e82133061330478187fcdfcb8abecb132005007969f21acba7a29e348",
+    ".diagnostics/m4-use-results/fixed/protocol-close-1.log": "49f2f94e82133061330478187fcdfcb8abecb132005007969f21acba7a29e348",
+    ".diagnostics/m4-use-results/fixed/protocol-close-2.log": "49f2f94e82133061330478187fcdfcb8abecb132005007969f21acba7a29e348",
+    ".diagnostics/m4-use-results/fixed/protocol-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/fixed/protocol-failure-0.log": "72cf21fe84ba44c118551fa1272f5a33530db82ddeafb567ed028439968dca0f",
+    ".diagnostics/m4-use-results/fixed/protocol-failure-1.log": "72cf21fe84ba44c118551fa1272f5a33530db82ddeafb567ed028439968dca0f",
+    ".diagnostics/m4-use-results/fixed/protocol-failure-2.log": "72cf21fe84ba44c118551fa1272f5a33530db82ddeafb567ed028439968dca0f",
+    ".diagnostics/m4-use-results/fixed/protocol-foreign-0.log": "f4b9a429d3067a5b34f44e0cebb56a41cf3a4538b97fea93400e7225398a7784",
+    ".diagnostics/m4-use-results/fixed/protocol-foreign-1.log": "f4b9a429d3067a5b34f44e0cebb56a41cf3a4538b97fea93400e7225398a7784",
+    ".diagnostics/m4-use-results/fixed/protocol-foreign-2.log": "f4b9a429d3067a5b34f44e0cebb56a41cf3a4538b97fea93400e7225398a7784",
+    ".diagnostics/m4-use-results/fixed/protocol-nested-0.log": "944fc0bf4bf8f52d00d42dd047b3750ad68860027fa84f08e6a4c1a28950bbdb",
+    ".diagnostics/m4-use-results/fixed/protocol-nested-1.log": "944fc0bf4bf8f52d00d42dd047b3750ad68860027fa84f08e6a4c1a28950bbdb",
+    ".diagnostics/m4-use-results/fixed/protocol-nested-2.log": "944fc0bf4bf8f52d00d42dd047b3750ad68860027fa84f08e6a4c1a28950bbdb",
+    ".diagnostics/m4-use-results/fixed/protocol-normal-0.log": "dae1a46677fc6453f8ee2340ecad3f0e6006875dc6846898739ff8b95199afdb",
+    ".diagnostics/m4-use-results/fixed/protocol-normal-1.log": "dae1a46677fc6453f8ee2340ecad3f0e6006875dc6846898739ff8b95199afdb",
+    ".diagnostics/m4-use-results/fixed/protocol-normal-2.log": "dae1a46677fc6453f8ee2340ecad3f0e6006875dc6846898739ff8b95199afdb",
+    ".diagnostics/m4-use-results/fixed/protocol-range-0.log": "73d6f6d753d928e10abe28772408dd3e20eba87f52c080ae77d430fdfd31367f",
+    ".diagnostics/m4-use-results/fixed/protocol-range-1.log": "73d6f6d753d928e10abe28772408dd3e20eba87f52c080ae77d430fdfd31367f",
+    ".diagnostics/m4-use-results/fixed/protocol-range-2.log": "73d6f6d753d928e10abe28772408dd3e20eba87f52c080ae77d430fdfd31367f",
+    ".diagnostics/m4-use-results/fixed/protocol-reuse-0.log": "278e124ca69ec81064cd6e9d894d6d0d4cd11c53f35a1c9304a45f5af746ca7a",
+    ".diagnostics/m4-use-results/fixed/protocol-reuse-1.log": "278e124ca69ec81064cd6e9d894d6d0d4cd11c53f35a1c9304a45f5af746ca7a",
+    ".diagnostics/m4-use-results/fixed/protocol-reuse-2.log": "278e124ca69ec81064cd6e9d894d6d0d4cd11c53f35a1c9304a45f5af746ca7a",
+    ".diagnostics/m4-use-results/fixed/protocol-session-0.log": "3ee448025339a18015c853d94be5f5fd3009dbdde76b81db53a0e28d5fbae1f4",
+    ".diagnostics/m4-use-results/fixed/protocol-session-1.log": "3ee448025339a18015c853d94be5f5fd3009dbdde76b81db53a0e28d5fbae1f4",
+    ".diagnostics/m4-use-results/fixed/protocol-session-2.log": "3ee448025339a18015c853d94be5f5fd3009dbdde76b81db53a0e28d5fbae1f4",
+    ".diagnostics/m4-use-results/fixed/protocol-unmap-0.log": "3f2d1f401dc5cd611c6422fe37b9fe203129bb583598d5425bfc07914fd50c1a",
+    ".diagnostics/m4-use-results/fixed/protocol-unmap-1.log": "3f2d1f401dc5cd611c6422fe37b9fe203129bb583598d5425bfc07914fd50c1a",
+    ".diagnostics/m4-use-results/fixed/protocol-unmap-2.log": "3f2d1f401dc5cd611c6422fe37b9fe203129bb583598d5425bfc07914fd50c1a",
+    ".diagnostics/m4-use-results/fixed/raw-accelerated-normal-0.log": "1b4339192b6b2f6be36079045f7fd668281f1921f17e2a643f9cbe2b1dcd4d8f",
+    ".diagnostics/m4-use-results/fixed/raw-accelerated-normal-1.log": "1b4339192b6b2f6be36079045f7fd668281f1921f17e2a643f9cbe2b1dcd4d8f",
+    ".diagnostics/m4-use-results/fixed/raw-accelerated-normal-2.log": "1b4339192b6b2f6be36079045f7fd668281f1921f17e2a643f9cbe2b1dcd4d8f",
+    ".diagnostics/m4-use-results/fixed/raw-accelerated-pending-0.log": "47d91076fe7a49c4fc8d3c7df4e3c1dfd7569dad8767ebe58a5cb651181c7e0d",
+    ".diagnostics/m4-use-results/fixed/raw-accelerated-pending-1.log": "47d91076fe7a49c4fc8d3c7df4e3c1dfd7569dad8767ebe58a5cb651181c7e0d",
+    ".diagnostics/m4-use-results/fixed/raw-accelerated-pending-2.log": "47d91076fe7a49c4fc8d3c7df4e3c1dfd7569dad8767ebe58a5cb651181c7e0d",
+    ".diagnostics/m4-use-results/fixed/raw-accelerated-retired-0.log": "9696a1593e7ad9afba86cf45d2895467ca5ac33ebd892906baa78432a4010d99",
+    ".diagnostics/m4-use-results/fixed/raw-accelerated-retired-1.log": "9696a1593e7ad9afba86cf45d2895467ca5ac33ebd892906baa78432a4010d99",
+    ".diagnostics/m4-use-results/fixed/raw-accelerated-retired-2.log": "9696a1593e7ad9afba86cf45d2895467ca5ac33ebd892906baa78432a4010d99",
+    ".diagnostics/m4-use-results/fixed/raw-active-unmap-0.log": "50b90740ace0a96b58dafcf205ee64103ec75e87634943632f0d995fa0521c32",
+    ".diagnostics/m4-use-results/fixed/raw-active-unmap-1.log": "50b90740ace0a96b58dafcf205ee64103ec75e87634943632f0d995fa0521c32",
+    ".diagnostics/m4-use-results/fixed/raw-active-unmap-2.log": "50b90740ace0a96b58dafcf205ee64103ec75e87634943632f0d995fa0521c32",
+    ".diagnostics/m4-use-results/fixed/raw-actual-map-0.log": "16f6e5eb5bc34f6d4d24870f5a3cd0b33c4a5957e3816c05377ac31cee2f22eb",
+    ".diagnostics/m4-use-results/fixed/raw-actual-map-1.log": "16f6e5eb5bc34f6d4d24870f5a3cd0b33c4a5957e3816c05377ac31cee2f22eb",
+    ".diagnostics/m4-use-results/fixed/raw-actual-map-2.log": "16f6e5eb5bc34f6d4d24870f5a3cd0b33c4a5957e3816c05377ac31cee2f22eb",
+    ".diagnostics/m4-use-results/fixed/raw-actual-unmap-0.log": "90ce289b756dd0f1d587eb0c014ef38d45d29b1619fda1438731c400d7ecedb6",
+    ".diagnostics/m4-use-results/fixed/raw-actual-unmap-1.log": "90ce289b756dd0f1d587eb0c014ef38d45d29b1619fda1438731c400d7ecedb6",
+    ".diagnostics/m4-use-results/fixed/raw-actual-unmap-2.log": "90ce289b756dd0f1d587eb0c014ef38d45d29b1619fda1438731c400d7ecedb6",
+    ".diagnostics/m4-use-results/fixed/raw-after-copy-reuse-0.log": "9548116543b2bf004e3f1fe67de439059f0594f1b688c65d4da833ec1e5654f6",
+    ".diagnostics/m4-use-results/fixed/raw-after-copy-reuse-1.log": "9548116543b2bf004e3f1fe67de439059f0594f1b688c65d4da833ec1e5654f6",
+    ".diagnostics/m4-use-results/fixed/raw-after-copy-reuse-2.log": "9548116543b2bf004e3f1fe67de439059f0594f1b688c65d4da833ec1e5654f6",
+    ".diagnostics/m4-use-results/fixed/raw-bounds-0.log": "9c55f5fe2fa38bdf8fdbd1e04218ff2ebafbc4b9b6776ba9ac19a572deb758ac",
+    ".diagnostics/m4-use-results/fixed/raw-bounds-1.log": "9c55f5fe2fa38bdf8fdbd1e04218ff2ebafbc4b9b6776ba9ac19a572deb758ac",
+    ".diagnostics/m4-use-results/fixed/raw-bounds-2.log": "9c55f5fe2fa38bdf8fdbd1e04218ff2ebafbc4b9b6776ba9ac19a572deb758ac",
+    ".diagnostics/m4-use-results/fixed/raw-callback-failure-0.log": "5f80e746a4134f5000e65e0741ab50b232f1f9d06dd1f807a9cafe2494edf96f",
+    ".diagnostics/m4-use-results/fixed/raw-callback-failure-1.log": "5f80e746a4134f5000e65e0741ab50b232f1f9d06dd1f807a9cafe2494edf96f",
+    ".diagnostics/m4-use-results/fixed/raw-callback-failure-2.log": "5f80e746a4134f5000e65e0741ab50b232f1f9d06dd1f807a9cafe2494edf96f",
+    ".diagnostics/m4-use-results/fixed/raw-hole-0.log": "39ac57f6c5a0e665eee433570642577b30b2e75f5b076f50eb366b64bbcbff63",
+    ".diagnostics/m4-use-results/fixed/raw-hole-1.log": "39ac57f6c5a0e665eee433570642577b30b2e75f5b076f50eb366b64bbcbff63",
+    ".diagnostics/m4-use-results/fixed/raw-hole-2.log": "39ac57f6c5a0e665eee433570642577b30b2e75f5b076f50eb366b64bbcbff63",
+    ".diagnostics/m4-use-results/fixed/raw-noncontiguous-0.log": "4bf734b0d5a0083fa8efedf1f5615e0554f0b2cb0b5bdc57e29b93246037e527",
+    ".diagnostics/m4-use-results/fixed/raw-noncontiguous-1.log": "4bf734b0d5a0083fa8efedf1f5615e0554f0b2cb0b5bdc57e29b93246037e527",
+    ".diagnostics/m4-use-results/fixed/raw-noncontiguous-2.log": "4bf734b0d5a0083fa8efedf1f5615e0554f0b2cb0b5bdc57e29b93246037e527",
+    ".diagnostics/m4-use-results/fixed/raw-normal-0.log": "3173f40a51e13b8b5c37ca2c15941cbd8093a36da69d85762ab68e2a91559866",
+    ".diagnostics/m4-use-results/fixed/raw-normal-1.log": "3173f40a51e13b8b5c37ca2c15941cbd8093a36da69d85762ab68e2a91559866",
+    ".diagnostics/m4-use-results/fixed/raw-normal-2.log": "3173f40a51e13b8b5c37ca2c15941cbd8093a36da69d85762ab68e2a91559866",
+    ".diagnostics/m4-use-results/fixed/raw-partial-hole-0.log": "ea46b08a14509ba8e167240f13e762b349ba2d2db6866804f8008746059447d8",
+    ".diagnostics/m4-use-results/fixed/raw-partial-hole-1.log": "ea46b08a14509ba8e167240f13e762b349ba2d2db6866804f8008746059447d8",
+    ".diagnostics/m4-use-results/fixed/raw-partial-hole-2.log": "ea46b08a14509ba8e167240f13e762b349ba2d2db6866804f8008746059447d8",
+    ".diagnostics/m4-use-results/fixed/raw-reuse-0.log": "8125f8ad5db36af6931ba86e13ca22fec46336e91335aee2f7e37e759578f52e",
+    ".diagnostics/m4-use-results/fixed/raw-reuse-1.log": "8125f8ad5db36af6931ba86e13ca22fec46336e91335aee2f7e37e759578f52e",
+    ".diagnostics/m4-use-results/fixed/raw-reuse-2.log": "8125f8ad5db36af6931ba86e13ca22fec46336e91335aee2f7e37e759578f52e",
+    ".diagnostics/m4-use-results/fixed/raw-session-0.log": "fa27e266c6dc61f913687e1f918e301fa81f9b65d6e1a59575986e96262ef733",
+    ".diagnostics/m4-use-results/fixed/raw-session-1.log": "fa27e266c6dc61f913687e1f918e301fa81f9b65d6e1a59575986e96262ef733",
+    ".diagnostics/m4-use-results/fixed/raw-session-2.log": "fa27e266c6dc61f913687e1f918e301fa81f9b65d6e1a59575986e96262ef733",
+    ".diagnostics/m4-use-results/fixed/raw-unmap-0.log": "e636c132020d7561e05e3c288f57daa5a575964d6118733b4a2b7d69b0c0731f",
+    ".diagnostics/m4-use-results/fixed/raw-unmap-1.log": "e636c132020d7561e05e3c288f57daa5a575964d6118733b4a2b7d69b0c0731f",
+    ".diagnostics/m4-use-results/fixed/raw-unmap-2.log": "e636c132020d7561e05e3c288f57daa5a575964d6118733b4a2b7d69b0c0731f",
+    ".diagnostics/m4-use-results/fixed/raw-unregister-0.log": "4281828ee88aa5e2b06cfa73bffa638e88d60577b69a28097c1609b6e4135170",
+    ".diagnostics/m4-use-results/fixed/raw-unregister-1.log": "4281828ee88aa5e2b06cfa73bffa638e88d60577b69a28097c1609b6e4135170",
+    ".diagnostics/m4-use-results/fixed/raw-unregister-2.log": "4281828ee88aa5e2b06cfa73bffa638e88d60577b69a28097c1609b6e4135170",
+    ".diagnostics/m4-use-results/packet/borrow-only-until-call-0.log": "a630323c4ab892a71d726be51bfdc9114543ba24ea4682b0d2bcdf3085056188",
+    ".diagnostics/m4-use-results/packet/borrow-only-until-call-1.log": "a630323c4ab892a71d726be51bfdc9114543ba24ea4682b0d2bcdf3085056188",
+    ".diagnostics/m4-use-results/packet/borrow-only-until-call-2.log": "a630323c4ab892a71d726be51bfdc9114543ba24ea4682b0d2bcdf3085056188",
+    ".diagnostics/m4-use-results/packet/borrow-only-until-call-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/packet/clear-after-registration-0.log": "3d554f828540541b8184ba6ac0f2e1b7d1f1a4e8b5d39e3d0947931ec0a0efb2",
+    ".diagnostics/m4-use-results/packet/clear-after-registration-1.log": "3d554f828540541b8184ba6ac0f2e1b7d1f1a4e8b5d39e3d0947931ec0a0efb2",
+    ".diagnostics/m4-use-results/packet/clear-after-registration-2.log": "3d554f828540541b8184ba6ac0f2e1b7d1f1a4e8b5d39e3d0947931ec0a0efb2",
+    ".diagnostics/m4-use-results/packet/clear-after-registration-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/packet/deferred-0.log": "d0cee97277aa80301ace54fc8d7825439d963327f0af4288559878d31c11be8b",
+    ".diagnostics/m4-use-results/packet/deferred-1.log": "d0cee97277aa80301ace54fc8d7825439d963327f0af4288559878d31c11be8b",
+    ".diagnostics/m4-use-results/packet/deferred-2.log": "d0cee97277aa80301ace54fc8d7825439d963327f0af4288559878d31c11be8b",
+    ".diagnostics/m4-use-results/packet/extraction.json": "311725b55f67b66264149909c34c4a2f13e57dc1fd6a0f35038a50d821d6a4fa",
+    ".diagnostics/m4-use-results/packet/invalid-owner-0.log": "3fb1140c26b5cece0e101dd2b037fb61e6a33120212fff34638f772c76eb9249",
+    ".diagnostics/m4-use-results/packet/invalid-owner-1.log": "3fb1140c26b5cece0e101dd2b037fb61e6a33120212fff34638f772c76eb9249",
+    ".diagnostics/m4-use-results/packet/invalid-owner-2.log": "3fb1140c26b5cece0e101dd2b037fb61e6a33120212fff34638f772c76eb9249",
+    ".diagnostics/m4-use-results/packet/multi-fence-0.log": "27f14a46faaaa1d12f23f3acb39f05911d6da4a038768a26f7b0e3a4a9892496",
+    ".diagnostics/m4-use-results/packet/multi-fence-1.log": "27f14a46faaaa1d12f23f3acb39f05911d6da4a038768a26f7b0e3a4a9892496",
+    ".diagnostics/m4-use-results/packet/multi-fence-2.log": "27f14a46faaaa1d12f23f3acb39f05911d6da4a038768a26f7b0e3a4a9892496",
+    ".diagnostics/m4-use-results/packet/no-fence-0.log": "056c4b1daa8ca380c278f934f0b3e23737f506beba5f3e5df4ce55fd63f93c2e",
+    ".diagnostics/m4-use-results/packet/no-fence-1.log": "056c4b1daa8ca380c278f934f0b3e23737f506beba5f3e5df4ce55fd63f93c2e",
+    ".diagnostics/m4-use-results/packet/no-fence-2.log": "056c4b1daa8ca380c278f934f0b3e23737f506beba5f3e5df4ce55fd63f93c2e",
+    ".diagnostics/m4-use-results/packet/omit-close-lock-0.log": "1550962357a642370945af1f02738a14fdad3ce8b64e59f50e16da7af4ac4f59",
+    ".diagnostics/m4-use-results/packet/omit-close-lock-1.log": "1550962357a642370945af1f02738a14fdad3ce8b64e59f50e16da7af4ac4f59",
+    ".diagnostics/m4-use-results/packet/omit-close-lock-2.log": "1550962357a642370945af1f02738a14fdad3ce8b64e59f50e16da7af4ac4f59",
+    ".diagnostics/m4-use-results/packet/omit-close-lock-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/packet/omit-composer-owner-0.log": "3d554f828540541b8184ba6ac0f2e1b7d1f1a4e8b5d39e3d0947931ec0a0efb2",
+    ".diagnostics/m4-use-results/packet/omit-composer-owner-1.log": "3d554f828540541b8184ba6ac0f2e1b7d1f1a4e8b5d39e3d0947931ec0a0efb2",
+    ".diagnostics/m4-use-results/packet/omit-composer-owner-2.log": "3d554f828540541b8184ba6ac0f2e1b7d1f1a4e8b5d39e3d0947931ec0a0efb2",
+    ".diagnostics/m4-use-results/packet/omit-composer-owner-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/packet/omit-nvdisp-owner-0.log": "3d554f828540541b8184ba6ac0f2e1b7d1f1a4e8b5d39e3d0947931ec0a0efb2",
+    ".diagnostics/m4-use-results/packet/omit-nvdisp-owner-1.log": "3d554f828540541b8184ba6ac0f2e1b7d1f1a4e8b5d39e3d0947931ec0a0efb2",
+    ".diagnostics/m4-use-results/packet/omit-nvdisp-owner-2.log": "3d554f828540541b8184ba6ac0f2e1b7d1f1a4e8b5d39e3d0947931ec0a0efb2",
+    ".diagnostics/m4-use-results/packet/omit-nvdisp-owner-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/packet/omit-owner-validation-0.log": "9efaa8b6cb24cd77e8a324b9aab9db28a71a85351abc379b1e65cab332149c54",
+    ".diagnostics/m4-use-results/packet/omit-owner-validation-1.log": "9efaa8b6cb24cd77e8a324b9aab9db28a71a85351abc379b1e65cab332149c54",
+    ".diagnostics/m4-use-results/packet/omit-owner-validation-2.log": "9efaa8b6cb24cd77e8a324b9aab9db28a71a85351abc379b1e65cab332149c54",
+    ".diagnostics/m4-use-results/packet/omit-owner-validation-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/packet/omit-registration-cancel-0.log": "2c8142704ab89023544571e23dbabffdef51adc1250f53e00ec351291b4a576f",
+    ".diagnostics/m4-use-results/packet/omit-registration-cancel-1.log": "2c8142704ab89023544571e23dbabffdef51adc1250f53e00ec351291b4a576f",
+    ".diagnostics/m4-use-results/packet/omit-registration-cancel-2.log": "2c8142704ab89023544571e23dbabffdef51adc1250f53e00ec351291b4a576f",
+    ".diagnostics/m4-use-results/packet/omit-registration-cancel-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/packet/omit-source-failure-cancel-0.log": "699072b1bfbe4847e6aa2bebbcde53cdd67570d794886b60299274620243cf22",
+    ".diagnostics/m4-use-results/packet/omit-source-failure-cancel-1.log": "699072b1bfbe4847e6aa2bebbcde53cdd67570d794886b60299274620243cf22",
+    ".diagnostics/m4-use-results/packet/omit-source-failure-cancel-2.log": "699072b1bfbe4847e6aa2bebbcde53cdd67570d794886b60299274620243cf22",
+    ".diagnostics/m4-use-results/packet/omit-source-failure-cancel-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/packet/production-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/packet/read-throw-0.log": "05c50825a37b4ba10599f8e9adbbe32ab110ee425b7d6a06a4e34f13d35729e1",
+    ".diagnostics/m4-use-results/packet/read-throw-1.log": "05c50825a37b4ba10599f8e9adbbe32ab110ee425b7d6a06a4e34f13d35729e1",
+    ".diagnostics/m4-use-results/packet/read-throw-2.log": "05c50825a37b4ba10599f8e9adbbe32ab110ee425b7d6a06a4e34f13d35729e1",
+    ".diagnostics/m4-use-results/packet/read-throw-reentry-0.log": "81f94005d826e4a0c5cf08769407992cd11e991f138c6861ac957f7c3c2928f2",
+    ".diagnostics/m4-use-results/packet/read-throw-reentry-1.log": "81f94005d826e4a0c5cf08769407992cd11e991f138c6861ac957f7c3c2928f2",
+    ".diagnostics/m4-use-results/packet/read-throw-reentry-2.log": "81f94005d826e4a0c5cf08769407992cd11e991f138c6861ac957f7c3c2928f2",
+    ".diagnostics/m4-use-results/packet/ready-0.log": "ece363d8f1b7e9e40b1dc0f907fb18ba3462a39fb93deb505be312ef48e30558",
+    ".diagnostics/m4-use-results/packet/ready-1.log": "ece363d8f1b7e9e40b1dc0f907fb18ba3462a39fb93deb505be312ef48e30558",
+    ".diagnostics/m4-use-results/packet/ready-2.log": "ece363d8f1b7e9e40b1dc0f907fb18ba3462a39fb93deb505be312ef48e30558",
+    ".diagnostics/m4-use-results/packet/ready-after-failure-0.log": "51b03f960c69556f787c54b0e532d9793e4b7ecce0b477debf3728748cd96b2a",
+    ".diagnostics/m4-use-results/packet/ready-after-failure-1.log": "51b03f960c69556f787c54b0e532d9793e4b7ecce0b477debf3728748cd96b2a",
+    ".diagnostics/m4-use-results/packet/ready-after-failure-2.log": "51b03f960c69556f787c54b0e532d9793e4b7ecce0b477debf3728748cd96b2a",
+    ".diagnostics/m4-use-results/packet/ready-prefix-failure-0.log": "5d4fb3558791174d165539fba853f49e6996c4627a7cd194efa6da51ced3e5a8",
+    ".diagnostics/m4-use-results/packet/ready-prefix-failure-1.log": "5d4fb3558791174d165539fba853f49e6996c4627a7cd194efa6da51ced3e5a8",
+    ".diagnostics/m4-use-results/packet/ready-prefix-failure-2.log": "5d4fb3558791174d165539fba853f49e6996c4627a7cd194efa6da51ced3e5a8",
+    ".diagnostics/m4-use-results/packet/register-after-0.log": "a71ca9e4a8ba77acb1e292b8af82734890bd8f7e70957ae9c5624a6fedfa0de6",
+    ".diagnostics/m4-use-results/packet/register-after-1.log": "a71ca9e4a8ba77acb1e292b8af82734890bd8f7e70957ae9c5624a6fedfa0de6",
+    ".diagnostics/m4-use-results/packet/register-after-2.log": "a71ca9e4a8ba77acb1e292b8af82734890bd8f7e70957ae9c5624a6fedfa0de6",
+    ".diagnostics/m4-use-results/packet/register-before-0.log": "5726df98c7a3018d3e156e1b93e9a002a34493550367ca2832376af822f4fda2",
+    ".diagnostics/m4-use-results/packet/register-before-1.log": "5726df98c7a3018d3e156e1b93e9a002a34493550367ca2832376af822f4fda2",
+    ".diagnostics/m4-use-results/packet/register-before-2.log": "5726df98c7a3018d3e156e1b93e9a002a34493550367ca2832376af822f4fda2",
+    ".diagnostics/m4-use-results/packet/shutdown-active-0.log": "f8d9ca6586bf31dab932ab388d258a6bbff94504363c3b183692dc72ced14c5c",
+    ".diagnostics/m4-use-results/packet/shutdown-active-1.log": "f8d9ca6586bf31dab932ab388d258a6bbff94504363c3b183692dc72ced14c5c",
+    ".diagnostics/m4-use-results/packet/shutdown-active-2.log": "f8d9ca6586bf31dab932ab388d258a6bbff94504363c3b183692dc72ced14c5c",
+    ".diagnostics/m4-use-results/packet/shutdown-pending-0.log": "1d496cb3d26f5d888312359fa76a9867894c8ac4e2bb7ad62db456097249693d",
+    ".diagnostics/m4-use-results/packet/shutdown-pending-1.log": "1d496cb3d26f5d888312359fa76a9867894c8ac4e2bb7ad62db456097249693d",
+    ".diagnostics/m4-use-results/packet/shutdown-pending-2.log": "1d496cb3d26f5d888312359fa76a9867894c8ac4e2bb7ad62db456097249693d",
+    ".diagnostics/m4-use-results/packet/snapshot-0.log": "9f61f6e578a8ca544cab7fd0340865e2827f5ea60af4f19604c91864c0f56a7a",
+    ".diagnostics/m4-use-results/packet/snapshot-1.log": "9f61f6e578a8ca544cab7fd0340865e2827f5ea60af4f19604c91864c0f56a7a",
+    ".diagnostics/m4-use-results/packet/snapshot-2.log": "9f61f6e578a8ca544cab7fd0340865e2827f5ea60af4f19604c91864c0f56a7a",
+    ".diagnostics/m4-use-results/address/after-snapshot-0.log": "ac3ef0149f562b759d0446dfc2b72413d94052683738ae99e1f88ddb964483a7",
+    ".diagnostics/m4-use-results/address/after-snapshot-1.log": "ac3ef0149f562b759d0446dfc2b72413d94052683738ae99e1f88ddb964483a7",
+    ".diagnostics/m4-use-results/address/after-snapshot-2.log": "ac3ef0149f562b759d0446dfc2b72413d94052683738ae99e1f88ddb964483a7",
+    ".diagnostics/m4-use-results/address/discard-valid-address-0.log": "5670ed4d8e2330e563ba4ad7bdaae82bcc46e82c78afc73ed63c91d68b2c66c5",
+    ".diagnostics/m4-use-results/address/discard-valid-address-1.log": "5670ed4d8e2330e563ba4ad7bdaae82bcc46e82c78afc73ed63c91d68b2c66c5",
+    ".diagnostics/m4-use-results/address/discard-valid-address-2.log": "5670ed4d8e2330e563ba4ad7bdaae82bcc46e82c78afc73ed63c91d68b2c66c5",
+    ".diagnostics/m4-use-results/address/discard-valid-address-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/address/display-free-0.log": "d68ff402e91ee31d5e64324c37ffff856cc273740a51d11cbca006c8ddda6e36",
+    ".diagnostics/m4-use-results/address/display-free-1.log": "d68ff402e91ee31d5e64324c37ffff856cc273740a51d11cbca006c8ddda6e36",
+    ".diagnostics/m4-use-results/address/display-free-2.log": "d68ff402e91ee31d5e64324c37ffff856cc273740a51d11cbca006c8ddda6e36",
+    ".diagnostics/m4-use-results/address/display-session-0.log": "e3e1045068d59f6990c37a8e4130556791446a696a07f05ac71e7bae632680b0",
+    ".diagnostics/m4-use-results/address/display-session-1.log": "e3e1045068d59f6990c37a8e4130556791446a696a07f05ac71e7bae632680b0",
+    ".diagnostics/m4-use-results/address/display-session-2.log": "e3e1045068d59f6990c37a8e4130556791446a696a07f05ac71e7bae632680b0",
+    ".diagnostics/m4-use-results/address/extraction.json": "ae76096aaf9d8328a5cdba8b65a380cf74334c42e9a834ac7f26f610ce896dea",
+    ".diagnostics/m4-use-results/address/forget-zero-refusal-0.log": "0bbb162f41eb68d50d0d154c2b3cc53dfd6bde9686d4cc2f803b6817019ab99d",
+    ".diagnostics/m4-use-results/address/forget-zero-refusal-1.log": "0bbb162f41eb68d50d0d154c2b3cc53dfd6bde9686d4cc2f803b6817019ab99d",
+    ".diagnostics/m4-use-results/address/forget-zero-refusal-2.log": "0bbb162f41eb68d50d0d154c2b3cc53dfd6bde9686d4cc2f803b6817019ab99d",
+    ".diagnostics/m4-use-results/address/forget-zero-refusal-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/address/free-failure-0.log": "05ba511ac7a06f0588fe49cdc02826d5d1e0c38e2314375b3a03cd153c14559d",
+    ".diagnostics/m4-use-results/address/free-failure-1.log": "05ba511ac7a06f0588fe49cdc02826d5d1e0c38e2314375b3a03cd153c14559d",
+    ".diagnostics/m4-use-results/address/free-failure-2.log": "05ba511ac7a06f0588fe49cdc02826d5d1e0c38e2314375b3a03cd153c14559d",
+    ".diagnostics/m4-use-results/address/guest-free-0.log": "396f296f3f624ff4c99c4d997e830046429ec92546cd25def1213345ad37b3d0",
+    ".diagnostics/m4-use-results/address/guest-free-1.log": "396f296f3f624ff4c99c4d997e830046429ec92546cd25def1213345ad37b3d0",
+    ".diagnostics/m4-use-results/address/guest-free-2.log": "396f296f3f624ff4c99c4d997e830046429ec92546cd25def1213345ad37b3d0",
+    ".diagnostics/m4-use-results/address/hold-table-over-handle-0.log": "d842ed566810fa80ab525d62741386e74f02debc2511bb254d227ec0631a6599",
+    ".diagnostics/m4-use-results/address/hold-table-over-handle-1.log": "d842ed566810fa80ab525d62741386e74f02debc2511bb254d227ec0631a6599",
+    ".diagnostics/m4-use-results/address/hold-table-over-handle-2.log": "d842ed566810fa80ab525d62741386e74f02debc2511bb254d227ec0631a6599",
+    ".diagnostics/m4-use-results/address/hold-table-over-handle-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/address/ignore-unmap-failure-0.log": "ca2d3ea5f299cc79860dbbaf87c5322537b534e2f3acdabe906a63112ffff6de",
+    ".diagnostics/m4-use-results/address/ignore-unmap-failure-1.log": "ca2d3ea5f299cc79860dbbaf87c5322537b534e2f3acdabe906a63112ffff6de",
+    ".diagnostics/m4-use-results/address/ignore-unmap-failure-2.log": "ca2d3ea5f299cc79860dbbaf87c5322537b534e2f3acdabe906a63112ffff6de",
+    ".diagnostics/m4-use-results/address/ignore-unmap-failure-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/address/last-free-0.log": "a3d646e433957c945e7818b701e5cbc9de74a9c35730bfca0c73b86509e44562",
+    ".diagnostics/m4-use-results/address/last-free-1.log": "a3d646e433957c945e7818b701e5cbc9de74a9c35730bfca0c73b86509e44562",
+    ".diagnostics/m4-use-results/address/last-free-2.log": "a3d646e433957c945e7818b701e5cbc9de74a9c35730bfca0c73b86509e44562",
+    ".diagnostics/m4-use-results/address/normal-0.log": "837bd8b2aba556da954e833241069f7c2da2686a7a4353a051298f437f92e03a",
+    ".diagnostics/m4-use-results/address/normal-1.log": "837bd8b2aba556da954e833241069f7c2da2686a7a4353a051298f437f92e03a",
+    ".diagnostics/m4-use-results/address/normal-2.log": "837bd8b2aba556da954e833241069f7c2da2686a7a4353a051298f437f92e03a",
+    ".diagnostics/m4-use-results/address/omit-display-handle-lock-0.log": "2dc306b7d6ec653069d4b7b5b46c85d34846e2e24303fe3836d8333898dffdd2",
+    ".diagnostics/m4-use-results/address/omit-display-handle-lock-1.log": "2dc306b7d6ec653069d4b7b5b46c85d34846e2e24303fe3836d8333898dffdd2",
+    ".diagnostics/m4-use-results/address/omit-display-handle-lock-2.log": "2dc306b7d6ec653069d4b7b5b46c85d34846e2e24303fe3836d8333898dffdd2",
+    ".diagnostics/m4-use-results/address/omit-display-handle-lock-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/address/omit-handle-lock-0.log": "2dc306b7d6ec653069d4b7b5b46c85d34846e2e24303fe3836d8333898dffdd2",
+    ".diagnostics/m4-use-results/address/omit-handle-lock-1.log": "2dc306b7d6ec653069d4b7b5b46c85d34846e2e24303fe3836d8333898dffdd2",
+    ".diagnostics/m4-use-results/address/omit-handle-lock-2.log": "2dc306b7d6ec653069d4b7b5b46c85d34846e2e24303fe3836d8333898dffdd2",
+    ".diagnostics/m4-use-results/address/omit-handle-lock-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/address/production-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/address/session-retire-0.log": "b4f327f1cdb6d7984a69297184f10b0837b57d72fe71593d29a26e47d7baf843",
+    ".diagnostics/m4-use-results/address/session-retire-1.log": "b4f327f1cdb6d7984a69297184f10b0837b57d72fe71593d29a26e47d7baf843",
+    ".diagnostics/m4-use-results/address/session-retire-2.log": "b4f327f1cdb6d7984a69297184f10b0837b57d72fe71593d29a26e47d7baf843",
+    ".diagnostics/m4-use-results/address/snapshot-retire-0.log": "10bcbc6a407e25ab1a648212d98fd9537aa8a0d509627fec9bdb4f8f4b01f1a2",
+    ".diagnostics/m4-use-results/address/snapshot-retire-1.log": "10bcbc6a407e25ab1a648212d98fd9537aa8a0d509627fec9bdb4f8f4b01f1a2",
+    ".diagnostics/m4-use-results/address/snapshot-retire-2.log": "10bcbc6a407e25ab1a648212d98fd9537aa8a0d509627fec9bdb4f8f4b01f1a2",
+    ".diagnostics/m4-use-results/address/zero-0.log": "445a0e6e2b15e27aa5a429fee052cfc047e5ad9618b047af053a2ca791c0b21e",
+    ".diagnostics/m4-use-results/address/zero-1.log": "445a0e6e2b15e27aa5a429fee052cfc047e5ad9618b047af053a2ca791c0b21e",
+    ".diagnostics/m4-use-results/address/zero-2.log": "445a0e6e2b15e27aa5a429fee052cfc047e5ad9618b047af053a2ca791c0b21e",
+    ".diagnostics/m4-use-results/retirement/allow-duplicate-session-retire-0.log": "30583b4f247dcac28e46cad7ac8a4e7e5dc7cc875181774d9f223ce3924df627",
+    ".diagnostics/m4-use-results/retirement/assign-session-members-first-0.log": "2ee2a869fec9b1d84815f1b7645c556f52e2de633c2f6a93524b418ec2409b37",
+    ".diagnostics/m4-use-results/retirement/borrow-module-owner-0.log": "650e018ad4136a1ccb1ad8d69258ccf491909f2df66b602a7efc875cc75221ee",
+    ".diagnostics/m4-use-results/retirement/borrow-retired-session-0.log": "c2afd3bc978a38eb498b9842be98adfbe72b1222842d18b9f2c875d7bb28b06f",
+    ".diagnostics/m4-use-results/retirement/close-process-after-epoch-death-0.log": "b60e86075f7af0e8064fbf10de177fb36312d5ab6f8d64f6cb3f9ab96c87f32e",
+    ".diagnostics/m4-use-results/retirement/destroy-slot-before-admission-0.log": "365e0ef550c50ba72d8bfd37882fe652d3113b1f277dfdff0c7a794f8023f28f",
+    ".diagnostics/m4-use-results/retirement/discard-empty-descriptor-0.log": "172ebdc8c278df7906bf38fe9fc5c7ace286b757d984a9fbbb3c3db85a9e5404",
+    ".diagnostics/m4-use-results/retirement/discard-failed-process-backing-0.log": "aad462f49741345d23b07ecae2d3328f71166b11208b4328cfe23741b532ec57",
+    ".diagnostics/m4-use-results/retirement/discard-preparation-failure-0.log": "7f36f6b59d00a013de27a373993d3e2aa2c37152ae4b69bb45b8c10ff1771ad0",
+    ".diagnostics/m4-use-results/retirement/extraction.json": "067adaa5c1269ee393d4f1669b746e06cf67e9de7263097b022f8bd94c40215d",
+    ".diagnostics/m4-use-results/retirement/graphic-direct-cleanup-0.log": "650e018ad4136a1ccb1ad8d69258ccf491909f2df66b602a7efc875cc75221ee",
+    ".diagnostics/m4-use-results/retirement/hold-graphic-facade-through-retire-0.log": "3f69439994982d7406c557495eec6a361bfc73ee498a0e291a3a1d4ad38406a1",
+    ".diagnostics/m4-use-results/retirement/hold-session-facade-through-retire-0.log": "52fd2606835b2412989efc5bd66483bc1275846e9574a74b5678e5604b35b36d",
+    ".diagnostics/m4-use-results/retirement/ignore-free-refusal-0.log": "2c8c87770c08a8aa62391da04b846ef3352d45c4184d22109c1e94a68cc4f27d",
+    ".diagnostics/m4-use-results/retirement/ignore-graphic-owner-epoch-0.log": "8fc34ec22f84e7f362817dc94596fd396167c4200605f571fef85d3787247078",
+    ".diagnostics/m4-use-results/retirement/omit-graphic-lifetime-0.log": "9993c9ee8e0a7b1076a227030be8440161d9720e0c9932b83ca5f784ebf33b50",
+    ".diagnostics/m4-use-results/retirement/omit-process-failure-seal-0.log": "a4e03898a5d85a3bb41df6e34eb46da0ed6d713f05a96e73f1f3f0834b5e261b",
+    ".diagnostics/m4-use-results/retirement/omit-process-quarantine-ledger-0.log": "e09ea4e40b93e8a5dc8941171ffc8a8979dab4a3d1826c9d3acac6fc31967549",
+    ".diagnostics/m4-use-results/retirement/omit-session-frame-retirement-0.log": "d7b0dfd11bff0fe13d6c5fc0515480ca5467565f1c8d6129b36a88a7bacc365a",
+    ".diagnostics/m4-use-results/retirement/production-0.log": "21e6a48897eaa1ae80f2840d1f06fe3f21feaef7f2d61b3e240cc94855e9a991",
+    ".diagnostics/m4-use-results/retirement/production-1.log": "21e6a48897eaa1ae80f2840d1f06fe3f21feaef7f2d61b3e240cc94855e9a991",
+    ".diagnostics/m4-use-results/retirement/production-2.log": "21e6a48897eaa1ae80f2840d1f06fe3f21feaef7f2d61b3e240cc94855e9a991",
+    ".diagnostics/m4-use-results/retirement/release-unknown-session-0.log": "8ed8cf94b95b011f125e44cd9214d84a2ba062835f75d972fc4bde9dbd5a8202",
+    ".diagnostics/m4-use-results/retirement/retire-session-under-lock-0.log": "10cf81344eff340eb79ae66c829bfa9db6533dd0bfc5757051c2bf1e04a8ae09",
+    ".diagnostics/m4-use-results/retirement/retry-failed-process-close-0.log": "aad462f49741345d23b07ecae2d3328f71166b11208b4328cfe23741b532ec57",
+    ".diagnostics/m4-use-results/retirement/session-direct-cleanup-0.log": "bb6cd0d8f0109fee5029ef4411383e82b0b475f982a7cd74e1ac099a18a266b4",
+    ".diagnostics/m4-use-results/production/0-nvmap.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/production/1-nvdisp_disp0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/production/2-container.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/production/3-gpu_device_memory_manager.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/production/4-layer.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/production/5-vk_rasterizer.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/production/6-window_adapt_pass.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/production/7-gpu.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/production/8-hardware_composer.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".diagnostics/m4-use-results/production/extraction.json": "cc95f4346f9a9c0cacea4b0f4212449fe053a94e3fead28ec20aa36e76ec8d5f"
+  },
+  "cleanup": {
+    "state": "complete",
+    "scopes": [
+      ".diagnostics/m4-use-baseline",
+      ".diagnostics/m4-use-candidate",
+      ".diagnostics/m4-use-fixed",
+      ".diagnostics/m4-use-packet",
+      ".diagnostics/m4-use-address",
+      ".diagnostics/m4-use-retirement",
+      ".diagnostics/m4-use-production"
+    ],
+    "counts": {
+      ".cpp": 60,
+      ".exe": 59,
+      ".h": 9,
+      ".o": 9
+    },
+    "generated": [
+      {
+        "path": ".diagnostics/m4-use-baseline/actual-read.cpp",
+        "sha256": "4573538708c9fae246e6a7bfdd87676b49500cd72918b1b09cb4b9765a8973a5",
+        "bytes": 12156
+      },
+      {
+        "path": ".diagnostics/m4-use-baseline/actual-read.exe",
+        "sha256": "5d387852d85964cac4a546ac088a935fde241da06470d685200ccc98074ca1b3",
+        "bytes": 76560
+      },
+      {
+        "path": ".diagnostics/m4-use-baseline/frame_mapping_observer.h",
+        "sha256": "d0a24314cf8e986239dc5ee9f9f1e764c674f6162b53885fac20a5f04fb507a3",
+        "bytes": 503
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/frame_mapping_candidate.h",
+        "sha256": "724413e0ca23f922f97484bf7337b7d3f92d6553baf64b7771563601b23eef7d",
+        "bytes": 2524
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/frame_mapping_observer.h",
+        "sha256": "d0a24314cf8e986239dc5ee9f9f1e764c674f6162b53885fac20a5f04fb507a3",
+        "bytes": 503
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-close.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-close.exe",
+        "sha256": "c36eaf8ea0a40239d0412106357e85669efcbf3d9e2dee90ae7c40cb87e8d42e",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-generation.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-generation.exe",
+        "sha256": "ec0c7b60bc982ecb4123d81dcf70cc1e096eb5af2453cfc245eeb1ab90479ac1",
+        "bytes": 156669
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-identity.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-identity.exe",
+        "sha256": "8cf18cbcac80c173013644c412224639d4132f0200fba215ee6481d88b26faee",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-pending.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-pending.exe",
+        "sha256": "1a3131cb992d3a310b60ecf839964451ae1238131f324053db06ae45aa0520d9",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-poison.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-poison.exe",
+        "sha256": "1c6738b0a8e7a8d7e3cfb577b04c48a0b89b42bb48fcb2bfb9574e2e89f228e2",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-range.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/omit-range.exe",
+        "sha256": "b68e994f166d8c42bafd2d4147d9bd12183d64d333e0b83b2533e345fd61baa6",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/protocol.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-candidate/protocol.exe",
+        "sha256": "823c02ed4547d91a55fb90993342d55e582d976db6555abce0bedd74cd6dd172",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/actual-read.cpp",
+        "sha256": "2bb1657b33cbf78f0b92f46cc66290ed749c701a75738fd5d7cead1d2272c390",
+        "bytes": 21259
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/actual-read.exe",
+        "sha256": "12858e4da577741e08f8cc47b2cc5fef6755d281355491f9cf30c85d62ba75aa",
+        "bytes": 175080
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/frame_mapping_candidate.h",
+        "sha256": "01bd607ef7ec85f6adffd576ca47fc842cdfffa18ac47eaf43038e275a3df33d",
+        "bytes": 2564
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/frame_mapping_observer.h",
+        "sha256": "d0a24314cf8e986239dc5ee9f9f1e764c674f6162b53885fac20a5f04fb507a3",
+        "bytes": 503
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/late-map-intent.cpp",
+        "sha256": "81d52811530de846f476a5a764203b52cf654aeff0d0846a2560ff75c31fe292",
+        "bytes": 21261
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/late-map-intent.exe",
+        "sha256": "4a836479dfdd6b280de2ce39665bd8b404ac768860f507480079776f566702fa",
+        "bytes": 175100
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/late-unmap-intent.cpp",
+        "sha256": "9e4b3102ef3a026b7f23e4aaa137b56a6fd631fa49ce92272fedde69d260932b",
+        "bytes": 21259
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/late-unmap-intent.exe",
+        "sha256": "6ba406a54b0b056459168815d47a93fe381df947b75b916999c00ab3adf03234",
+        "bytes": 175102
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-cache-use.cpp",
+        "sha256": "a9fb7886df82e91322105109381a88176d0999528d50202ecef367d2c23a4474",
+        "bytes": 21196
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-cache-use.exe",
+        "sha256": "ca7bc4c261a2f37c214c020c4bcf8963442d1d1880fd5a2cd349d44f7d62bec3",
+        "bytes": 174568
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-close.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-close.exe",
+        "sha256": "1b03b1ca0b697ae427f344f6886b6d605ad538189c77d9ae9f5b57d5b69c1134",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-copy-use.cpp",
+        "sha256": "2739dc1064dc25fa3ce4207ff8ae559c4fcb39880e02b9d7f4536340786a3f21",
+        "bytes": 21220
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-copy-use.exe",
+        "sha256": "251f7ff68c43f3889c25c6c60de2af64bf49fc51ca199cf1fdfb85ec87a0ffba",
+        "bytes": 173092
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-generation.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-generation.exe",
+        "sha256": "1b67c50332c4ecaf4a38cd3d7ef3f5a11e70217782e7ec7d7a9942d8203ce669",
+        "bytes": 156669
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-identity.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-identity.exe",
+        "sha256": "f370eb73756f7c05a04b2c57ce13d2278d8315de2e5b97c0e266aad91e009f36",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-pending.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-pending.exe",
+        "sha256": "e192c6fb558308a47da71f6de6884a9d1d375435ef753be22f1b0db14ae7d349",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-poison.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-poison.exe",
+        "sha256": "5d1e90de177ea118e40ab0ef5ee47f30041f0d95165e15d35dbbe84ed6a631e9",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-range.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/omit-range.exe",
+        "sha256": "9b5dba51d649ce9d0a3434bc55eee25b37fd979cfa75833e8a72881cbf8566f5",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/protocol.cpp",
+        "sha256": "50425134bad2ae67259ac8e59dbab56ea9afef7c26a2936ae2609180f4e0d899",
+        "bytes": 3311
+      },
+      {
+        "path": ".diagnostics/m4-use-fixed/protocol.exe",
+        "sha256": "d07a750217c44d52239adadbf49debd8e2f8f06a511f7300b24541f46b088421",
+        "bytes": 156649
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/borrow-only-until-call.cpp",
+        "sha256": "65b7015912d4baa8cc17bda5334ce24929e55d09e2256f8b83a21b2fa6590d09",
+        "bytes": 28120
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/borrow-only-until-call.exe",
+        "sha256": "098e478a33713a6cbfda6d11dab47ce5921f0e922a41c50e6b3b0d78d7cab08c",
+        "bytes": 238801
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/clear-after-registration.cpp",
+        "sha256": "02c7b3c3097e801a5d5b2259d497cff43831d047330dfdd93a668ab0bbefee62",
+        "bytes": 28108
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/clear-after-registration.exe",
+        "sha256": "4ca7d8fbb0a97953cb4835d05335c0c9f5f930977ed699924d2d85174b751ee5",
+        "bytes": 238109
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-close-lock.cpp",
+        "sha256": "2f0aa5c55aeab7d82fa887d85c69af7d3228d39c5611815d89cdca3d3d1c085a",
+        "bytes": 28020
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-close-lock.exe",
+        "sha256": "a6aeed726e8d26370a4c1a3209139efa90eaeb4f9f2f538a1f40de453ca42a7d",
+        "bytes": 237588
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-composer-owner.cpp",
+        "sha256": "dd899c0e6cc71e70455c5fd433869d891fe29b7340a0f83f707eec781e93629d",
+        "bytes": 28024
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-composer-owner.exe",
+        "sha256": "89268ae112cb829148d6d9e50646ed5b1332c796729a6d668830080e2e5b2056",
+        "bytes": 237592
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-nvdisp-owner.cpp",
+        "sha256": "f1ee3d3a436b54ccccda92619723569a40cecf7844df88d987030a176a090b7f",
+        "bytes": 28027
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-nvdisp-owner.exe",
+        "sha256": "812a67a94050d97de480689edd593e2114c30fb442edc98cc43c3d3086d83d7a",
+        "bytes": 237590
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-owner-validation.cpp",
+        "sha256": "69d34c2e719d2b7509eece947cce71df7f20761976becae9a9738b7fc54e4826",
+        "bytes": 27923
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-owner-validation.exe",
+        "sha256": "04a1433c3b69222304437331fc26a8c260dc209bb696e6a45a75b6dec94a7026",
+        "bytes": 237594
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-registration-cancel.cpp",
+        "sha256": "e266076fcca3d3ae17d7884be1ff8793a213db94ac8aa514e4683c52fd241afa",
+        "bytes": 27982
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-registration-cancel.exe",
+        "sha256": "bf827ac5505f617c915d1d22d3326f4a39ba06c98f14a8186b7611483195a97e",
+        "bytes": 237597
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-source-failure-cancel.cpp",
+        "sha256": "ffc9f69fc04550a1872971bf1468e12b0645032a377899320be32e5d698a8fbb",
+        "bytes": 28024
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/omit-source-failure-cancel.exe",
+        "sha256": "21197453ea71651bbcab600898f18ea7d54ad7f1956c2a442f76b190dabb1a40",
+        "bytes": 237599
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/production.cpp",
+        "sha256": "79de448a79baf7a1875ad5440665de3e13defa137c469bcfc6d9dda721bbeedf",
+        "bytes": 28074
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/production.exe",
+        "sha256": "8e3b611c45451c70949be7e0b5dba766c3836384603852d315cf7ae385c88d5e",
+        "bytes": 237568
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/syncpoint-manager.cpp",
+        "sha256": "66f8154d5514292a68a5011a5cad011349581199260ff81fe2e9cc4c1621d13e",
+        "bytes": 4218
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/include/video_core/framebuffer_config.h",
+        "sha256": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+        "bytes": 1519
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/include/core/hle/service/nvnflinger/hwc_layer.h",
+        "sha256": "af76eba7a524949d18b1b277689391759f839ea76b2263cdf51b48e247cc88c1",
+        "bytes": 1205
+      },
+      {
+        "path": ".diagnostics/m4-use-packet/include/core/hle/service/nvnflinger/ui/graphic_buffer.h",
+        "sha256": "4adc67d8cd73c5213917258efee352789178eb2ea90a48b1a054a4f3d1c3e99c",
+        "bytes": 3869
+      },
+      {
+        "path": ".diagnostics/m4-use-address/discard-valid-address.cpp",
+        "sha256": "51bda61d9e487f3e8166f838295752d777cc7a2d3a5c69464c2b5020bec6cc28",
+        "bytes": 18698
+      },
+      {
+        "path": ".diagnostics/m4-use-address/discard-valid-address.exe",
+        "sha256": "2e3543605ccead1182601fe16ea32bfe5c9dd56943b8650bab62b7362c989b06",
+        "bytes": 141376
+      },
+      {
+        "path": ".diagnostics/m4-use-address/forget-zero-refusal.cpp",
+        "sha256": "14361e2cc4a1198ea0dd21ab4207d7cc71ee529bbd0cf8b257758de0b46e0c22",
+        "bytes": 18742
+      },
+      {
+        "path": ".diagnostics/m4-use-address/forget-zero-refusal.exe",
+        "sha256": "49c01b389cd7e58fe0cc803211eb6e7ae407ca3a816dee5bf6f77150704884ca",
+        "bytes": 146678
+      },
+      {
+        "path": ".diagnostics/m4-use-address/hold-table-over-handle.cpp",
+        "sha256": "35796242c892ec211f012aaa066316bcf619fc9a236385f3e3c2b2df2a382ef4",
+        "bytes": 18747
+      },
+      {
+        "path": ".diagnostics/m4-use-address/hold-table-over-handle.exe",
+        "sha256": "83745763147200301a6b8892e5410e321e783aaf461e7a5b64a8635864a7248a",
+        "bytes": 146331
+      },
+      {
+        "path": ".diagnostics/m4-use-address/ignore-unmap-failure.cpp",
+        "sha256": "f53042233e8a850ef59e483722b948e1fa85c17442ed8962bfe2d22888b8d747",
+        "bytes": 18698
+      },
+      {
+        "path": ".diagnostics/m4-use-address/ignore-unmap-failure.exe",
+        "sha256": "196bc3b7e57bde3219de0bea5c82a8db4bc84fbb8ddc117a2d136fdda1e8a530",
+        "bytes": 145817
+      },
+      {
+        "path": ".diagnostics/m4-use-address/omit-display-handle-lock.cpp",
+        "sha256": "db94cc13be6f988a25f931afbcd3134e0a188e811c73516519b1ee5e840bf615",
+        "bytes": 18653
+      },
+      {
+        "path": ".diagnostics/m4-use-address/omit-display-handle-lock.exe",
+        "sha256": "e830521d819cc1867e81919bb7239615d633658fcd3774336744add45bc69d80",
+        "bytes": 145821
+      },
+      {
+        "path": ".diagnostics/m4-use-address/omit-handle-lock.cpp",
+        "sha256": "a40f67008144dacea95f1b4c251d3c47890ef433054556c9855115d8ae6c93e7",
+        "bytes": 18646
+      },
+      {
+        "path": ".diagnostics/m4-use-address/omit-handle-lock.exe",
+        "sha256": "39edbeb6080d6b64edf8ef59866bde90cbddafa57bd5f86349afdbe8cdd2d8fd",
+        "bytes": 145813
+      },
+      {
+        "path": ".diagnostics/m4-use-address/production.cpp",
+        "sha256": "dda72884c50f3130eb95f64b9cbf51765573a11727c717b24da15f6dd5bcf1a3",
+        "bytes": 18699
+      },
+      {
+        "path": ".diagnostics/m4-use-address/production.exe",
+        "sha256": "538c12eef811bd40c4cdb385dc4c15438a57ebad425bda6d69bd0ee7652c3f3f",
+        "bytes": 145792
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/allow-duplicate-session-retire.cpp",
+        "sha256": "d263a397a4be2592eca3a699ff70733ac4f2e412c1f453fe47d617de1a9414a4",
+        "bytes": 39275
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/allow-duplicate-session-retire.exe",
+        "sha256": "96a060c205dbd80c6f4467c9acc609ca7fb9c5ccd9b5026fa3d4cd8c14fb3fdb",
+        "bytes": 261512
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/assign-session-members-first.cpp",
+        "sha256": "013fbcfe7b8a2e5f9d89dbc7c180e05c8de860f0ccfd94590c87b78e90f7eee0",
+        "bytes": 39228
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/assign-session-members-first.exe",
+        "sha256": "30fefe0bdb6fb533ac296fc07db84db3babbd8789d341319aa7ca9e24036db99",
+        "bytes": 260998
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/borrow-module-owner.cpp",
+        "sha256": "46afb39324f4e9e8e4e246c9086d7ba1ea6014f74ce771a7c391dfda2139683f",
+        "bytes": 39450
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/borrow-module-owner.exe",
+        "sha256": "27adbc1fda08176003e1eda06aacc8a5ac8ed485725bf1ab5aaa435db90d366f",
+        "bytes": 277320
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/borrow-retired-session.cpp",
+        "sha256": "ffebb34e48c8757aa603e51b05207392efce76d72ff091b7b598edb958b9e199",
+        "bytes": 39339
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/borrow-retired-session.exe",
+        "sha256": "e8c34f6c923bf34c17f1a2652460827818e3f3f9a4452c789f5dae7f163bb9e7",
+        "bytes": 261504
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/close-process-after-epoch-death.cpp",
+        "sha256": "ac7ae2c897d7eebcc3efa3c50557c4718a4adf5c7f71eece2ef3855fae575530",
+        "bytes": 39313
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/close-process-after-epoch-death.exe",
+        "sha256": "dbe8024eeae8134f25a57487e2435bb643ee8353f1553ef4fae958f12e8e530e",
+        "bytes": 261815
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/destroy-slot-before-admission.cpp",
+        "sha256": "2ffe35836dab0d168aed8f274a0c83947ffdd2df830d98b9dc8b17974c8d4c4c",
+        "bytes": 39419
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/destroy-slot-before-admission.exe",
+        "sha256": "36a7d9a9e42f4e29900e29aad243e1c9ffe1c2ba185ab5ec821ba4fcc9cacca9",
+        "bytes": 260999
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/discard-empty-descriptor.cpp",
+        "sha256": "def2773742ba367439118688a3cb48c826d95e937001e2e414ede2c9590ae7bd",
+        "bytes": 39423
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/discard-empty-descriptor.exe",
+        "sha256": "7d556eca742cf8a7051d18a284716f62b76c55fa7b8a646e7d9af99315bdc85b",
+        "bytes": 261506
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/discard-failed-process-backing.cpp",
+        "sha256": "065f61ff1313aa5f0c6a7b3b92f2e7d8ab16485c39e3cc335d1144e7c8495239",
+        "bytes": 39449
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/discard-failed-process-backing.exe",
+        "sha256": "01aeff771f3bd75ba6b1611b42a8e652c94ae22b009f5d5ba230e8c4ba2e0d4f",
+        "bytes": 261512
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/discard-preparation-failure.cpp",
+        "sha256": "40b1c3f3a5786aad3344201868a8b29a58cbfb8a439207e7034d7d18fa729193",
+        "bytes": 39340
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/discard-preparation-failure.exe",
+        "sha256": "f8abd86af375862eb75a036a477b84990185c2c4b458c1faef0e70445d8ff0f2",
+        "bytes": 260975
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/graphic-direct-cleanup.cpp",
+        "sha256": "5cbfdc42fe74122c28392cb5e7d826b8a17b64b386cba0a16e077cf13795f66a",
+        "bytes": 39315
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/graphic-direct-cleanup.exe",
+        "sha256": "6c53e2984041d824dbba350f046b172b771fdd16ec9a3461452e13c0809583bd",
+        "bytes": 260844
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/hold-graphic-facade-through-retire.cpp",
+        "sha256": "720a469f73ef6e36f4fa0280053ee802c2b66360333e6b4352c2658784bec983",
+        "bytes": 39321
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/hold-graphic-facade-through-retire.exe",
+        "sha256": "ce533822c4b2e292db3ab850ce426701de82c42cdf297b5b711e510296647640",
+        "bytes": 261516
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/hold-session-facade-through-retire.cpp",
+        "sha256": "a0dd381549859c4b952749794f8436698a43d5fab85a9dec7c05956f01373b4f",
+        "bytes": 39374
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/hold-session-facade-through-retire.exe",
+        "sha256": "9824f1084d177c91130c383056f1124fc00173bee56348170cbc80d0b82804a7",
+        "bytes": 261950
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/ignore-free-refusal.cpp",
+        "sha256": "792fef93fd8ce88161a9edcb100759096e90a6be6651e125bed326dce45c96c8",
+        "bytes": 39388
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/ignore-free-refusal.exe",
+        "sha256": "a1e55e5b7ea8615004b9d47d176681da6461401bd6fa0766fc0e944883c477d7",
+        "bytes": 261501
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/ignore-graphic-owner-epoch.cpp",
+        "sha256": "40667f48137d395c823e0bcc32d260dfe2fbd786850993d1e361332235bd2b75",
+        "bytes": 39334
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/ignore-graphic-owner-epoch.exe",
+        "sha256": "967c7211cb6364c645f02c531c6a98f6bf7c3f6bb3790b64518826de82397de8",
+        "bytes": 261508
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/omit-graphic-lifetime.cpp",
+        "sha256": "1a68aba1c57c28267c0bc7aec733d40d5fb1e0f0afadd2e8037878828501a7fc",
+        "bytes": 39324
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/omit-graphic-lifetime.exe",
+        "sha256": "be92ffbf39d4f2b681be855ce9c79c9f6cf11f5b575b8ac8beb9b38cccc63892",
+        "bytes": 261503
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/omit-process-failure-seal.cpp",
+        "sha256": "32e9589e24230b60cf8125e622493f7e5e6e5f8879d66238577fbaad4a9821a7",
+        "bytes": 39343
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/omit-process-failure-seal.exe",
+        "sha256": "b12e0bb35553b2a3affaef2d7c3609ddf0e4f4ba982495f452ee801c27003cc8",
+        "bytes": 261507
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/omit-process-quarantine-ledger.cpp",
+        "sha256": "4ea99e1b2f8d8fbcd715ef1f74561eef6806fb3d74ee43b3df07ffa57ab3f035",
+        "bytes": 39234
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/omit-process-quarantine-ledger.exe",
+        "sha256": "7dca6aafa7f1401d520646e4e499cbe8cc83fa81aaf2e89ca30a8c755c450def",
+        "bytes": 261512
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/omit-session-frame-retirement.cpp",
+        "sha256": "fa2f285a3de1e545d4abfd185a66188dfbf199efae11ccfde679863dda423cf1",
+        "bytes": 39243
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/omit-session-frame-retirement.exe",
+        "sha256": "b808bd843fa9ae7e213776df3928a26d3f24136ebe65fca65da79c81f49cd5cc",
+        "bytes": 261189
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/production.cpp",
+        "sha256": "1bdb416ea05f67a7cdabcd9414cd0dc23133f5df924c0ab47124f7c25e2e148e",
+        "bytes": 39396
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/production.exe",
+        "sha256": "fed8dd9b5a574d79f35540f53c6ecd85cf430fccb9ec1e108297ad2e09347a9b",
+        "bytes": 261477
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/release-unknown-session.cpp",
+        "sha256": "64bbba9bff70767b1f08648273f81a44fc96d58bc5abf8935a707b21308d250a",
+        "bytes": 39395
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/release-unknown-session.exe",
+        "sha256": "b5da3a9af35f9cb4a55727bc00478afab7394feed1810b0cdbc7efccef6654be",
+        "bytes": 261505
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/retire-session-under-lock.cpp",
+        "sha256": "b1357d3dcce3bc224062653f70af5983024838115488e889fd5cdd4fbf2fda78",
+        "bytes": 39433
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/retire-session-under-lock.exe",
+        "sha256": "d9c7411ee6e4f886155fce8f42d0f3f914dcf65fa6dee97a00802ca2a60daa55",
+        "bytes": 261507
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/retry-failed-process-close.cpp",
+        "sha256": "95249f5a3084db6d37896114bc987e4a8d75c323a803cb5284e9bb627c3ebb72",
+        "bytes": 39423
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/retry-failed-process-close.exe",
+        "sha256": "c5c5c745b578de158b43c32baf9ee375e860fac4159d573b4b92cd26663e5550",
+        "bytes": 261942
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/session-direct-cleanup.cpp",
+        "sha256": "dceba05e6eab47108bf27000d0e0936affeba1414d3ef0ebba5c83b98b608824",
+        "bytes": 39153
+      },
+      {
+        "path": ".diagnostics/m4-use-retirement/session-direct-cleanup.exe",
+        "sha256": "fd13b574612db5b835840c3183e640f35ee3e422c133932638030f853e679cc9",
+        "bytes": 260990
+      },
+      {
+        "path": ".diagnostics/m4-use-production/0-nvmap.o",
+        "sha256": "00d8391b25135fe9aba9ab27d817fa7303e6a38171b9e123e4459e699ca43e5e",
+        "bytes": 57173
+      },
+      {
+        "path": ".diagnostics/m4-use-production/1-nvdisp_disp0.o",
+        "sha256": "d1a9f5bb890650b1d5bf33f9bbf7aa2931b7611757cace581686ff156e1b4487",
+        "bytes": 16616
+      },
+      {
+        "path": ".diagnostics/m4-use-production/2-container.o",
+        "sha256": "6a112867fc0b79f0fd87e75093641d82a251fd4390a74f429e65d49533722f19",
+        "bytes": 46312
+      },
+      {
+        "path": ".diagnostics/m4-use-production/3-gpu_device_memory_manager.o",
+        "sha256": "0b176c4f5ab5c75a984384a564619308b028cd91756823aafe31a96ee856cbf3",
+        "bytes": 170686
+      },
+      {
+        "path": ".diagnostics/m4-use-production/4-layer.o",
+        "sha256": "005531bdb654e1749298cfcc77778ddbbb409c6c3e716d59d9154d14f7d57473",
+        "bytes": 31615
+      },
+      {
+        "path": ".diagnostics/m4-use-production/5-vk_rasterizer.o",
+        "sha256": "65ab05ec9dd468c518f7ac418ee54761abebfe8fecfafbe4feaf38966edb809f",
+        "bytes": 1136438
+      },
+      {
+        "path": ".diagnostics/m4-use-production/6-window_adapt_pass.o",
+        "sha256": "6fa6ef97b8e6fd420b58b55f1e0ed32f50dad780ba3fec589ffdc6a784426a85",
+        "bytes": 25939
+      },
+      {
+        "path": ".diagnostics/m4-use-production/7-gpu.o",
+        "sha256": "fbe63fb5d522d21b524381b8b0ed4c12d5f2de5e11e1abed1bf8da8afbcaba8f",
+        "bytes": 152794
+      },
+      {
+        "path": ".diagnostics/m4-use-production/8-hardware_composer.o",
+        "sha256": "e57b3864f5af22815ce6c9347a406adace59d2e7dbe3c12185fb3e1abe1e1f5b",
+        "bytes": 75864
+      },
+      {
+        "path": ".diagnostics/m4-use-production/generated/video_core/host_shaders/vulkan_present_vert_spv.h",
+        "sha256": "025bacec8a21a538e102edc8eb030aae1c0fb634a67440b1d52ce3f78bcaad28",
+        "bytes": 8278
+      }
+    ]
+  },
+  "limits": "Windows x64 controlled/extracted bodies and nine real production COFF objects, no full application link or native/game/Linux/Android/current-head CI acceptance."
+}

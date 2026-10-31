@@ -6,7 +6,7 @@
 
 #include <bit>
 #include <list>
-#include <ankerl/unordered_dense.h>
+#include <boost/unordered/unordered_flat_map.hpp>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -185,7 +185,7 @@ private:
     //!< This maps the base addresses of mapped buffers to their total sizes and
     //!< mapping type, this is needed as what was originally a single buffer may
     //!< have been split into multiple GPU side buffers with the remap flag.
-    ankerl::unordered_dense::map<u64, std::shared_ptr<Mapping>> mapping_map;
+    boost::unordered_flat_map<u64, std::shared_ptr<Mapping>> mapping_map;
     //!< Holds allocations created by AllocSpace from
     //!< which fixed buffers can be mapped into
     std::map<u64, Allocation> allocation_map;

@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <exception>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
+#include "common/producer_drain.h"
+#include "common/scope_exit.h"
+using u8=unsigned char;using u32=unsigned;using s32=int;using s64=long long;
+using DAddr=unsigned long long;using Result=int;
+using namespace std::chrono_literals;
+constexpr int ResultSuccess=0;
+#define R_UNLESS(condition, result) do {if(!(condition))return result;} while(false)
+#define R_SUCCEED() return ResultSuccess
+void Require(bool ok,const char* why) {
+    if(!ok){std::cerr<<"FAIL "<<why<<'\n';std::cerr.flush();std::_Exit(91);}
+}
+struct Event {
+    std::mutex mutex;std::condition_variable cv;bool ready=false;
+    void Set(){std::scoped_lock lock{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock lock{mutex};Require(cv.wait_for(lock,5s,[&]{return ready;}),"rendezvous timeout");}
+};
+template<class T>T Ready(std::future<T>& value){Require(value.wait_for(5s)==std::future_status::ready,"request timeout");return value.get();}
+namespace Common {template<class T>struct ScratchBuffer {};}
+constexpr size_t Slot=1280*768*4;
+namespace Kernel {
+struct Block {size_t address,size;size_t GetAddress() const{return address;}size_t GetSize() const{return size;}};
+struct KPageGroup : std::vector<Block> {KPageGroup(){push_back({0,Slot+4});push_back({Slot+4,4});}};
+}
+struct Module {
+    std::shared_ptr<Common::ProducerDrain> dispatch_domain=std::make_shared<Common::ProducerDrain>();
+    // @MODULE_METHODS@
+};
+struct Memory {
+    std::vector<u8> bytes=std::vector<u8>(Slot+8,9);
+    std::atomic<int> pointers=0;std::function<void(int)> on_pointer;
+    template<class T>T* GetPointer(size_t address,size_t size) {
+        int call=++pointers;if(on_pointer)on_pointer(call);
+        Require(address+size<=bytes.size(),"bad physical fixture range");
+        return reinterpret_cast<T*>(bytes.data()+address);
+    }
+};
+struct Gpu {
+    int captures=0,projections=0;bool empty=false;
+    std::function<void()> on_capture,on_projection;
+    std::vector<u8> GetAppletCaptureBuffer(){++captures;if(on_capture)on_capture();return empty?std::vector<u8>{}:std::vector<u8>{80,81,82,83,84,85,86,87};}
+    Gpu& Host1x(){return *this;}Gpu& MemoryManager(){return *this;}
+    template<class F>void ApplyOpOnPointer(const u8*,Common::ScratchBuffer<u32>&,F operation) {
+        ++projections;if(on_projection)on_projection();operation(1);
+    }
+    void InvalidateRegion(DAddr,size_t){}
+};
+struct System {Memory memory;Gpu gpu;Memory& DeviceMemory(){return memory;}Gpu& GPU(){return gpu;}};
+// Wrapper only exposes deterministic before-lock rendezvous. The underlying
+// publication lock is a real mutex; GPU/raw providers below remain fixtures.
+struct PublicationMutex {
+    std::mutex actual;std::function<void()> before_lock;
+    void lock(){if(before_lock)before_lock();actual.lock();}void unlock(){actual.unlock();}
+};
+namespace Service::VI {
+constexpr int ResultOperationFailed=1;
+struct SharedBufferManager {
+    System m_system;std::shared_ptr<Module> m_nvdrv=std::make_shared<Module>();
+    PublicationMutex m_guard;
+    std::unique_ptr<Kernel::KPageGroup> m_buffer_page_group;
+    unsigned long long m_buffer_id=0;
+    void Seed(){m_buffer_page_group=std::make_unique<Kernel::KPageGroup>();m_buffer_id=1;}
+    Result WriteAppletCaptureBuffer(bool*,s32*);
+};
+// @CAPTURE_METHOD@
+}
+using Service::VI::SharedBufferManager;
+using D=Common::ProducerDrain::Result;
+void Untouched(SharedBufferManager& manager) {
+    Require(std::all_of(manager.m_system.memory.bytes.begin(),manager.m_system.memory.bytes.end(),[](u8 b){return b==9;}),
+            "refused capture changed physical bytes");
+}
+void Closed() {
+    SharedBufferManager manager;manager.Seed();auto domain=manager.m_nvdrv->dispatch_domain;
+    auto closure=domain->TryClose(64);Require(bool(closure),"initial close failed");
+    bool written=false;s32 layer=77;
+    Require(manager.WriteAppletCaptureBuffer(&written,&layer)==Service::VI::ResultOperationFailed &&
+            manager.m_system.gpu.captures==0 && manager.m_system.memory.pointers==0,
+            "closed VI capture performed effects");
+    Require(!written && layer==77,"refused capture published success");Untouched(manager);
+    Require(closure->ResumeNoEffects(),"closed capture damaged cancellation");
+    Require(manager.WriteAppletCaptureBuffer(&written,&layer)==0 && written && layer==1,"resumed capture lost result");
+    Require(manager.m_system.memory.bytes[0]==0 && manager.m_system.memory.bytes[Slot]==80 &&
+            manager.m_system.memory.bytes[Slot+7]==87,"normal capture changed existing byte layout");
+}
+void Active(const std::string& stage) {
+    SharedBufferManager manager;manager.Seed();Event entered,release;
+    const auto hold=[&]{entered.Set();release.Wait();};
+    if(stage=="callback")manager.m_system.gpu.on_capture=hold;
+    if(stage=="raw")manager.m_system.memory.on_pointer=[&](int call){if(call==1)hold();};
+    if(stage=="tail")manager.m_system.gpu.on_projection=[&]{if(manager.m_system.gpu.projections==1)hold();};
+    bool written=false;s32 layer=77;
+    auto request=std::async(std::launch::async,[&]{return manager.WriteAppletCaptureBuffer(&written,&layer);});
+    entered.Wait();
+    if(stage=="callback") {
+        Require(manager.m_guard.actual.try_lock(),"GPU wait retained pool publication lock");
+        manager.m_guard.actual.unlock();
+    }
+    auto closure=manager.m_nvdrv->dispatch_domain->TryClose(64);
+    Require(bool(closure) && closure->Poll()==D::Pending,"active VI capture escaped drain");
+    Require(!manager.m_nvdrv->TryEnterDispatch(),"new capture entered active closure");
+    release.Set();Require(Ready(request)==0 && written && layer==1,"admitted capture lost result");
+    Require(closure->Poll()==D::DrainedSubset && closure->ResumeNoEffects(),"completed capture did not drain");
+}
+void Empty() {
+    SharedBufferManager manager;manager.Seed();manager.m_system.gpu.empty=true;
+    bool written=false;s32 layer=77;
+    Require(manager.WriteAppletCaptureBuffer(&written,&layer)==Service::VI::ResultOperationFailed &&
+            manager.m_system.memory.pointers==0,"empty capture cleared destination or reported success");
+    Require(!written && layer==77,"empty capture published outputs");Untouched(manager);
+    auto closure=manager.m_nvdrv->dispatch_domain->TryClose(64);
+    Require(bool(closure) && closure->Poll()==D::DrainedSubset && closure->ResumeNoEffects(),"empty capture poisoned healthy domain");
+}
+void Missing() {
+    SharedBufferManager manager;bool written=false;s32 layer=77;
+    Require(manager.WriteAppletCaptureBuffer(&written,&layer)==Service::VI::ResultOperationFailed &&
+            manager.m_system.gpu.captures==0 && manager.m_system.memory.pointers==0,"unpublished pool reached capture");
+    Require(!written && layer==77,"missing pool published outputs");
+}
+void Publication() {
+    SharedBufferManager manager;Event publishing,release,reader;std::atomic<bool> preparing=true;
+    std::jthread publisher([&]{std::scoped_lock lock{manager.m_guard};manager.Seed();publishing.Set();release.Wait();preparing=false;});
+    publishing.Wait();manager.m_guard.before_lock=[&]{reader.Set();};
+    manager.m_system.gpu.on_capture=[&]{Require(!preparing,"capture escaped pool publication");};
+    bool written=false;s32 layer=77;
+    auto request=std::async(std::launch::async,[&]{return manager.WriteAppletCaptureBuffer(&written,&layer);});
+    reader.Wait();auto closure=manager.m_nvdrv->dispatch_domain->TryClose(64);
+    Require(bool(closure) && closure->Poll()==D::Pending,"capture awaiting pool publication escaped drain");
+    release.Set();publisher.join();Require(Ready(request)==0 && written,"published pool lost capture");
+    Require(closure->Poll()==D::DrainedSubset && closure->ResumeNoEffects(),"published capture did not drain");
+}
+void Partial() {
+    SharedBufferManager manager;manager.Seed();Event entered,release;
+    manager.m_system.memory.on_pointer=[&](int call){if(call==2){entered.Set();release.Wait();throw 7;}};
+    bool written=false;s32 layer=77;
+    auto request=std::async(std::launch::async,[&]{try{manager.WriteAppletCaptureBuffer(&written,&layer);}catch(int){return true;}return false;});
+    entered.Wait();auto closure=manager.m_nvdrv->dispatch_domain->TryClose(64);
+    Require(bool(closure) && closure->Poll()==D::Pending,"partial capture escaped active drain");
+    release.Set();Require(Ready(request),"partial capture exception swallowed");
+    Require(closure->Poll()==D::Unknown && !closure->ResumeNoEffects() && !manager.m_nvdrv->TryEnterDispatch(),
+            "partial capture exception became clean drain");
+    Require(!written && layer==77 && manager.m_system.memory.bytes[Slot]==80 &&
+            manager.m_system.memory.bytes[Slot+4]==9,"partial capture fabricated atomicity or output success");
+}
+int main(int argc,char** argv) {
+    Require(argc==2,"missing case");const std::string name=argv[1];
+    if(name=="closed")Closed();else if(name=="callback" || name=="raw" || name=="tail")Active(name);
+    else if(name=="empty")Empty();else if(name=="missing")Missing();else if(name=="publication")Publication();
+    else if(name=="partial")Partial();else return 98;
+    std::cout<<"PASS VI capture "<<name<<'\n';
+}

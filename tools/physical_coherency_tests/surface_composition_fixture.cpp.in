@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <exception>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include "common/producer_drain.h"
+#include "common/scope_exit.h"
+#include "video_core/acknowledged_callback.h"
+using s32=int;using u64=unsigned long long;using f32=float;
+using namespace std::chrono_literals;
+void Require(bool ok,const char* why) {
+    if(!ok) {std::cerr<<"FAIL "<<why<<'\n';std::cerr.flush();std::_Exit(91);}
+}
+struct Event {
+    std::mutex mutex;std::condition_variable cv;bool ready=false;
+    void Set(){std::scoped_lock lock{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock lock{mutex};Require(cv.wait_for(lock,5s,[&]{return ready;}),"rendezvous timeout");}
+};
+template<class T> T Ready(std::future<T>& f) {
+    Require(f.wait_for(5s)==std::future_status::ready,"request completion timeout");return f.get();
+}
+namespace Service::Nvidia {
+using DeviceFD=int;
+namespace Devices {struct nvdisp_disp0 {};}
+struct Module {
+    std::shared_ptr<Common::ProducerDrain> dispatch_domain=std::make_shared<Common::ProducerDrain>();
+    struct Files : std::unordered_map<int,std::shared_ptr<Devices::nvdisp_disp0>> {
+        std::function<void()> lookup;
+        auto find(int fd) {if(lookup)lookup();return std::unordered_map<int,std::shared_ptr<Devices::nvdisp_disp0>>::find(fd);}
+    } open_files;
+    // @MODULE_METHODS@
+};
+}
+namespace Service::Nvnflinger {
+namespace Nvidia=Service::Nvidia;
+struct Display {struct Stack {bool visible=true;bool HasLayers(){return visible;}} stack;};
+struct SurfaceFlinger {
+    std::shared_ptr<Nvidia::Module> nvdrv=std::make_shared<Nvidia::Module>();
+    int disp_fd=1,lookups=0;
+    Display display;bool present=true;
+    Display* FindDisplay(u64) {++lookups;return present?&display:nullptr;}
+    struct Composer {
+        std::function<void()> action;
+        int calls=0;
+        s32 ComposeLocked(f32* speed,Display&,Nvidia::Devices::nvdisp_disp0&) {
+            ++calls;*speed=0.5f;if(action)action();return 2;
+        }
+    } m_composer;
+    SurfaceFlinger(){nvdrv->open_files.emplace(disp_fd,std::make_shared<Nvidia::Devices::nvdisp_disp0>());}
+    bool ComposeDisplay(s32*,f32*,u64);
+};
+// @COMPOSE_METHOD@
+}
+using Service::Nvnflinger::SurfaceFlinger;
+using D=Common::ProducerDrain::Result;
+void Closed() {
+    SurfaceFlinger sf;auto closure=sf.nvdrv->dispatch_domain->TryClose(64);
+    Require(bool(closure) && closure->Poll()==D::DrainedSubset,"initial close failed");
+    s32 interval=77;f32 speed=9;
+    Require(!sf.ComposeDisplay(&interval,&speed,1) && sf.m_composer.calls==0 && sf.lookups==0,
+            "closed composition bypassed dispatch admission");
+    Require(interval==77 && speed==9,"closed composition changed output");
+    Require(closure->ResumeNoEffects(),"closed composition damaged cancellation");
+    Require(sf.ComposeDisplay(&interval,&speed,1) && interval==2 && speed==0.5f && sf.m_composer.calls==1,
+            "resume lost or duplicated composition");
+}
+void Active(bool during_lookup) {
+    SurfaceFlinger sf;Event entered,release,callback_started,callback_release;
+    std::jthread callback;
+    int effects=0;
+    if(during_lookup)sf.nvdrv->open_files.lookup=[&]{entered.Set();release.Wait();};
+    sf.m_composer.action=[&] {
+        if(!during_lookup){entered.Set();release.Wait();}
+        const auto outcome=VideoCommon::RunAcknowledgedCallback([&](auto action) {
+            callback=std::jthread([action=std::move(action)]{action();});
+            callback_started.Wait(); // dispatch returns while action remains Running
+        },[&]{callback_started.Set();callback_release.Wait();++effects;});
+        Require(outcome==VideoCommon::CallbackOutcome::Completed,"normal callback did not complete");
+    };
+    s32 interval=77;f32 speed=9;
+    auto request=std::async(std::launch::async,[&]{return sf.ComposeDisplay(&interval,&speed,1);});
+    entered.Wait();auto closure=sf.nvdrv->dispatch_domain->TryClose(64);
+    Require(bool(closure) && closure->Poll()==D::Pending,"active composition escaped drain");
+    Require(!sf.nvdrv->TryEnterDispatch(),"new composition entered held closure");
+    release.Set();callback_started.Wait();
+    Require(request.wait_for(50ms)!=std::future_status::ready,
+            "composition acknowledged before callback completion");
+    Require(closure->Poll()==D::Pending,"callback enqueue became drained composition");
+    callback_release.Set();Require(Ready(request),"admitted composition was dropped");callback.join();
+    Require(interval==2 && speed==0.5f && effects==1 && closure->Poll()==D::DrainedSubset,
+            "composition completion lost effects or drain");
+    Require(closure->ResumeNoEffects(),"completed composition refused cancellation");
+}
+void Exception(bool active) {
+    SurfaceFlinger sf;Event entered,release;std::atomic<int> prefix=0;
+    sf.m_composer.action=[&]{++prefix;if(active){entered.Set();release.Wait();}throw 7;};
+    s32 interval=77;f32 speed=9;
+    if(active) {
+        auto request=std::async(std::launch::async,[&]{try{sf.ComposeDisplay(&interval,&speed,1);}catch(int){return true;}return false;});
+        entered.Wait();auto closure=sf.nvdrv->dispatch_domain->TryClose(64);
+        Require(bool(closure) && closure->Poll()==D::Pending,"exception prefix escaped drain");
+        release.Set();Require(Ready(request),"composition exception was swallowed");
+        Require(closure->Poll()==D::Unknown && !closure->ResumeNoEffects(),
+                "partial composition exception granted drain authority");
+    } else {
+        bool caught=false;try{sf.ComposeDisplay(&interval,&speed,1);}catch(int){caught=true;}
+        Require(caught && !sf.nvdrv->dispatch_domain->TryClose(64),
+                "partial composition exception granted drain authority");
+    }
+    Require(prefix==1 && interval==77 && !sf.nvdrv->TryEnterDispatch(),"failed composition replayed or published success");
+}
+void Missing() {
+    SurfaceFlinger sf;s32 interval=77;f32 speed=9;
+    sf.present=false;Require(!sf.ComposeDisplay(&interval,&speed,1),"missing display accepted");
+    sf.present=true;sf.display.stack.visible=false;
+    Require(!sf.ComposeDisplay(&interval,&speed,1),"empty display accepted");
+    sf.display.stack.visible=true;sf.nvdrv->open_files.clear();
+    Require(!sf.ComposeDisplay(&interval,&speed,1),"missing device accepted");
+    Require(sf.m_composer.calls==0 && interval==77 && speed==9,"missing input changed composition");
+    auto closure=sf.nvdrv->dispatch_domain->TryClose(64);
+    Require(bool(closure) && closure->Poll()==D::DrainedSubset && closure->ResumeNoEffects(),
+            "no-effect refusal quarantined healthy composition");
+}
+int main(int argc,char** argv) {
+    Require(argc==2,"missing case");const std::string name=argv[1];
+    if(name=="closed")Closed();else if(name=="lookup")Active(true);else if(name=="callback")Active(false);
+    else if(name=="exception")Exception(false);else if(name=="active-exception")Exception(true);
+    else if(name=="missing")Missing();else return 98;
+    std::cout<<"PASS surface composition "<<name<<'\n';
+}

@@ -1,0 +1,270 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <semaphore>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <type_traits>
+#include <utility>
+#include <vector>
+#include <vulkan/vulkan.h>
+#include "common/common_types.h"
+#include "common/scope_exit.h"
+#include "common/terminal_fail_stop.h"
+static std::string fault, gate;
+static std::binary_semaphore entered{0},resume{0};
+static bool gate_used{};
+static std::binary_semaphore joining{0};
+static void event(const char* s){std::fprintf(stderr,"EVENT %s\n",s);std::fflush(stderr);}
+static void check(bool b,const char* s){if(!b){std::fprintf(stderr,"FAIL %s\n",s);std::fflush(stderr);std::_Exit(91);}}
+static void pause_at(const char* s){if(gate==s&&!gate_used){gate_used=true;entered.release();resume.acquire();}}
+namespace Service::android {enum class PixelFormat{A};}
+namespace Layout {struct FramebufferLayout{u32 width=2,height=1;};}
+namespace Tegra {
+struct Mapping {u64 address=4096,size=32;};
+struct FramebufferConfig {bool is_applet=true;u64 owner_aruid=1;int z_index=1;u64 address=4096,offset{};u32 width=2,height=1,stride=2;Service::android::PixelFormat pixel_format{};std::optional<Mapping>source_mapping=Mapping{};};
+namespace Texture {
+static u64 CalculateSize(bool,u32,u32,u32,u32,u32,u32){return 8;}
+static void UnswizzleTexture(std::span<u8> dst,std::span<const u8>src,u32,u32,u32,u32,u32,u32){std::copy(src.begin(),src.end(),dst.begin());if(fault=="unswizzle")throw std::runtime_error("unswizzle");}
+}
+struct Memory {int reads{};u8 value=0x31;bool CopyFrameMapping(const Mapping&,u64,std::span<u8>out){++reads;if(fault=="source-false")return false;if(fault=="source-throw")throw std::runtime_error("source");std::fill(out.begin(),out.end(),value);return true;}};
+}
+namespace Common {template<class T>struct Rectangle{T left{},top{},right{},bottom{};};}
+namespace Settings {
+enum class ScalingFilter{Fsr,Cas,Fsr2};enum class FSR2QualityMode{Quality,Balanced,Performance,UltraPerformance};
+struct Slider{int GetValue()const{return 50;}};
+struct Quality{FSR2QualityMode GetValue()const{return FSR2QualityMode::Quality;}};
+inline struct{Slider fsr_sharpening_slider,cas_sharpening_slider;Quality fsr2_quality_mode;}values;
+}
+namespace Tegra {static auto NormalizeCrop(const FramebufferConfig&,u32,u32){return Common::Rectangle<f32>{0,0,1,1};}}
+namespace VideoCore::Capture {static constexpr Layout::FramebufferLayout Layout{};}
+namespace Vulkan {
+static std::string stage="raw";
+static int descriptor_calls{},matrix_calls{},vertex_calls{},accelerate_calls{},aa_select_calls{};
+static void StageFault(const std::string&tag){pause_at(tag.c_str());if(fault==tag)throw std::bad_alloc();}
+struct Scheduler;
+namespace vk {
+struct Exception:std::exception{VkResult GetResult()const{return VK_ERROR_DEVICE_LOST;}};
+struct Buffer {
+    std::vector<u8>bytes=std::vector<u8>(24);int flushes{};
+    std::span<u8>Mapped(){if(fault=="mapped")throw std::bad_alloc();return bytes;}
+    void Flush(){++flushes;if(fault=="flush")throw Exception{};}
+    VkBuffer operator*()const{return reinterpret_cast<VkBuffer>(1);}
+    explicit operator bool()const{return !bytes.empty();}
+    void reset(){event("buffer.destroy");bytes.clear();}
+};
+struct Image{size_t slot;VkImage operator*()const{return reinterpret_cast<VkImage>(slot+1);}};
+struct View{size_t slot;VkImageView operator*()const{return reinterpret_cast<VkImageView>(slot+1);}};
+struct Handle{uintptr_t id{};explicit operator bool()const{return id!=0;}template<class T>operator T()const{return reinterpret_cast<T>(id);}Handle operator*()const{return *this;}};
+struct CommandBuffer {Scheduler*s;std::string origin;
+    template<class... T>void BindPipeline(T&&...){Step();}
+    void BindDescriptorSets(VkPipelineBindPoint,VkPipelineLayout,u32,VkDescriptorSet,std::initializer_list<u32>){Step();}
+    template<class... T>void PushConstants(T&&...){Step();}
+    void Draw(int,int,int,int){Step();}void EndRenderPass(){Step();}
+    void Step();void PipelineBarrier(VkPipelineStageFlags,VkPipelineStageFlags,int,const VkImageMemoryBarrier&);void CopyBufferToImage(VkBuffer,VkImage,VkImageLayout,const VkBufferImageCopy&);};
+}
+struct Scheduler {
+    int outstanding{},helper_steps{},clears{};std::array<int,3> stage_records{};
+    int StageIndex()const{return stage=="aa"?0:stage=="fsr"?1:2;}
+
+    std::jthread worker;
+    std::vector<std::function<void(vk::CommandBuffer)>> jobs;
+    std::vector<std::function<void(bool)>> native;
+    std::array<std::array<u8,8>,3>pixels{};
+    std::array<bool,3>general{};
+    std::vector<u8>*staging{};
+    bool closed{},joined{},retired{},fail_idle{};u64 tick=1;int records{},submits{},draws{};
+    void RequireNativeBorrowAdmission()const{if(closed)Common::TerminalFailStop("native_borrow.entry","closed_admission");}
+    template<class T>void Record(T&&f){
+        ++records;const std::string origin=stage;
+        int sequence=stage=="raw"?0:++stage_records[StageIndex()];
+        StageFault(origin+"-record-before");
+        ++outstanding;jobs.emplace_back([this,fn=std::forward<T>(f),origin](vk::CommandBuffer)mutable{
+            fn(vk::CommandBuffer{this,origin});native.push_back([this](bool){--outstanding;});});
+        StageFault(origin+"-record-after");
+        if(sequence==2)StageFault(origin+"-draw-enqueued");
+    }
+    void Drain(){auto work=std::move(jobs);jobs.clear();for(auto&f:work)f(vk::CommandBuffer{this,"dispatch"});}
+    void Submit(bool partial=false){++submits;const size_t count=partial?(native.size()+1)/2:native.size();for(size_t i=0;i<count;++i)native[i](false);native.erase(native.begin(),native.begin()+count);}
+    void Finish(){
+        StageFault(stage+"-finish-before");Drain();
+        if(fault==stage+"-finish-partial"){Submit(true);throw vk::Exception{};}
+        Submit();++tick;StageFault(stage+"-finish-after");
+    }
+    void Wait(u64 t){RequireNativeBorrowAdmission();if(t>=tick){Drain();Submit();++tick;}}
+    void FinishNativeBorrow(){RequireNativeBorrowAdmission();if(fault=="retirement-fail")throw vk::Exception{};Drain();Submit();++tick;}
+    u64 CurrentTick()const{return tick;}
+    void RequestOutsideRenderPassOperationContext(){}
+    template<class T>void RetainPresentationSource(T){StageFault("retain");}
+    void WaitForResourceRelease(u64 t){if(retired)return;Wait(t);}
+    void Shutdown(){closed=true;event("shutdown.closed");if(worker.joinable()){joining.release();worker.join();}Drain();joined=true;event("shutdown.joined");if(fail_idle)Common::TerminalFailStop("renderer.native_idle","vulkan_result",VK_ERROR_DEVICE_LOST);Submit();retired=true;event("shutdown.idle");}
+};
+void vk::CommandBuffer::PipelineBarrier(VkPipelineStageFlags,VkPipelineStageFlags,int,const VkImageMemoryBarrier&b){const bool before=b.newLayout==VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;pause_at(before?"barrier":"post");if(fault==(before?"worker-barrier":"worker-post"))throw Exception{};const auto i=reinterpret_cast<uintptr_t>(b.image)-1;s->native.push_back([s=s,i,b](bool partial){if(!partial)s->general[i]=b.newLayout==VK_IMAGE_LAYOUT_GENERAL;});}
+void vk::CommandBuffer::CopyBufferToImage(VkBuffer,VkImage image,VkImageLayout,const VkBufferImageCopy&c){pause_at("copy");if(fault=="worker-copy")throw std::runtime_error("record");const auto i=reinterpret_cast<uintptr_t>(image)-1;s->native.push_back([s=s,i,off=c.bufferOffset](bool partial){check(s->staging&&s->staging->size()>=off+8,"staging released before native copy");std::copy_n(s->staging->begin()+off,partial?4:8,s->pixels[i].begin());});}
+struct PresentPushConstants{int matrix{},vertex{};bool operator==(const PresentPushConstants&)const=default;};
+struct TextureInfo{u32 width=2,height=1,scaled_width=2,scaled_height=1;VkImage image=reinterpret_cast<VkImage>(1);VkImageView image_view=reinterpret_cast<VkImageView>(1);bool native_owner=true;};
+struct RasterizerVulkan{bool accelerated{};std::optional<TextureInfo>AccelerateDisplay(const Tegra::FramebufferConfig&,u64,u32){++accelerate_calls;return accelerated?std::optional<TextureInfo>{TextureInfo{}}:std::nullopt;}};
+
+void vk::CommandBuffer::Step(){pause_at((origin+"-worker").c_str());++s->helper_steps;s->native.push_back([](bool){});}
+static void ClearColorImage(vk::CommandBuffer cb,vk::Handle){++cb.s->clears;cb.Step();}
+static void TransitionImageLayout(vk::CommandBuffer cb,VkImage,VkImageLayout){cb.Step();}
+template<class A,class B>static void BeginRenderPass(vk::CommandBuffer cb,A,B,VkExtent2D){cb.Step();}
+using FsrPushConstants=std::array<u32,16>;using Fsr2PushConstants=std::array<u32,16>;
+template<class...T>static void FsrEasuConOffset(T&&...){}
+template<class...T>static void FsrRcasCon(T&&...){}
+struct Descriptor {VkImageView view{};int writes{};};
+static std::array<Descriptor,3>descriptors;
+struct Device {struct Logical{
+    void UpdateDescriptorSets(std::span<const VkWriteDescriptorSet>writes,std::span<const VkCopyDescriptorSet>)const noexcept{
+        ++descriptor_calls;for(auto&w:writes){const auto i=reinterpret_cast<uintptr_t>(w.dstSet)-1;check(i<3,"descriptor targeted invalid slot");descriptors[i].view=w.pImageInfo->imageView;++descriptors[i].writes;}
+    }
+};Logical GetLogical()const noexcept{return {};}};
+struct FXAA {
+    Scheduler*owner;struct Image{vk::Handle image{1},image_view{2},framebuffer{3};std::array<VkDescriptorSet,1>descriptor_sets{reinterpret_cast<VkDescriptorSet>(1)};};
+    std::vector<Image>m_dynamic_images=std::vector<Image>(3);
+    vk::Handle m_renderpass{4},m_pipeline{5},m_pipeline_layout{6};VkExtent2D m_extent{2,1};bool m_images_ready{};
+    explicit FXAA(Scheduler*s):owner{s}{}
+    ~FXAA(){check(owner->outstanding==0,"helper released with outstanding work");event("aa.destroy");}
+    void UploadImages(Scheduler&);void Draw(Scheduler&,size_t,VkImage*,VkImageView*);
+    void UpdateDescriptorSets(VkImageView,size_t){StageFault("aa-descriptor");}
+};
+// Helpers have distinct owners but use shared initialization across all three slots.
+struct FSR {
+    enum{Easu,Rcas,MaxFsrStage};Scheduler*owner;
+    struct Images{std::array<vk::Handle,2>images{{{11},{12}}},image_views{{{13},{14}}},framebuffers{{{15},{16}}};std::array<VkDescriptorSet,2>descriptor_sets{reinterpret_cast<VkDescriptorSet>(1),reinterpret_cast<VkDescriptorSet>(2)};};
+    std::vector<Images>m_dynamic_images=std::vector<Images>(3);
+    vk::Handle m_easu_pipeline{17},m_rcas_pipeline{18},m_pipeline_layout{19},m_renderpass{20};VkExtent2D m_extent{2,1};bool m_images_ready{};
+    explicit FSR(Scheduler*s):owner{s}{}
+    ~FSR(){check(owner->outstanding==0,"helper released with outstanding work");event("fsr.destroy");}
+    void UploadImages(Scheduler&);VkImageView Draw(Scheduler&,size_t,VkImage,VkImageView,VkExtent2D,const Common::Rectangle<f32>&,float);
+    void UpdateDescriptorSets(VkImageView,size_t){StageFault("fsr-descriptor");}
+};
+struct FSR2:FSR {
+    using FSR::FSR;
+    void UploadImages(Scheduler&);VkImageView Draw(Scheduler&,size_t,VkImage,VkImageView,VkExtent2D,const Common::Rectangle<f32>&);
+    void UpdateDescriptorSets(VkImageView,size_t){StageFault("fsr2-descriptor");}
+};
+@HELPERS@
+struct Filters{Settings::ScalingFilter setting=Settings::ScalingFilter::Fsr;auto get_scaling_filter()const{return setting;}};
+static u32 GetBytesPerPixel(const Tegra::FramebufferConfig&){return 4;}
+static size_t GetSizeInBytes(const Tegra::FramebufferConfig&f){return size_t(f.stride)*f.height*4;}
+struct Layer {
+    Scheduler&scheduler;Tegra::Memory device_memory;size_t image_count=3;Device device;Filters filters;
+    vk::Buffer buffer;std::vector<vk::Image>raw_images{{0},{1},{2}};std::vector<vk::View>raw_image_views{{0},{1},{2}};
+    std::vector<u64>resource_ticks{0,0,0};std::array<VkDescriptorSet,3>descriptor_sets{reinterpret_cast<VkDescriptorSet>(1),reinterpret_cast<VkDescriptorSet>(2),reinterpret_cast<VkDescriptorSet>(3)};
+    u32 raw_width=2,raw_height=1,raw_stride=2;Service::android::PixelFormat pixel_format{};
+    std::unique_ptr<FXAA>anti_alias;
+    std::unique_ptr<FSR>fsr;std::unique_ptr<FSR2>fsr2;
+    @STATE@
+    @BUNDLE@
+    std::vector<RawUploadState>raw_upload_states=std::vector<RawUploadState>(3);
+    bool post_upload_failed{};
+    explicit Layer(Scheduler&s):scheduler{s},anti_alias{std::make_unique<FXAA>(&s)}{scheduler.staging=&buffer.bytes;}
+    ~Layer();
+    bool UpdateRawImage(const Tegra::FramebufferConfig&,size_t);
+    bool ConfigureDraw(PresentPushConstants*,VkDescriptorSet*,RasterizerVulkan&,VkSampler,size_t,const Tegra::FramebufferConfig&,const Layout::FramebufferLayout&);
+    void SetAntiAliasPass(){++aa_select_calls;if(!anti_alias)anti_alias=std::make_unique<FXAA>(&scheduler);}
+    void SetMatrixData(PresentPushConstants&p,const Layout::FramebufferLayout&){++matrix_calls;p.matrix=1;StageFault("matrix");}
+    void SetVertexData(PresentPushConstants&p,const Layout::FramebufferLayout&,const Common::Rectangle<f32>&){++vertex_calls;p.vertex=2;StageFault("vertex");}
+    void UpdateDescriptorSet(VkImageView,VkSampler,size_t);
+    void RefreshResources(const Tegra::FramebufferConfig&);
+    void WaitForResourceUses();void ClearRawImages();void ReleaseRawImages();
+    u64 GetRawImageOffset(const Tegra::FramebufferConfig&,size_t)const;
+    RawResources CreateRawImages(const Tegra::FramebufferConfig&){RawResources r;r.buffer.bytes.resize(24);r.images={{0},{1},{2}};r.views={{0},{1},{2}};r.ticks.resize(3);r.uploads.resize(3);return r;}
+    bool Draw(size_t i,PresentPushConstants&p,VkDescriptorSet&d,bool accelerated=false){RasterizerVulkan r{accelerated};return ConfigureDraw(&p,&d,r,{},i,Tegra::FramebufferConfig{},Layout::FramebufferLayout{});}
+};
+@METHODS@
+struct Frame{u32 width=2,height=1;VkFormat image_view_format=VK_FORMAT_UNDEFINED;vk::Handle image{1},image_view{2},framebuffer{3};};
+static constexpr VkExtent2D CaptureImageSize{2,1};static constexpr VkFormat CaptureFormat=VK_FORMAT_R8G8B8A8_UNORM;
+static vk::Handle CreateWrappedImage(int&,VkExtent2D,VkFormat){return {1};}
+static vk::Handle CreateWrappedImageView(const Device&,vk::Handle&,VkFormat){return {2};}
+struct RendererVulkan{
+    @APPLET_STATE@
+    AppletCaptureState applet_capture_state{AppletCaptureState::Empty};
+    Scheduler&scheduler;Device device;int memory_allocator{},rasterizer{};Frame applet_frame;
+    struct Blit{Layer*source;size_t slot;int calls{};
+        vk::Handle CreateFramebuffer(const Layout::FramebufferLayout&,vk::Handle,VkFormat){return {3};}
+        void DrawToFrame(int&,Frame*,std::span<const Tegra::FramebufferConfig>,const Layout::FramebufferLayout&,int,VkFormat){++calls;PresentPushConstants p{};VkDescriptorSet d{};source->Draw(slot,p,d);}
+    }blit_applet;
+    RendererVulkan(Scheduler&s,Layer*l,size_t i):scheduler{s},blit_applet{l,i}{}
+    u64 GetMainApplicationAruid()const{return 0;}
+    void RenderAppletCaptureLayer(std::span<const Tegra::FramebufferConfig>);
+    std::vector<u8> GetAppletCaptureBuffer();
+};
+@APPLET_METHODS@
+}
+int main(int argc,char**argv){
+    if(argc!=4)return 2;
+    const std::string action=argv[1],which=argv[2];const size_t slot=std::stoul(argv[3]);
+    std::atexit([]{event("atexit");});
+    Vulkan::Scheduler s;
+    {
+    Vulkan::Layer l{s};
+    if(which=="fsr")l.fsr=std::make_unique<Vulkan::FSR>(&s);
+    if(which=="fsr2"){l.fsr2=std::make_unique<Vulkan::FSR2>(&s);l.filters.setting=Settings::ScalingFilter::Fsr2;}
+    Vulkan::PresentPushConstants p{71,72};VkDescriptorSet d=reinterpret_cast<VkDescriptorSet>(99);
+    auto draw=[&](size_t i=99,bool accelerated=false){return l.Draw(i==99?slot:i,p,d,accelerated);};
+    const bool warm=action.starts_with("warm-");std::string kind=warm?action.substr(5):action;
+    if(warm){check(draw(),"warm setup refused");s.FinishNativeBorrow();p={71,72};d=reinterpret_cast<VkDescriptorSet>(99);s.stage_records.fill(1);}
+    if(kind=="applet-helper"||kind=="applet-descriptor"){
+        Vulkan::RendererVulkan r{s,&l,slot};const std::array<Tegra::FramebufferConfig,1>frames{};
+        fault=kind=="applet-helper"?which+"-draw-enqueued":"descriptor-after";
+        bool threw=false;try{r.RenderAppletCaptureLayer(frames);}catch(const std::exception&){threw=true;}
+        check(threw&&r.applet_capture_state==Vulkan::RendererVulkan::AppletCaptureState::Failed,"Layer exception bypassed applet Failed");
+        fault.clear();s.FinishNativeBorrow();
+        {Vulkan::Layer fresh{s};r.blit_applet.source=&fresh;r.blit_applet.slot=(slot+1)%3;
+        r.RenderAppletCaptureLayer(frames);r.RenderAppletCaptureLayer(frames);
+        check(r.blit_applet.calls==1&&r.GetAppletCaptureBuffer().empty()&&r.applet_capture_state==Vulkan::RendererVulkan::AppletCaptureState::Failed,"healthy Layer reopened failed applet");}
+        s.staging=&l.buffer.bytes;
+    }else if(kind=="normal"||kind=="repeat"){
+        const int before_submits=s.submits;
+        check(draw(),"normal configure refused");
+        check(s.submits-before_submits==(warm?0:which=="aa"?1:2),"normal configure added submission");
+        check(s.outstanding>0,"configure reported native completion");
+        check(s.clears==(which=="aa"?3:9),"helper initialization omitted shared slots");check(p.matrix==1&&p.vertex==2&&d==l.descriptor_sets[slot],"successful configure did not publish outputs");s.FinishNativeBorrow();
+        check(s.pixels[slot][7]==0x31,"raw source did not precede helper work");
+        check(draw((slot+1)%3),"second slot refused");s.FinishNativeBorrow();
+    }else if(kind=="closed"){
+        s.closed=true;draw();check(false,"closed configure admitted");
+    }else if(kind=="gate-owner"||kind=="gate-descriptor"){
+        gate=kind=="gate-owner"?which+"-record-after":"descriptor-after";
+        std::jthread owner([&]{check(draw(),"gated configure refused");});entered.acquire();
+        check(p==Vulkan::PresentPushConstants{71,72}&&reinterpret_cast<uintptr_t>(d)==99,"in-progress configure published outputs");
+        check(s.outstanding>0,"gated prefix lost owners");resume.release();owner.join();s.FinishNativeBorrow();
+    }else if(kind=="shutdown-active"||kind=="shutdown-active-idle-failure"){
+        check(draw(),"active shutdown configure refused");gate=which+"-worker";
+        // Cold UploadImages has drained initialization; the helper draw callback is still queued.
+        s.worker=std::jthread([&]{s.Drain();});entered.acquire();
+        std::jthread observer([&]{joining.acquire();check(s.closed&&!s.joined&&!s.retired&&s.outstanding>0,"shutdown skipped active helper join");event("join.blocked");resume.release();});
+        s.fail_idle=kind=="shutdown-active-idle-failure";s.Shutdown();observer.join();
+    }else{
+        std::string injection=kind;
+        const bool rebuild=kind=="rebuild",shutdown=kind=="shutdown",idle=kind=="idle-failure",new_layer=kind=="new-layer";
+        if(rebuild||shutdown||idle||new_layer)injection="descriptor-after";
+        if(kind=="retirement-failure")injection="descriptor-after";
+        fault=injection;
+        bool threw=false;try{draw(99,kind=="retain");}catch(const std::exception&){threw=true;}
+        check(threw,"post-upload failure not propagated");
+        check(p==Vulkan::PresentPushConstants{71,72}&&reinterpret_cast<uintptr_t>(d)==99,"failed configure published outputs");
+        check(l.resource_ticks[slot]==s.CurrentTick(),"failed helper prefix lost latest tick");
+        fault.clear();const auto counters=std::array{s.records,l.device_memory.reads,Vulkan::accelerate_calls,Vulkan::aa_select_calls,Vulkan::descriptor_calls};
+        for(size_t i=0;i<3;++i)check(!draw(i),"uncertain post-upload path was retried");
+        check(!draw(slot,true),"accelerated path bypassed helper quarantine");
+        check(counters==std::array{s.records,l.device_memory.reads,Vulkan::accelerate_calls,Vulkan::aa_select_calls,Vulkan::descriptor_calls},"quarantine touched source or helper state");
+        if(rebuild){auto frame=Tegra::FramebufferConfig{};frame.width=1;l.RefreshResources(frame);check(!draw(),"raw generation reset helper quarantine");}
+        if(kind=="retirement-failure"){fault="retirement-fail";auto frame=Tegra::FramebufferConfig{};frame.width=1;l.RefreshResources(frame);check(false,"failed old-use wait returned");}
+        if(new_layer){s.FinishNativeBorrow();{Vulkan::Layer fresh{s};Vulkan::PresentPushConstants out{};VkDescriptorSet set{};check(fresh.Draw(slot,out,set),"new Layer inherited helper quarantine");s.FinishNativeBorrow();}s.staging=&l.buffer.bytes;}
+        if(shutdown||idle){s.fail_idle=idle;s.Shutdown();}
+    }
+    if(!s.retired)s.Shutdown();
+    check(!s.outstanding,"native work retained at owner release");
+    }
+    event("owners.released");std::fprintf(stderr,"PASS post upload %s %s slot=%zu\n",argv[1],argv[2],slot);
+}

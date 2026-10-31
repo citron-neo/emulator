@@ -1,0 +1,166 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <semaphore>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <type_traits>
+#include <utility>
+#include <vector>
+#include <vulkan/vulkan.h>
+#include "common/common_types.h"
+#include "common/scope_exit.h"
+#include "common/terminal_fail_stop.h"
+static std::string fault, gate;
+static std::binary_semaphore entered{0},resume{0};
+static bool gate_used{};
+static std::binary_semaphore joining{0};
+static void event(const char* s){std::fprintf(stderr,"EVENT %s\n",s);std::fflush(stderr);}
+static void check(bool b,const char* s){if(!b){std::fprintf(stderr,"FAIL %s\n",s);std::fflush(stderr);std::_Exit(91);}}
+static void pause_at(const char* s){if(gate==s&&!gate_used){gate_used=true;entered.release();resume.acquire();}}
+namespace Service::android {enum class PixelFormat{A};}
+namespace Layout {struct FramebufferLayout{};}
+namespace Tegra {
+struct Mapping {u64 address=4096,size=32;};
+struct FramebufferConfig {u64 address=4096,offset{};u32 width=2,height=1,stride=2;Service::android::PixelFormat pixel_format{};std::optional<Mapping>source_mapping=Mapping{};};
+namespace Texture {
+static u64 CalculateSize(bool,u32,u32,u32,u32,u32,u32){return 8;}
+static void UnswizzleTexture(std::span<u8> dst,std::span<const u8>src,u32,u32,u32,u32,u32,u32){std::copy(src.begin(),src.end(),dst.begin());if(fault=="unswizzle")throw std::runtime_error("unswizzle");}
+}
+struct Memory {int reads{};u8 value=0x31;bool CopyFrameMapping(const Mapping&,u64,std::span<u8>out){++reads;if(fault=="source-false")return false;if(fault=="source-throw")throw std::runtime_error("source");std::fill(out.begin(),out.end(),value);return true;}};
+}
+namespace Vulkan {
+struct Scheduler;
+namespace vk {
+struct Exception:std::exception{VkResult GetResult()const{return VK_ERROR_DEVICE_LOST;}};
+struct Buffer {
+    std::vector<u8>bytes=std::vector<u8>(24);int flushes{};
+    std::span<u8>Mapped(){if(fault=="mapped")throw std::bad_alloc();return bytes;}
+    void Flush(){++flushes;if(fault=="flush")throw Exception{};}
+    VkBuffer operator*()const{return reinterpret_cast<VkBuffer>(1);}
+    explicit operator bool()const{return !bytes.empty();}
+    void reset(){event("buffer.destroy");bytes.clear();}
+};
+struct Image{size_t slot;VkImage operator*()const{return reinterpret_cast<VkImage>(slot+1);}};
+struct View{size_t slot;VkImageView operator*()const{return reinterpret_cast<VkImageView>(slot+1);}};
+struct CommandBuffer {Scheduler*s;void PipelineBarrier(VkPipelineStageFlags,VkPipelineStageFlags,int,const VkImageMemoryBarrier&);void CopyBufferToImage(VkBuffer,VkImage,VkImageLayout,const VkBufferImageCopy&);};
+}
+struct Scheduler {
+    std::jthread worker;
+    std::vector<std::function<void(vk::CommandBuffer)>> jobs;
+    std::vector<std::function<void(bool)>> native;
+    std::array<std::array<u8,8>,3>pixels{};
+    std::array<bool,3>general{};
+    std::vector<u8>*staging{};
+    bool closed{},joined{},retired{},fail_idle{};u64 tick=1;int records{},submits{},draws{};
+    void RequireNativeBorrowAdmission()const{if(closed)Common::TerminalFailStop("native_borrow.entry","closed_admission");}
+    template<class T>void Record(T&&f){++records;if(fault=="record-before")throw std::bad_alloc();jobs.emplace_back(std::forward<T>(f));pause_at("enqueue");if(fault=="record-enqueued")throw std::bad_alloc();if(fault=="submit-partial"||fault=="submit-full"){Drain();Submit(fault=="submit-partial");throw vk::Exception{};}}
+    void Drain(){auto work=std::move(jobs);jobs.clear();for(auto&f:work)f(vk::CommandBuffer{this});}
+    void Submit(bool partial=false){++submits;for(auto&f:native)f(partial);native.clear();}
+    void Wait(u64 t){RequireNativeBorrowAdmission();if(t){Drain();Submit();++tick;}}
+    void FinishNativeBorrow(){RequireNativeBorrowAdmission();if(fault=="retirement-fail")throw vk::Exception{};Drain();Submit();++tick;}
+    u64 CurrentTick()const{return tick;}
+    void RequestOutsideRenderPassOperationContext(){}
+    template<class T>void RetainPresentationSource(T){}
+    void WaitForResourceRelease(u64 t){if(retired)return;Wait(t);}
+    void Shutdown(){closed=true;event("shutdown.closed");if(worker.joinable()){joining.release();worker.join();}Drain();joined=true;event("shutdown.joined");if(fail_idle)Common::TerminalFailStop("renderer.native_idle","vulkan_result",VK_ERROR_DEVICE_LOST);Submit();retired=true;event("shutdown.idle");}
+};
+void vk::CommandBuffer::PipelineBarrier(VkPipelineStageFlags,VkPipelineStageFlags,int,const VkImageMemoryBarrier&b){const bool before=b.newLayout==VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;pause_at(before?"barrier":"post");if(fault==(before?"worker-barrier":"worker-post"))throw Exception{};const auto i=reinterpret_cast<uintptr_t>(b.image)-1;s->native.push_back([s=s,i,b](bool partial){if(!partial)s->general[i]=b.newLayout==VK_IMAGE_LAYOUT_GENERAL;});}
+void vk::CommandBuffer::CopyBufferToImage(VkBuffer,VkImage image,VkImageLayout,const VkBufferImageCopy&c){pause_at("copy");if(fault=="worker-copy")throw std::runtime_error("record");const auto i=reinterpret_cast<uintptr_t>(image)-1;s->native.push_back([s=s,i,off=c.bufferOffset](bool partial){check(s->staging&&s->staging->size()>=off+8,"staging released before native copy");std::copy_n(s->staging->begin()+off,partial?4:8,s->pixels[i].begin());});}
+struct PresentPushConstants{};
+struct TextureInfo{u32 width=2,height=1,scaled_width=2,scaled_height=1;VkImage image{};VkImageView image_view{};bool native_owner{};};
+struct RasterizerVulkan{std::optional<TextureInfo>AccelerateDisplay(const Tegra::FramebufferConfig&,u64,u32){return {};}};
+struct AA{void Draw(Scheduler&s,size_t i,VkImage*,VkImageView*){++s.draws;if(fault=="aa-internal-finish")s.FinishNativeBorrow();s.Record([&s,i](vk::CommandBuffer){s.native.push_back([&s,i](bool){check(s.general[i],"sampled image without final upload barrier");check(s.pixels[i][0]==s.pixels[i][7]&&s.pixels[i][0]!=0,"sampled partial or uninitialized raw content");});});}};
+static u32 GetBytesPerPixel(const Tegra::FramebufferConfig&){return 4;}
+static size_t GetSizeInBytes(const Tegra::FramebufferConfig&f){return size_t(f.stride)*f.height*4;}
+struct Layer {
+    bool post_upload_failed{};
+    Scheduler&scheduler;Tegra::Memory device_memory;size_t image_count=3;
+    vk::Buffer buffer;std::vector<vk::Image>raw_images{{0},{1},{2}};std::vector<vk::View>raw_image_views{{0},{1},{2}};
+    std::vector<u64>resource_ticks{0,0,0};
+    u32 raw_width=2,raw_height=1,raw_stride=2;Service::android::PixelFormat pixel_format{};
+    std::unique_ptr<AA>anti_alias=std::make_unique<AA>();
+    @STATE@
+    @BUNDLE@
+    @STATE_MEMBER@
+    explicit Layer(Scheduler&s):scheduler{s}{scheduler.staging=&buffer.bytes;}
+    ~Layer();
+    bool UpdateRawImage(const Tegra::FramebufferConfig&,size_t);
+    bool ConfigureDraw(PresentPushConstants*,VkDescriptorSet*,RasterizerVulkan&,VkSampler,size_t,const Tegra::FramebufferConfig&,const Layout::FramebufferLayout&);
+    void SetAntiAliasPass(){if(!anti_alias)anti_alias=std::make_unique<AA>();}
+    void RefreshResources(const Tegra::FramebufferConfig&);
+    void WaitForResourceUses();void ClearRawImages();void ReleaseRawImages();
+    u64 GetRawImageOffset(const Tegra::FramebufferConfig&,size_t)const;
+    RawResources CreateRawImages(const Tegra::FramebufferConfig&){RawResources r;r.buffer.bytes.resize(24);r.images={{0},{1},{2}};r.views={{0},{1},{2}};r.ticks.resize(3);@NEW_STATES@return r;}
+    bool Draw(size_t i){PresentPushConstants p;VkDescriptorSet d{};RasterizerVulkan r;return ConfigureDraw(&p,&d,r,{},i,Tegra::FramebufferConfig{},Layout::FramebufferLayout{});}
+};
+@METHODS@
+}
+int main(int argc,char**argv){
+    if(argc!=3)return 2;
+    const std::string mode=argv[1];const size_t slot=std::stoul(argv[2]);
+    std::atexit([]{event("atexit");});
+    Vulkan::Scheduler s;
+    {Vulkan::Layer l{s};
+    auto expected=[&](bool b,const char*m){check(b,m);};
+    if(mode=="normal"||mode=="internal-finish"||mode=="repeat"){
+        if(mode=="internal-finish")fault="aa-internal-finish";
+        check(l.Draw(slot),"normal draw refused");
+        if(mode=="normal")check(s.pixels[slot][0]==0,"enqueue treated as native completion");
+        fault.clear();s.FinishNativeBorrow();
+        check(s.pixels[slot][7]==0x31&&s.general[slot],"upload not completed");
+        l.device_memory.value=0x72;check(l.Draw(slot),"repeat draw refused");s.FinishNativeBorrow();check(s.pixels[slot][7]==0x72,"repeat reused stale content");
+    }else if(mode.starts_with("pre-")){
+        fault=mode.substr(4);try{check(!l.Draw(slot),"source refusal treated as success");}catch(const std::exception&){}
+        check(!s.records&&!s.draws,"pre-record failure reached consumer");fault.clear();check(l.Draw(slot),"pre-record retry refused");s.FinishNativeBorrow();
+    }else if(mode.starts_with("worker-")){
+        check(l.Draw(slot),"worker draw refused");fault=mode;s.Drain();check(false,"worker failure escaped terminal boundary");
+    }else if(mode=="shutdown-active"||mode=="shutdown-active-idle-failure"){
+        check(l.Draw(slot),"active shutdown draw refused");gate="copy";
+        s.worker=std::jthread([&]{s.Drain();});entered.acquire();
+        std::jthread observer([&]{joining.acquire();check(s.closed&&!s.joined&&!s.retired,"shutdown skipped active worker join");check(s.pixels[slot][0]==0,"shutdown assumed recording completion");event("join.blocked");resume.release();});
+        s.fail_idle=mode=="shutdown-active-idle-failure";s.Shutdown();observer.join();
+        check(s.general[slot]&&s.pixels[slot][7]==0x31,"shutdown idle before native copy");
+    }else if(mode=="closed"||mode=="closed-upload"){
+        s.closed=true;if(mode=="closed")l.Draw(slot);else l.UpdateRawImage(Tegra::FramebufferConfig{},slot);check(false,"closed raw upload admitted");
+    }else if(mode.starts_with("gate-")){
+        gate=mode.substr(5);
+        std::jthread owner([&]{check(l.Draw(slot),"gated draw refused");if(gate!="enqueue")s.Drain();});
+        entered.acquire();
+        check(s.pixels[slot][0]==0,"gated recording published completed pixels");
+        if(gate=="enqueue"){@CHECK_RECORDING@}
+        resume.release();owner.join();fault.clear();s.Shutdown();
+    }else{
+        const bool warm=mode.starts_with("warm-");
+        std::string f=warm?mode.substr(5):mode;
+        if(warm){check(l.Draw(slot),"warm setup refused");s.FinishNativeBorrow();l.device_memory.value=0x72;}
+        if(f=="shutdown"||f=="idle-failure"||f=="rebuild"||f=="rebuild-wait-failure")fault="record-enqueued";else fault=f;
+        bool threw=false;try{l.Draw(slot);}catch(const std::exception&){threw=true;}
+        check(threw,"record failure not propagated");
+        check(l.resource_ticks[slot]==s.CurrentTick(),"failed prefix lost slot retirement tick");
+        check(s.draws==int(warm),"failed raw upload reached consumer");
+        fault.clear();const int reads=l.device_memory.reads,records=s.records;
+        const auto staged=l.buffer.bytes;
+        expected(!l.Draw(slot),"uncertain upload was retried");
+        check(l.device_memory.reads==reads&&s.records==records&&l.buffer.bytes==staged,"failed slot rewrote borrowed staging");
+        if(f=="rebuild"||f=="rebuild-wait-failure"){
+            if(f=="rebuild-wait-failure")fault="retirement-fail";
+            auto frame=Tegra::FramebufferConfig{};frame.width=1;l.RefreshResources(frame);
+            check(l.Draw(slot),"fresh resource generation remained quarantined");s.FinishNativeBorrow();
+        }else if(f=="shutdown"||f=="idle-failure"){
+            s.fail_idle=f=="idle-failure";s.Shutdown();
+        }else{
+            check(l.Draw((slot+1)%3),"failed slot poisoned independent slot");s.FinishNativeBorrow();
+        }
+    }
+    if(!s.retired)s.Shutdown();
+    }
+    event("owners.released");std::fprintf(stderr,"PASS raw upload %s slot=%zu\n",argv[1],slot);
+}

@@ -101,6 +101,8 @@ struct ImageBase {
     VAddr cpu_addr = 0;
     VAddr cpu_addr_end = 0;
 
+    // CPU invalidation generation survives clearing CpuModified during a later upload.
+    u64 cpu_write_epoch = 0;
     u64 modification_tick = 0;
     size_t lru_index = SIZE_MAX;
 

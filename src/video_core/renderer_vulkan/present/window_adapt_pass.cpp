@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/settings.h"
+#include "common/terminal_fail_stop.h"
 #include "core/frontend/framebuffer_layout.h"
 #include "video_core/framebuffer_config.h"
 #include "video_core/fsr.h"
@@ -34,6 +35,8 @@ void WindowAdaptPass::Draw(RasterizerVulkan& rasterizer, Scheduler& scheduler, s
                            std::list<Layer>& layers,
                            std::span<const Tegra::FramebufferConfig> configs,
                            const Layout::FramebufferLayout& layout, Frame* dst) {
+    scheduler.RequireNativeBorrowAdmission();
+    auto source_scope = scheduler.BeginPresentationSources();
 
     const VkFramebuffer host_framebuffer{*dst->framebuffer};
     const VkRenderPass renderpass{*render_pass};
@@ -47,6 +50,7 @@ void WindowAdaptPass::Draw(RasterizerVulkan& rasterizer, Scheduler& scheduler, s
     std::vector<PresentPushConstants> push_constants(layer_count);
     std::vector<VkDescriptorSet> descriptor_sets(layer_count);
     std::vector<VkPipeline> graphics_pipelines(layer_count);
+    std::vector<bool> drawable(layer_count);
 
     auto layer_it = layers.begin();
     for (size_t i = 0; i < layer_count; i++) {
@@ -63,90 +67,114 @@ void WindowAdaptPass::Draw(RasterizerVulkan& rasterizer, Scheduler& scheduler, s
             break;
         }
 
-        layer_it->ConfigureDraw(&push_constants[i], &descriptor_sets[i], rasterizer, *sampler,
-                                image_index, configs[i], layout);
+        drawable[i] = layer_it->ConfigureDraw(&push_constants[i], &descriptor_sets[i], rasterizer,
+                                               *sampler, image_index, configs[i], layout);
         layer_it++;
     }
 
-    scheduler.Record([=](vk::CommandBuffer cmdbuf) {
-        const f32 bg_red = Settings::values.bg_red.GetValue() / 255.0f;
-        const f32 bg_green = Settings::values.bg_green.GetValue() / 255.0f;
-        const f32 bg_blue = Settings::values.bg_blue.GetValue() / 255.0f;
-        const VkClearAttachment clear_attachment{
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .colorAttachment = 0,
-            .clearValue =
-                {
-                    .color = {.float32 = {bg_red, bg_green, bg_blue, 1.0f}},
-                },
-        };
-        const VkClearRect clear_rect{
-            .rect =
-                {
-                    .offset = {0, 0},
-                    .extent = render_area,
-                },
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        };
+    // The target Frame is borrowed from the caller. Record has no rollback
+    // receipt: retain target/pass/source owners on an uncertain enqueue or callback.
+    try {
+        scheduler.Record([=](vk::CommandBuffer cmdbuf) {
+            try {
+                const f32 bg_red = Settings::values.bg_red.GetValue() / 255.0f;
+                const f32 bg_green = Settings::values.bg_green.GetValue() / 255.0f;
+                const f32 bg_blue = Settings::values.bg_blue.GetValue() / 255.0f;
+                const VkClearAttachment clear_attachment{
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .colorAttachment = 0,
+                    .clearValue =
+                        {
+                            .color = {.float32 = {bg_red, bg_green, bg_blue, 1.0f}},
+                        },
+                };
+                const VkClearRect clear_rect{
+                    .rect =
+                        {
+                            .offset = {0, 0},
+                            .extent = render_area,
+                        },
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                };
 
-        BeginRenderPass(cmdbuf, renderpass, host_framebuffer, render_area);
-        cmdbuf.ClearAttachments({clear_attachment}, {clear_rect});
+                BeginRenderPass(cmdbuf, renderpass, host_framebuffer, render_area);
+                cmdbuf.ClearAttachments({clear_attachment}, {clear_rect});
 
-        const auto current_scaling_filter = Settings::values.scaling_filter.GetValue();
-        const bool is_crt_enabled =
-            current_scaling_filter == Settings::ScalingFilter::CRTEasyMode ||
-            current_scaling_filter == Settings::ScalingFilter::CRTRoyale;
+                const auto current_scaling_filter = Settings::values.scaling_filter.GetValue();
+                const bool is_crt_enabled =
+                    current_scaling_filter == Settings::ScalingFilter::CRTEasyMode ||
+                    current_scaling_filter == Settings::ScalingFilter::CRTRoyale;
 
-        for (size_t i = 0; i < layer_count; i++) {
-            cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipelines[i]);
-            cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0,
-                                 sizeof(PresentPushConstants), &push_constants[i]);
+                for (size_t i = 0; i < layer_count; i++) {
+                    if (!drawable[i]) continue;
+                    cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipelines[i]);
+                    cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0,
+                                         sizeof(PresentPushConstants), &push_constants[i]);
 
-            // Push Lanczos quality if using Lanczos filter
-            if (current_scaling_filter == Settings::ScalingFilter::Lanczos && !is_crt_enabled) {
-                const s32 lanczos_a = Settings::values.lanczos_quality.GetValue();
-                cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
-                                     sizeof(PresentPushConstants), sizeof(s32), &lanczos_a);
+                    // Push Lanczos quality if using Lanczos filter
+                    if (current_scaling_filter == Settings::ScalingFilter::Lanczos && !is_crt_enabled) {
+                        const s32 lanczos_a = Settings::values.lanczos_quality.GetValue();
+                        cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+                                             sizeof(PresentPushConstants), sizeof(s32), &lanczos_a);
+                    }
+
+                    // Push CRT parameters if CRT filter is enabled
+                    if (is_crt_enabled) {
+                        struct CRTPushConstants {
+                            float scanline_strength;
+                            float curvature;
+                            float gamma;
+                            float bloom;
+                            int mask_type;
+                            float brightness;
+                            float alpha;
+                            float screen_width;
+                            float screen_height;
+                        } crt_constants;
+
+                        crt_constants.scanline_strength = Settings::values.crt_scanline_strength.GetValue();
+                        crt_constants.curvature = Settings::values.crt_curvature.GetValue();
+                        crt_constants.gamma = Settings::values.crt_gamma.GetValue();
+                        crt_constants.bloom = Settings::values.crt_bloom.GetValue();
+                        crt_constants.mask_type = Settings::values.crt_mask_type.GetValue();
+                        crt_constants.brightness = Settings::values.crt_brightness.GetValue();
+                        crt_constants.alpha = Settings::values.crt_alpha.GetValue();
+                        crt_constants.screen_width = static_cast<float>(render_area.width);
+                        crt_constants.screen_height = static_cast<float>(render_area.height);
+
+                        cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+                                             sizeof(PresentPushConstants) + sizeof(s32),
+                                             sizeof(CRTPushConstants), &crt_constants);
+                    }
+
+                    cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout, 0,
+                                              descriptor_sets[i], {});
+
+                    cmdbuf.Draw(4, 1, 0, 0);
+                }
+
+                cmdbuf.EndRenderPass();
+            } catch (const vk::Exception& error) {
+                Common::TerminalFailStop("composition.recording", "vulkan_exception",
+                                         static_cast<int>(error.GetResult()));
+            } catch (...) {
+                Common::TerminalFailStop("composition.recording", "host_exception");
             }
-
-            // Push CRT parameters if CRT filter is enabled
-            if (is_crt_enabled) {
-                struct CRTPushConstants {
-                    float scanline_strength;
-                    float curvature;
-                    float gamma;
-                    float bloom;
-                    int mask_type;
-                    float brightness;
-                    float alpha;
-                    float screen_width;
-                    float screen_height;
-                } crt_constants;
-
-                crt_constants.scanline_strength = Settings::values.crt_scanline_strength.GetValue();
-                crt_constants.curvature = Settings::values.crt_curvature.GetValue();
-                crt_constants.gamma = Settings::values.crt_gamma.GetValue();
-                crt_constants.bloom = Settings::values.crt_bloom.GetValue();
-                crt_constants.mask_type = Settings::values.crt_mask_type.GetValue();
-                crt_constants.brightness = Settings::values.crt_brightness.GetValue();
-                crt_constants.alpha = Settings::values.crt_alpha.GetValue();
-                crt_constants.screen_width = static_cast<float>(render_area.width);
-                crt_constants.screen_height = static_cast<float>(render_area.height);
-
-                cmdbuf.PushConstants(graphics_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
-                                     sizeof(PresentPushConstants) + sizeof(s32),
-                                     sizeof(CRTPushConstants), &crt_constants);
-            }
-
-            cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout, 0,
-                                      descriptor_sets[i], {});
-
-            cmdbuf.Draw(4, 1, 0, 0);
+        });
+    } catch (...) {
+        // Keep caller-owned Frame and source scope alive through a checked prefix
+        // retirement. Only then may the original error unwind to applet isolation.
+        try {
+            scheduler.FinishNativeBorrow();
+        } catch (const vk::Exception& error) {
+            Common::TerminalFailStop("composition.retirement", "vulkan_exception",
+                                     static_cast<int>(error.GetResult()));
+        } catch (...) {
+            Common::TerminalFailStop("composition.retirement", "host_exception");
         }
-
-        cmdbuf.EndRenderPass();
-    });
+        throw;
+    }
 }
 
 VkDescriptorSetLayout WindowAdaptPass::GetDescriptorSetLayout() {

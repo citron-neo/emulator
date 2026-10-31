@@ -1,0 +1,175 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Extracted production functions; simulated memory, engines, callbacks and scheduling.
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <iostream>
+#include <limits>
+#include <optional>
+#include <span>
+#include <stdexcept>
+#include <utility>
+#include <vector>
+#include "common/common_types.h"
+#include "common/bit_field.h"
+#include "common/scratch_buffer.h"
+#include "core/guest_memory.h"
+#include "video_core/invalid_gpu_address.h"
+#define LOG_ERROR(...) ((void)0)
+constexpr bool vulnerable = /* VULNERABLE */;
+void require(bool ok, const char* message) {if (!ok) throw std::runtime_error(message);}
+/* TYPES */
+struct CommandMemory {
+    std::vector<CommandHeader> words;
+    bool contiguous{true}; int safe_reads{}, unsafe_reads{}, flushes{};
+    u8* GetSpan(u64,size_t) {return contiguous ? reinterpret_cast<u8*>(words.data()) : nullptr;}
+    void FlushRegion(u64,size_t) {++flushes;}
+    void ReadBlock(u64,void* dest,size_t size) {++safe_reads;FlushRegion(0,size);std::memcpy(dest,words.data(),size);}
+    void ReadBlockUnsafe(u64,void* dest,size_t size) {++unsafe_reads;std::memcpy(dest,words.data(),size);}
+    void Set(std::initializer_list<u32> data) {words.clear();for(u32 word:data)words.push_back(CommandHeader{word});}
+};
+namespace Tegra {using ::CommandHeader;}
+namespace Tegra::Memory {
+using Core::Memory::GuestMemoryFlags;
+template<typename T,GuestMemoryFlags FLAGS>
+using GpuGuestMemory = Core::Memory::GuestMemory<CommandMemory,T,FLAGS>;
+}
+class DmaPusher {
+public:
+    struct State {u32 method{},subchannel{},method_count{};u64 dma_get{},dma_word_offset{};bool non_incrementing{},is_last_call{};} dma_state;
+    CommandMemory memory_manager;
+    Common::ScratchBuffer<CommandHeader> command_headers;
+    bool dma_increment_once{}, suspended{},method_admission_parked{};
+    std::vector<CommandHeader> resume_commands;u64 resume_dma_get{};
+    static constexpr u32 non_puller_methods=0x40;
+    std::function<bool(u32,u32,std::span<const u32>,u32)> method_admission;
+    std::function<void(u32,u32)> on_method;
+    std::vector<std::pair<u32,u32>> observed;
+    bool IsSuspended() const {return suspended||method_admission_parked;}
+    void CallMethod(u32 value) {observed.emplace_back(dma_state.method,value);if(on_method)on_method(dma_state.method,value);}
+    void CallMultiMethod(const u32* data,u32 count) {for(u32 i=0;i<count;++i)CallMethod(data[i]);}
+    void ProcessCommands(std::span<const CommandHeader>);
+    void SetState(const CommandHeader&);
+    void SaveContinuation(std::span<const CommandHeader>,size_t);
+    void Segment(bool safe) {
+        const struct {u32 size;} command_list_header{static_cast<u32>(memory_manager.words.size())};
+/* SEGMENTS */
+        if(safe)safe_process();else unsafe_process();
+    }
+};
+/* DECODE */
+void commands() {
+    for(bool safe:{false,true})for(bool contiguous:{false,true}) {
+        DmaPusher p;p.memory_manager.contiguous=contiguous;
+        p.memory_manager.Set({0x80000002,0x200100ad,0x12000,0x800000af});
+        p.on_method=[&](u32 method,u32){if(method==2)p.memory_manager.words[2].argument=0x910e0002;};
+        p.Segment(safe);
+        require(p.observed.size()==3,"method count");
+        const auto expected=vulnerable&&contiguous?0x910e0002u:0x12000u;
+        require(p.observed[1]==std::pair{0xadu,expected},"mutable command source");
+        require(safe ? p.memory_manager.flushes==1 : p.memory_manager.flushes==0,"safe/unsafe flush policy");
+        if(!vulnerable)require(safe?p.memory_manager.safe_reads==1:p.memory_manager.unsafe_reads==1,"owned read selected");
+    }
+    { // Packet data can continue into a separately fetched GPFIFO segment.
+        DmaPusher p;p.memory_manager.Set({0x20020060,7});p.Segment(true);
+        p.memory_manager.Set({9,0x80000002});p.Segment(true);
+        require(p.observed[0]==std::pair{0x60u,7u}&&p.observed[1]==std::pair{0x61u,9u},"split increasing packet");
+        require(p.dma_state.method_count==0,"split remaining count");
+    }
+    { // NI and IncreaseOnce retain their register selection and consume all words.
+        DmaPusher p;p.memory_manager.Set({0x6003006d,1,2,3,0xa0030060,4,5,6});p.Segment(false);
+        const std::vector<std::pair<u32,u32>> expected{{0x6d,1},{0x6d,2},{0x6d,3},{0x60,4},{0x61,5},{0x61,6}};
+        require(p.observed==expected,"NI/IncreaseOnce decoding");
+    }
+    { // A semaphore-style stop preserves the undecoded owned tail.
+        DmaPusher p;p.memory_manager.Set({0x8000001a,0x200100ad,0x12000});
+        p.on_method=[&](u32 method,u32){if(method==0x1a)p.suspended=true;};p.Segment(true);
+        require(p.observed.size()==1&&p.resume_commands.size()==2,"continuation saved");
+        p.memory_manager.words[2].argument=0x910e0002;p.suspended=false;p.on_method={};
+        p.ProcessCommands(p.resume_commands);
+        require(p.observed.back()==std::pair{0xadu,0x12000u},"continuation owns tail");
+    }
+    { // Later segments are fetched at execution, not eagerly snapshotted at submission.
+        DmaPusher p;p.memory_manager.Set({0x80000002});p.Segment(true);
+        p.memory_manager.Set({0x200100ad,0x33000});p.Segment(true);
+        require(p.observed.back()==std::pair{0xadu,0x33000u},"deferred segment data");
+    }
+    { // A snapshot cannot repair data already overwritten before fetch.
+        DmaPusher p;p.memory_manager.Set({0x200100ad,0x910e0002});p.Segment(true);
+        require(p.observed.back().second==0x910e0002,"pre-fetch corruption control");
+    }
+    { // Main/WIP optional method admission must park before effects and retain arguments.
+        DmaPusher p;
+        p.method_admission=[](u32,u32,std::span<const u32>,u32){return false;};
+        p.memory_manager.Set({0x200100ad,0x12000});p.Segment(true);
+        // The repair baseline has no admission hooks; main/WIP do.
+        require(p.method_admission_parked == /* ADMISSION */,"admission hook executed");
+        if(p.method_admission_parked){
+            require(p.observed.empty()&&p.resume_commands.size()==1,"admission parked unexecuted data");
+            p.memory_manager.words[1].argument=0x910e0002;p.method_admission={};p.method_admission_parked=false;
+            p.ProcessCommands(p.resume_commands);require(p.observed.back().second==0x12000,"admission retry source");
+        }
+    }
+    std::cout<<"PASS command ownership, safe/unsafe reads, packet splits, NI/IncreaseOnce, continuation, deferred fetch, pre-fetch control, optional admission\n";
+}
+#define KEPLER_COMPUTE_REG_INDEX(name) offsetof(Regs,name)/sizeof(u32)
+#define LAUNCH_REG_INDEX(name) offsetof(LaunchParams,name)/sizeof(u32)
+struct QmdMemory {
+    u64 address_space_size=1ull<<37;int reads{},dirty_checks{};
+/* RANGE */
+    bool IsMemoryDirty(u64,size_t){++dirty_checks;return false;}
+    void ReadBlockUnsafe(u64 address,void* data,size_t bytes,const char*){
+        ++reads;require(address<address_space_size&&bytes<=address_space_size-address,"out-of-range metadata lookup reached");
+        std::memset(data,0,bytes);
+    }
+};
+class KeplerCompute {
+public:
+    struct LaunchParams {static constexpr size_t NUM_LAUNCH_PARAMETERS=64;u32 reserved[12]{},grid_dim_x{};u32 rest[51]{};} launch_description;
+    struct DescriptorAddress {u32 value;u64 Address()const{return static_cast<u64>(value)<<8;}};
+    struct Regs {
+        static constexpr u32 NUM_REGS=256;
+        union {u32 reg_array[NUM_REGS]{};struct {struct {u32 linear;} exec_upload;u32 data_upload;u32 launch;DescriptorAddress launch_desc_loc;struct {u32 line_count,line_length_in;struct {u32 pitch;}dest;}upload;};};
+    } regs;
+    struct UploadState {
+        void ProcessExec(bool){}void ProcessData(u32,bool){}u64 ExecTargetAddress(){return 0;}size_t GetUploadSize(){return 0;}
+    } upload_state;
+    struct Source {void Begin(u64,size_t,bool){}} upload_source;
+    struct UploadInfo {u64 upload_address{},exec_address{};size_t copy_size{};bool contiguous{true};bool Overlaps(u64,size_t)const{return false;}std::optional<u64>IndirectAddress(u64,size_t)const{return {};}};
+    std::vector<UploadInfo> uploads;
+    u64 upload_address{},current_dma_segment{};std::optional<u64> indirect_compute;
+    QmdMemory memory_manager;
+    struct Rasterizer {int dispatches{};void DispatchCompute(){++dispatches;}} rasterizer_storage;
+    Rasterizer* rasterizer=&rasterizer_storage;int releases{};
+    void ProcessUpload(const u32*,size_t){}
+    void ReleaseQmdSemaphores(){++releases;}
+    void CallMethod(u32,u32,bool);void ProcessLaunch();
+};
+/* QMD */
+void qmd() {
+    for(u64 address:{0ull,0x1000ull,(1ull<<37)-256}){
+        KeplerCompute p;p.regs.launch_desc_loc.value=static_cast<u32>(address>>8);
+        p.CallMethod(offsetof(KeplerCompute::Regs,launch)/sizeof(u32),1,true);
+        require(p.memory_manager.reads==1&&p.rasterizer->dispatches==1&&p.releases==/* VALID_RELEASES */,"valid QMD behavior");
+    }
+    for(u64 address:{1ull<<37,(1ull<<37)+256,0x910e000200ull,0xffffffff00ull}) {
+        KeplerCompute p;p.regs.launch_desc_loc.value=static_cast<u32>(address>>8);
+        p.uploads.push_back({});bool rejected=false;
+        try {p.CallMethod(offsetof(KeplerCompute::Regs,launch)/sizeof(u32),1,true);}
+        catch(const VideoCommon::InvalidGpuAddress&){rejected=true;}
+        catch(const std::runtime_error&){require(vulnerable,"unhandled descriptor read failure");}
+        require(rejected==!vulnerable,"QMD guard presence");
+        require(p.memory_manager.reads==(vulnerable?1:0),"reject before QMD read");
+        require(p.rasterizer->dispatches==0&&p.releases==0,"no dispatch or fake semaphore completion");
+        if(!vulnerable)require(p.memory_manager.dirty_checks==0&&p.uploads.size()==1,"reject before indirect state effects");
+    }
+    QmdMemory m;
+/* RANGE_CASES */
+    require(m.IsWithinGPUAddressRange((1ull<<37)-1),"single byte boundary");
+    require(!m.IsWithinGPUAddressRange(1ull<<37),"single byte outside");
+    std::cout<<"PASS QMD valid boundaries and invalid-address oracle\n";
+}
+int main(){/* SUITE */}

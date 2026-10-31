@@ -1,0 +1,54 @@
+{
+  "src/audio_core/audio_manager.cpp": [
+    [
+      "#include \"common/thread.h\"",
+      "#include \"common/thread.h\"\n#include \"common/terminal_fail_stop.h\""
+    ],
+    [
+      "void AudioManager::Shutdown() {\n    running = false;\n    thread.request_stop();\n    events.SetAudioEvent(Event::Type::Max, true);\n    thread.join();\n}",
+      "void AudioManager::Shutdown() {\n    // The owning System teardown serializes Shutdown calls. Closing registration\n    // shares its lock with SetIn/OutManager; never hold it across the worker join.\n    try {\n        {\n            std::scoped_lock l{lock};\n            running = false;\n            thread.request_stop();\n        }\n        events.SetAudioEvent(Event::Type::Max, true);\n        // AudioCore destruction repeats this after the earlier service-owner drain.\n        if (thread.joinable()) {\n            thread.join();\n        }\n    } catch (...) {\n        // Uncertain join cannot unwind the service targets or native context.\n        Common::TerminalFailStop(\"audio.callback_join\", \"host_exception\");\n    }\n}"
+    ],
+    [
+      "    if (!running) {\n        return Service::Audio::ResultOperationFailed;\n    }\n\n    std::scoped_lock l{lock};",
+      "    std::scoped_lock l{lock};\n    if (!running) {\n        return Service::Audio::ResultOperationFailed;\n    }"
+    ]
+  ],
+  "src/core/hle/service/server_manager.h": [
+    [
+      "#include <list>",
+      "#include <functional>\n#include <list>"
+    ],
+    [
+      "#include <vector>",
+      "#include <utility>\n#include <vector>"
+    ],
+    [
+      "    ~ServerManager();",
+      "    ~ServerManager();\n\n    // Cold setup only, before RunServer/LoopProcess publishes the server.\n    // Runs after IPC workers join, while handler factories and sessions still own targets.\n    void SetBeforeServiceRelease(std::function<void()> drain) {\n        m_before_service_release = std::move(drain);\n    }"
+    ],
+    [
+      "    std::stop_source m_stop_source{};",
+      "    std::stop_source m_stop_source{};\n    std::function<void()> m_before_service_release;"
+    ]
+  ],
+  "src/core/hle/service/server_manager.cpp": [
+    [
+      "#include \"core/hle/service/server_manager.h\"",
+      "#include \"core/hle/service/server_manager.h\"\n#include \"common/terminal_fail_stop.h\""
+    ],
+    [
+      "    m_threads.clear();\n\n    // Clean up ports.",
+      "    m_threads.clear();\n\n    // A service worker may hold a callback target lock. Join those workers first,\n    // then drain external callbacks before releasing any handler/session owner.\n    try {\n        if (m_before_service_release) {\n            m_before_service_release();\n        }\n    } catch (...) {\n        Common::TerminalFailStop(\"service.owner_drain\", \"host_exception\");\n    }\n\n    // Clean up ports."
+    ]
+  ],
+  "src/core/hle/service/audio/audio.cpp": [
+    [
+      "#include \"core/core.h\"",
+      "#include \"audio_core/audio_core.h\"\n#include \"core/core.h\""
+    ],
+    [
+      "    auto server_manager = std::make_unique<ServerManager>(system);",
+      "    auto server_manager = std::make_unique<ServerManager>(system);\n    server_manager->SetBeforeServiceRelease([&system] { system.AudioCore().Shutdown(); });"
+    ]
+  ]
+}

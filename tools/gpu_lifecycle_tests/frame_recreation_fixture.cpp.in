@@ -1,0 +1,205 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <list>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <semaphore>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <type_traits>
+#include <utility>
+#include <vector>
+#include <vulkan/vulkan.h>
+#include "common/common_types.h"
+#include "common/terminal_fail_stop.h"
+static std::string fault,gate;static bool host_fault{},initializing{},gated{};
+static std::binary_semaphore entered{0},resume{0};
+static int allocations{},idle_calls{},draws{},pass_calls{};
+static uintptr_t next_id=1;
+static void event(const char*s){std::fprintf(stderr,"EVENT %s\n",s);std::fflush(stderr);}
+static void check(bool b,const char*s){if(!b){std::fprintf(stderr,"FAIL %s\n",s);std::fflush(stderr);std::_Exit(91);}}
+struct Root{uintptr_t id;int kind,children{},uses{};bool live=true;std::shared_ptr<Root>parent;};
+static std::map<uintptr_t,std::shared_ptr<Root>>roots;
+namespace Vulkan{namespace vk{struct Exception:std::exception{VkResult GetResult()const{return VK_ERROR_OUT_OF_DEVICE_MEMORY;}};}}
+static void before(const char*stage){if(initializing)return;++allocations;if(gate==stage&&!gated){gated=true;entered.release();resume.acquire();}if(fault==stage){if(host_fault)throw std::bad_alloc();throw Vulkan::vk::Exception{};}}
+static std::shared_ptr<Root>make(int kind,std::shared_ptr<Root>parent={}){if(parent){check(parent->live,"factory used retired parent");++parent->children;}auto r=std::make_shared<Root>(Root{next_id++,kind,0,0,true,std::move(parent)});roots[r->id]=r;return r;}
+namespace Settings{
+enum class ScalingFilter{NearestNeighbor,Bilinear,Bicubic,Lanczos,Gaussian,ScaleForce,ScaleFx,CRTEasyMode,CRTRoyale,Cas,Fsr,Fsr2};
+static bool IsGPULevelLow(){return false;}
+}
+namespace Layout{struct FramebufferLayout{u32 width=8,height=8;struct Screen{u32 GetWidth()const{return 8;}u32 GetHeight()const{return 8;}}screen;};}
+namespace VideoCore::Capture{static constexpr Layout::FramebufferLayout Layout{};}
+namespace Tegra{struct FramebufferConfig{bool is_applet=true;u64 owner_aruid=1;int z_index=1;};}
+namespace Vulkan{
+namespace vk{
+template<class H,int Kind>struct Native{
+ std::shared_ptr<Root>root;
+ Native()=default;explicit Native(std::shared_ptr<Root>r):root{std::move(r)}{}
+ Native(const Native&)=delete;Native&operator=(const Native&)=delete;
+ Native(Native&&r)noexcept:root{std::move(r.root)}{}
+ Native&operator=(Native&&r)noexcept{Reset();root=std::move(r.root);return *this;}
+ ~Native(){Reset();}
+ void Reset()noexcept{if(root){check(root->uses==0,"native owner destroyed before checked idle");check(root->children==0,"parent destroyed with live children");if(root->parent)--root->parent->children;root->live=false;event(Kind==0?"image.destroy":Kind==1?"view.destroy":Kind==2?"framebuffer.destroy":Kind==3?"pass.destroy":"layer.destroy");root.reset();}}
+ H operator*()const{return root?reinterpret_cast<H>(root->id):nullptr;}
+ explicit operator bool()const{return bool(root);}
+};
+using Image=Native<VkImage,0>;using ImageView=Native<VkImageView,1>;using Framebuffer=Native<VkFramebuffer,2>;
+using RenderPass=Native<VkRenderPass,3>;using LayerOwner=Native<VkBuffer,4>;
+struct CommandBuffer{int id{};};struct Semaphore{int id{};};struct Fence{int id{};};
+}
+@FRAME@
+static constexpr bool has_frame_format=@HAS_FORMAT@;
+static VkFormat FrameFormat(const Frame&f){@FRAME_FORMAT_GET@}
+struct Scheduler{
+ struct Mutex{std::mutex value;std::atomic_bool held{};void lock(){value.lock();held=true;}void unlock(){held=false;value.unlock();}}submit_mutex;
+ std::vector<std::shared_ptr<Root>>uses;std::atomic_bool closed{};bool recording{},presentation{},joined{},retired{},fail_idle{};
+ void RequireNativeBorrowAdmission()const{if(closed)Common::TerminalFailStop("native_borrow.entry","closed_admission");}
+ void Finish(){RequireNativeBorrowAdmission();recording=false;presentation=false;}
+ void WaitWorker(){recording=true;}
+ void Use(const std::shared_ptr<Root>&r){if(r){++r->uses;uses.push_back(r);}}
+ void Complete(){for(auto&r:uses)--r->uses;uses.clear();}
+ void Shutdown(){closed=true;joined=true;event("shutdown.joined");if(fail_idle)Common::TerminalFailStop("renderer.native_idle","vulkan_result",VK_ERROR_DEVICE_LOST);Complete();retired=true;event("shutdown.idle");}
+};
+struct Logical{
+ Scheduler*s{};
+ vk::ImageView CreateImageView(const VkImageViewCreateInfo&ci)const{before("view");return vk::ImageView{make(1,roots.at(reinterpret_cast<uintptr_t>(ci.image)))};}
+ vk::Framebuffer CreateFramebuffer(const VkFramebufferCreateInfo&ci)const{before("framebuffer");return vk::Framebuffer{make(2,roots.at(reinterpret_cast<uintptr_t>(*ci.pAttachments)))};}
+ VkResult WaitIdle()const{++idle_calls;check(s->recording&&s->presentation&&s->submit_mutex.held,"idle before host drains or without submit lock");if(fault=="idle")return VK_ERROR_DEVICE_LOST;s->Complete();return VK_SUCCESS;}
+};
+struct Device{Logical logical;const Logical&GetLogical()const{return logical;}};
+struct MemoryAllocator{vk::Image CreateImage(const VkImageCreateInfo&){before("image");return vk::Image{make(0)};}};
+struct Swapchain{VkFormat GetImageFormat()const{return VK_FORMAT_R8G8B8A8_UNORM;}};
+struct PresentManager{
+ const Device&device;MemoryAllocator&memory_allocator;Scheduler&scheduler;Swapchain swapchain;
+ void WaitPresent(){scheduler.presentation=true;}
+ void RecreateFrame(Frame*,u32,u32,VkFormat,VkRenderPass);
+};
+@RECREATE@
+struct Memory{};struct RasterizerVulkan{};struct Filters{Settings::ScalingFilter requested=Settings::ScalingFilter::Bilinear;auto get_scaling_filter()const{return requested;}};
+struct Layer{size_t slots;bool failed=true;vk::LayerOwner owner{make(4)};
+ template<class...T>Layer(const Device&,MemoryAllocator&,Scheduler&,Memory&,size_t count,T&&...):slots{count}{}
+};
+struct WindowAdaptPass{
+ vk::RenderPass pass{make(3)};VkFormat format;Settings::ScalingFilter kind;
+ WindowAdaptPass(VkFormat f,Settings::ScalingFilter k):format{f},kind{k}{}
+ VkRenderPass GetRenderPass(){return *pass;}VkDescriptorSetLayout GetDescriptorSetLayout(){return reinterpret_cast<VkDescriptorSetLayout>(1);}
+ void Draw(RasterizerVulkan&,Scheduler&s,size_t index,std::list<Layer>&layers,std::span<const Tegra::FramebufferConfig>,const Layout::FramebufferLayout&,Frame*f){
+  ++draws;check(!has_frame_format||FrameFormat(*f)==format,"draw used stale Frame view format");check(bool(f->image)&&bool(f->image_view)&&bool(f->framebuffer),"draw used incomplete Frame");
+  check(f->image_view.root->parent==f->image.root&&f->framebuffer.root->parent==f->image_view.root,"draw used mismatched resource tuple");
+  for(auto&l:layers){check(index<l.slots,"draw used retired slot");s.Use(l.owner.root);}s.Use(f->image.root);s.Use(f->image_view.root);s.Use(f->framebuffer.root);s.Use(pass.root);
+  if(fault=="draw")throw std::runtime_error("draw");
+ }
+};
+static auto MakePass(VkFormat f,Settings::ScalingFilter k){if(!initializing)++pass_calls;before("pass");return std::make_unique<WindowAdaptPass>(f,k);}
+#define FACTORY(name,kind) static auto name(const Device&,VkFormat f){return MakePass(f,Settings::ScalingFilter::kind);}
+FACTORY(MakeNearestNeighbor,NearestNeighbor) FACTORY(MakeBilinear,Bilinear) FACTORY(MakeBicubic,Bicubic) FACTORY(MakeLanczos,Lanczos) FACTORY(MakeGaussian,Gaussian) FACTORY(MakeScaleForce,ScaleForce) FACTORY(MakeScaleFx,ScaleFx) FACTORY(MakeCRT,CRTEasyMode)
+struct BlitScreen{
+ Memory device_memory;const Device&device;MemoryAllocator&memory_allocator;PresentManager&present_manager;Scheduler&scheduler;Filters filters;
+ size_t image_count=3,image_index=2;VkFormat swapchain_view_format=VK_FORMAT_R8G8B8A8_UNORM;Settings::ScalingFilter scaling_filter=Settings::ScalingFilter::Bilinear;
+ std::unique_ptr<WindowAdaptPass>window_adapt;std::list<Layer>layers;
+ BlitScreen(const Device&d,MemoryAllocator&a,PresentManager&p,Scheduler&s):device{d},memory_allocator{a},present_manager{p},scheduler{s},window_adapt{MakeBilinear(d,swapchain_view_format)}{}
+ void WaitIdle();
+ @FACTORY_DECL@
+ void DrawToFrame(RasterizerVulkan&,Frame*,std::span<const Tegra::FramebufferConfig>,const Layout::FramebufferLayout&,size_t,VkFormat);
+ vk::Framebuffer CreateFramebuffer(const Layout::FramebufferLayout&,VkImageView,VkFormat);
+ vk::Framebuffer CreateFramebuffer(const VkImageView&,VkExtent2D,VkRenderPass);
+};
+@BLIT@
+struct Snapshot{
+ u32 width,height;VkFormat frame_format;uintptr_t image,view,framebuffer,pass;int cmdbuf,semaphore,fence;size_t count,index;VkFormat format;Settings::ScalingFilter filter;
+ std::vector<std::pair<uintptr_t,bool>>layers;
+ Snapshot(const Frame&f,const BlitScreen&b):width{f.width},height{f.height},frame_format{FrameFormat(f)},image{f.image.root?f.image.root->id:0},view{f.image_view.root?f.image_view.root->id:0},framebuffer{f.framebuffer.root?f.framebuffer.root->id:0},pass{b.window_adapt?b.window_adapt->pass.root->id:0},cmdbuf{f.cmdbuf.id},semaphore{f.render_ready.id},fence{f.present_done.id},count{b.image_count},index{b.image_index},format{b.swapchain_view_format},filter{b.scaling_filter}{for(auto&l:b.layers)layers.emplace_back(l.owner.root->id,l.failed);}
+ bool operator==(const Snapshot&)const=default;
+};
+static vk::Image CreateWrappedImage(MemoryAllocator&a,VkExtent2D e,VkFormat format){return a.CreateImage(VkImageCreateInfo{.sType=VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,.format=format,.extent={e.width,e.height,1}});}
+static vk::ImageView CreateWrappedImageView(const Device&d,vk::Image&i,VkFormat f){return d.GetLogical().CreateImageView(VkImageViewCreateInfo{.sType=VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,.image=*i,.format=f});}
+static constexpr VkExtent2D CaptureImageSize{8,8};static constexpr VkFormat CaptureFormat=VK_FORMAT_R8G8B8A8_UNORM;
+struct RendererVulkan{
+ @APPLET_STATE@
+ AppletCaptureState applet_capture_state{AppletCaptureState::Empty};Frame applet_frame{};
+ const Device&device;MemoryAllocator&memory_allocator;BlitScreen&blit_applet;RasterizerVulkan rasterizer;
+ RendererVulkan(const Device&d,MemoryAllocator&a,BlitScreen&b):device{d},memory_allocator{a},blit_applet{b}{}
+ u64 GetMainApplicationAruid()const{return 0;}
+ void RenderAppletCaptureLayer(std::span<const Tegra::FramebufferConfig>);
+ std::vector<u8>GetAppletCaptureBuffer();
+};
+@APPLET@
+}
+int main(int argc,char**argv){
+ if(argc!=3)return 2;const std::string mode=argv[1],stage=argv[2];
+ std::atexit([]{event("atexit");});
+ Vulkan::Scheduler scheduler;Vulkan::Device device{{&scheduler}};Vulkan::MemoryAllocator allocator;Vulkan::PresentManager manager{device,allocator,scheduler,{}};
+ initializing=true;
+ {Vulkan::BlitScreen blit{device,allocator,manager,scheduler};Vulkan::Frame frame{};
+ frame.cmdbuf.id=111;frame.render_ready.id=222;frame.present_done.id=333;
+ const bool warm=mode!="cold";
+ if(warm){manager.RecreateFrame(&frame,4,4,VK_FORMAT_R8G8B8A8_UNORM,blit.window_adapt->GetRenderPass());for(int i=0;i<2;++i)blit.layers.emplace_back(device,allocator,scheduler,blit.device_memory,3);}
+ initializing=false;
+ auto use_old=[&]{scheduler.Use(frame.image.root);scheduler.Use(frame.image_view.root);scheduler.Use(frame.framebuffer.root);scheduler.Use(blit.window_adapt->pass.root);for(auto&l:blit.layers)scheduler.Use(l.owner.root);};
+ if(warm)use_old();
+ Vulkan::RasterizerVulkan raster;const std::array<Tegra::FramebufferConfig,2>configs{};
+ auto desired=Layout::FramebufferLayout{};
+ if(mode=="shrink"&&stage!="success")blit.image_index=static_cast<size_t>(stage[0]-'0');
+ auto draw=[&](size_t count=1,VkFormat format=VK_FORMAT_B8G8R8A8_UNORM){blit.DrawToFrame(raster,&frame,configs,desired,count,format);};
+ if(mode=="direct"||mode=="cold"){
+  if(warm)blit.WaitIdle();const auto snapshot=Vulkan::Snapshot(frame,blit);
+  fault=stage;bool threw=false;try{manager.RecreateFrame(&frame,8,8,VK_FORMAT_B8G8R8A8_UNORM,blit.window_adapt->GetRenderPass());}catch(const std::exception&){threw=true;}
+  if(stage!="success"){check(threw,"recreate failure not propagated");check(Vulkan::Snapshot(frame,blit)==snapshot,"failed recreate changed publication");}
+  fault.clear();manager.RecreateFrame(&frame,8,8,VK_FORMAT_B8G8R8A8_UNORM,blit.window_adapt->GetRenderPass());
+  check(frame.width==8&&frame.height==8&&frame.image_view.root->parent==frame.image.root&&frame.framebuffer.root->parent==frame.image_view.root,"recreate retry incomplete");
+  check(frame.cmdbuf.id==111&&frame.render_ready.id==222&&frame.present_done.id==333,"recreate replaced synchronization identity");
+ }else if(mode=="pool-format"||mode=="pool-reverse"){
+  std::array<Vulkan::Frame,2>extra{};for(auto&f:extra)manager.RecreateFrame(&f,4,4,VK_FORMAT_R8G8B8A8_UNORM,blit.window_adapt->GetRenderPass());
+  auto layout=Layout::FramebufferLayout{};layout.width=4;layout.height=4;
+  blit.DrawToFrame(raster,&frame,configs,layout,3,VK_FORMAT_B8G8R8A8_UNORM);
+  if(mode=="pool-reverse"){blit.DrawToFrame(raster,&extra[0],configs,layout,3,VK_FORMAT_R8G8B8A8_UNORM);check(blit.swapchain_view_format==VK_FORMAT_R8G8B8A8_UNORM,"Blit pass retained wrong format");}
+  else for(auto&f:extra)blit.DrawToFrame(raster,&f,configs,layout,3,VK_FORMAT_B8G8R8A8_UNORM);
+  check(mode=="pool-reverse"||(Vulkan::FrameFormat(frame)==VK_FORMAT_B8G8R8A8_UNORM&&std::all_of(extra.begin(),extra.end(),[](auto&f){return Vulkan::FrameFormat(f)==VK_FORMAT_B8G8R8A8_UNORM;})),"pooled Frame retained old format");scheduler.Shutdown();
+ }else if(mode=="closed"||mode=="closed-framebuffer"||mode=="closed-direct"){
+  scheduler.closed=true;if(mode=="closed")draw();else if(mode=="closed-direct")manager.RecreateFrame(&frame,8,8,VK_FORMAT_B8G8R8A8_UNORM,blit.window_adapt->GetRenderPass());else blit.CreateFramebuffer(desired,*frame.image_view,VK_FORMAT_B8G8R8A8_UNORM);check(false,"closed creation admitted");
+ }else if(mode=="applet-creation"||mode=="applet-failed"){
+  Vulkan::RendererVulkan renderer{device,allocator,blit};blit.filters.requested=Settings::ScalingFilter::Bicubic;const auto snapshot=Vulkan::Snapshot(frame,blit);
+  fault=mode=="applet-creation"?"framebuffer":"draw";bool threw=false;try{renderer.RenderAppletCaptureLayer(configs);}catch(const std::exception&){threw=true;}
+  check(threw,"applet failure not propagated");fault.clear();
+  if(mode=="applet-creation"){check(!renderer.applet_frame.image&&renderer.applet_capture_state==Vulkan::RendererVulkan::AppletCaptureState::Empty,"failed applet construction published Frame");check(Vulkan::Snapshot(frame,blit)==snapshot,"applet factory failure changed Blit publication");renderer.RenderAppletCaptureLayer(configs);check(bool(renderer.applet_frame.framebuffer),"applet factory retry failed");}
+  else{const int before_draws=draws;renderer.RenderAppletCaptureLayer(configs);check(draws==before_draws&&renderer.GetAppletCaptureBuffer().empty(),"recreation reopened failed applet");}
+  scheduler.Shutdown();
+ }else{
+  const auto snapshot=Vulkan::Snapshot(frame,blit);
+  if(mode=="shrink"||mode=="unchanged"){desired.width=4;desired.height=4;}
+  if(mode=="zero"){
+   bool rejected=false;try{draw(0);}catch(const std::invalid_argument&){rejected=true;}check(rejected&&Vulkan::Snapshot(frame,blit)==snapshot&&idle_calls==0&&allocations==0&&draws==0,"zero count changed publication");
+  }else if(mode=="framebuffer"||mode=="framebuffer-unchanged"){
+   if(mode=="framebuffer")blit.filters.requested=Settings::ScalingFilter::Bicubic;
+   fault=stage;bool threw=false;try{blit.CreateFramebuffer(desired,*frame.image_view,mode=="framebuffer"?VK_FORMAT_B8G8R8A8_UNORM:VK_FORMAT_R8G8B8A8_UNORM);}catch(const std::exception&){threw=true;}
+   check(threw,"framebuffer failure not propagated");check(Vulkan::Snapshot(frame,blit)==snapshot,"failed framebuffer changed publication");fault.clear();
+   auto result=blit.CreateFramebuffer(desired,*frame.image_view,mode=="framebuffer"?VK_FORMAT_B8G8R8A8_UNORM:VK_FORMAT_R8G8B8A8_UNORM);check(bool(result),"framebuffer retry failed");
+  }else if(mode=="unchanged"){
+   draw(3,VK_FORMAT_R8G8B8A8_UNORM);check(idle_calls==0&&allocations==0,"unchanged draw recreated resources");scheduler.Shutdown();
+  }else if(mode=="shrink"){
+   const size_t count=stage=="success"?1:static_cast<size_t>(stage[2]-'0');const size_t next=(blit.image_index%count+1)%count;draw(count,VK_FORMAT_R8G8B8A8_UNORM);check(blit.image_count==count&&blit.image_index==next,"slot shrink did not normalize index");scheduler.Shutdown();
+  }else{
+   blit.filters.requested=Settings::ScalingFilter::Bicubic;host_fault=mode=="host";fault=stage;
+   bool threw=false;
+   if(mode=="gate"){
+    gate=stage;std::jthread owner([&]{try{draw();}catch(const std::exception&){threw=true;}});entered.acquire();check(Vulkan::Snapshot(frame,blit)==snapshot,"factory gate observed partial publication");resume.release();owner.join();
+   }else{try{draw();}catch(const std::exception&){threw=true;}}
+   if(stage!="success"){check(threw,"draw factory failure not propagated");check(Vulkan::Snapshot(frame,blit)==snapshot,"failed update changed published state");}
+   if(mode=="shutdown"||mode=="failed-idle"){scheduler.fail_idle=mode=="failed-idle";scheduler.Shutdown();}
+   else{fault.clear();draw();check(blit.image_count==1&&blit.image_index==0&&frame.width==8&&frame.height==8,"draw retry left stale metadata or index");scheduler.Shutdown();}
+  }
+ }
+ if(!scheduler.retired)scheduler.Shutdown();
+ }
+ for(auto&[id,r]:roots)check(!r->live,"candidate native resource leaked");
+ event("owners.released");std::fprintf(stderr,"PASS recreate %s %s\n",argv[1],argv[2]);
+}

@@ -3,9 +3,11 @@
 
 #pragma once
 
+#include <functional>
 #include <list>
 #include <mutex>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "common/polyfill_thread.h"
@@ -34,6 +36,12 @@ class ServerManager {
 public:
     explicit ServerManager(Core::System& system);
     ~ServerManager();
+
+    // Cold setup only, before RunServer/LoopProcess publishes the server.
+    // Runs after IPC workers join, while handler factories and sessions still own targets.
+    void SetBeforeServiceRelease(std::function<void()> drain) {
+        m_before_service_release = std::move(drain);
+    }
 
     Result RegisterSession(Kernel::KServerSession* session,
                            std::shared_ptr<SessionRequestManager> manager);
@@ -92,6 +100,7 @@ private:
     Common::Event m_stopped{};
     std::vector<std::jthread> m_threads{};
     std::stop_source m_stop_source{};
+    std::function<void()> m_before_service_release;
 };
 
 } // namespace Service

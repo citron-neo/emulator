@@ -62,6 +62,9 @@ struct ChannelState {
     std::unique_ptr<DmaPusher> dma_pusher;
 
     bool initialized{};
+    // Partial engine/backend initialization must not be replayed. Parent channel
+    // ownership retains its effects until normal teardown; this is not GPU idle.
+    bool initialization_failed{};
 };
 
 } // namespace Control

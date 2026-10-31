@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "audio_core/audio_core.h"
 #include "core/core.h"
 #include "core/hle/service/audio/audio.h"
 #include "core/hle/service/audio/audio_controller.h"
@@ -23,6 +24,7 @@ namespace Service::Audio {
 
 void LoopProcess(Core::System& system) {
     auto server_manager = std::make_unique<ServerManager>(system);
+    server_manager->SetBeforeServiceRelease([&system] { system.AudioCore().Shutdown(); });
 
     // Main audio services
     server_manager->RegisterNamedService("audin:u", std::make_shared<IAudioInManager>(system));

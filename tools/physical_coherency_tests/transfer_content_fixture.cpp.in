@@ -1,0 +1,301 @@
+// Actual Scheduler transfer emitter/completion gate plus actual immutable content graph.
+void TestTransferContent() {
+    using Scheduler = Vulkan::Scheduler;
+    using Plan = Vulkan::TransferContent;
+    using Kind = Plan::Kind;
+    using State = Scheduler::WriteState;
+    for (int mode = 0; mode < 46; ++mode) {
+        auto s = std::make_unique<Scenario>();
+        Vulkan::StorageObserverHarness observation{s->scheduler, s->runtime};
+        std::array<std::unique_ptr<Vulkan::Buffer>, 3> buffers;
+        std::vector<Scheduler::TransferBuffer> targets;
+        std::array<VkBuffer, 3> handles{};
+        std::array<u64, 3> offsets{};
+        for (size_t i = 0; i < buffers.size(); ++i) {
+            // Distinct native allocations with the SAME physical identity.
+            buffers[i] = std::make_unique<Vulkan::Buffer>(s->runtime, A, 4096);
+            handles[i] = buffers[i]->Handle();
+            offsets[i] = (mode == 20 || mode == 35) ? 4 * (i + 1) : 0;
+            const auto pin = buffers[i]->PinStagedRepresentation(offsets[i], 64);
+            auto physical = s->runtime.PhysicalIdentityForBinding(*buffers[i], offsets[i], 64);
+            assert(pin && physical);
+            targets.push_back({*pin, physical});
+        }
+        auto weak = buffers[0]->WeakPayload();
+        std::vector<Plan::Command> commands{
+            {Kind::Fill, 1, 0, 0, 0, 64, 0x0a0a0a0a},
+            {Kind::Fill, 0, 0, 0, 0, 64, 0x63636363},
+            {Kind::Copy, 1, 0, 16, 16, 16},
+            {Kind::Fill, 0, 0, 0, 0, 64, 0x4d4d4d4d},
+            {Kind::Copy, 2, 1, 8, 8, 32},
+        };
+        if (mode == 8) commands[0].size = 4; // B's complement has no enrolled source.
+        if (mode == 21) commands[1].destination = 2; // A is Unknown when it overwrites known B bytes.
+        if (mode == 9) targets[1].physical = targets[0].physical;
+        if (mode == 10) targets[1] = targets[0];
+        if (mode == 11) commands.resize(33, commands[0]);
+        if (mode == 12) targets[0].physical = std::make_shared<const VideoCommon::PhysicalWriteIdentity>(
+            *targets[0].physical->Slice(4, 60));
+        if (mode == 1) driver->submit_result = VK_ERROR_DEVICE_LOST;
+        if (mode == 5) driver->fail_copy_record = true;
+        if (mode == 14) s->scheduler.fail_end_pending = true;
+        if (mode == 19) {
+            const auto& target = targets[0];
+            const Scheduler::WriteFootprint range{target.pin.RetainedOwner(), target.pin.Identity(),
+                0, 64, 1, target.physical, {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT}};
+            const auto ordinary = s->scheduler.RecordObservedWrites({&range, 1},
+                [pin = target.pin](vk::CommandBuffer command) {
+                    ++driver->draws;
+                    command.FillBuffer(pin.Handle(), pin.Offset(), pin.Size(), 7);
+                    return true;
+                }, observation.storage_write_coverage);
+            assert(ordinary && !s->scheduler.RecordTransferBatch(targets, commands));
+            s->scheduler.SubmitExecution(nullptr, nullptr);s->scheduler.RunWorker();s->gpu.Complete();
+            assert(driver->draws == 1 && driver->submissions == 1); // Refusal never drops ordinary work.
+            continue;
+        }
+        const auto transfer = s->scheduler.RecordTransferBatch(targets, commands);
+        if (mode >= 9 && mode <= 12) {
+            assert(!transfer && s->scheduler.commands.empty() && driver->submissions == 0);
+            continue;
+        }
+        assert(transfer && transfer->PlannedContent() && transfer->ResourcesRetained());
+        if (mode == 42) {
+            s->scheduler.RecordBufferFill(handles[1], 16, 16, 0xeeeeeeee);
+            (void)s->scheduler.Flush();
+            assert(!s->scheduler.CurrentTransferContentRange(transfer, s->runtime.test_mapping, 1, 0, 16));
+        }
+        if (mode == 29) {
+            // A queued later writer revokes before the snapshot worker has even run.
+            s->scheduler.Record([](vk::CommandBuffer) {});
+        }
+        assert(!s->scheduler.CompletedTransferContent(transfer));
+        assert(!s->scheduler.TransferContentForMapping(transfer, s->runtime.test_mapping));
+        assert(!s->scheduler.CurrentTransferContent(transfer, s->runtime.test_mapping));
+        targets.clear();
+        if (mode == 17) for (auto& buffer : buffers) buffer.reset();
+        if (mode == 4) s->runtime.staged_pin_domain->Seal();
+        if (mode == 14) {
+            assert(s->scheduler.PollCheckedTransfer(transfer) == State::Unknown);
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+            assert(transfer->ResourcesRetained()); // Idle alone cannot release an unrun host callback.
+        }
+        if (mode == 22) {
+            s->scheduler.RunOneWorkerCommandForTest(); // Recorded native commands, submit callback still queued.
+            assert(driver->submissions == 0);
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+            assert(transfer->ResourcesRetained()); // Idle alone cannot retire a not-yet-submitted native command.
+        }
+        bool propagated_device_loss = false;
+        try {s->scheduler.RunWorker();}
+        catch (const vk::Exception& error) {propagated_device_loss = error.GetResult() == VK_ERROR_DEVICE_LOST;}
+        assert(propagated_device_loss == (mode == 1));
+        if (mode == 1) assert(driver->reported_losses == 1);
+        assert(transfer->ResourcesRetained() && !weak.expired());
+        if (mode != 13) s->gpu.Complete();
+        if (mode == 2) driver->counter_result = VK_ERROR_UNKNOWN;
+        if (mode == 3) driver->wait_result = VK_ERROR_DEVICE_LOST;
+        if (mode == 6) {s->runtime.test_mapping.generation += 2;s->runtime.test_mapping.bias += 4096;}
+        if (mode == 7) s->runtime.test_mapping.backing->alive.store(false);
+        if (mode == 15) s->scheduler.submission_owner->store(false);
+        if (mode == 18) s->scheduler.ForgetTransferSyncEvidenceForTest(transfer);
+        const bool completed = mode == 0 || mode == 6 || mode == 8 || mode == 16 || mode == 17 || mode >= 20;
+        const auto* content = s->scheduler.CompletedTransferContent(transfer);
+        assert(bool(content) == completed);
+        assert(bool(s->scheduler.TransferContentForMapping(transfer, s->runtime.test_mapping)) ==
+               (completed && mode != 6));
+        if (mode == 16) {
+            Vulkan::Scheduler other{s->device};
+            assert(!other.CompletedTransferContent(transfer));
+        }
+        if (completed) {
+            assert(driver->barriers == (mode == 42 ? 9 : 6)); // Pending later fill adds two barriers + submit.
+            assert(content->HasRoot(1, 16, 16, 1, 16) == (mode != 21));
+            assert(!content->HasRoot(1, 16, 16, 0, 16)); // Unknown source cannot preserve overwritten old B.
+            assert(!content->HasRoot(1, 0, 64, 1, 0)); // Never promote copied subrange to the whole replica.
+            assert(!content->HasRoot(1, 16, 16, 3, 16)); // No completion-time/source-current rebasing.
+            assert(content->HasRoot(0, 0, 64, 3, 0));
+            assert(content->HasRoot(1, 0, 16, 0, 0) == (mode != 8));
+            assert(content->HasRoot(1, 32, 32, 0, 32) == (mode != 8));
+            assert(content->HasRoot(2, 16, 16, 1, 16) == (mode != 21)); // Copies also preserve Unknown.
+            assert(content->HasRoot(2, 0, 8, 1, 0) == (mode == 21));
+            assert(content->WrittenBy(2, 1, 16, 16) && !content->WrittenBy(2, 1, 0, 64));
+            const auto& copy = content->Commands()[2];
+            assert(copy.source == 0 && copy.destination == 1 && copy.source_offset == 16 && copy.size == 16);
+            const auto a = std::span<const u8>{reinterpret_cast<Allocation*>(handles[0])->bytes}.subspan(offsets[0], 64);
+            const auto b = std::span<const u8>{reinterpret_cast<Allocation*>(handles[1])->bytes}.subspan(offsets[1], 64);
+            const auto c = std::span<const u8>{reinterpret_cast<Allocation*>(handles[2])->bytes}.subspan(offsets[2], 64);
+            assert(std::all_of(a.begin(), a.begin() + 64, [](u8 byte) {return byte == 77;}));
+            assert(std::all_of(b.begin() + 16, b.begin() + 32, [mode](u8 byte) {return byte == (mode == 42 ? 238 : (mode == 21 ? 0 : 99));}));
+            assert(std::all_of(c.begin() + 16, c.begin() + 32, [mode](u8 byte) {return byte == (mode == 21 ? 0 : 99);}));
+            if (mode != 8) {
+                assert(std::all_of(b.begin(), b.begin() + 16, [](u8 byte) {return byte == 10;}));
+                assert(std::all_of(b.begin() + 32, b.begin() + 64, [](u8 byte) {return byte == 10;}));
+            }
+        } else if (mode != 13 && mode != 18) {
+            assert(s->scheduler.PollCheckedTransfer(transfer) == State::Unknown);
+            driver->counter_result = driver->wait_result = VK_SUCCESS;
+            assert(!s->scheduler.CompletedTransferContent(transfer)); // Unknown is sticky.
+        }
+        if (mode == 0) {
+            const auto historical = transfer->PlannedContent();
+            assert(s->scheduler.CurrentTransferContent(transfer, s->runtime.test_mapping) == historical.get());
+            // Default observer-off recording must revoke before a command executes or submits.
+            s->scheduler.Record([](vk::CommandBuffer) { ++driver->draws; });
+            assert(!s->scheduler.CurrentTransferContent(transfer, s->runtime.test_mapping));
+            assert(s->scheduler.TransferContentForMapping(transfer, s->runtime.test_mapping) == historical.get());
+            assert(!s->scheduler.CurrentTransferHasRoot(transfer, s->runtime.test_mapping, 1, 16, 16, 1, 16));
+            s->scheduler.RunWorker();
+            assert(driver->draws == 1);
+            // A genuinely completed previous submission is not an admissible root.
+            std::vector<Scheduler::TransferBuffer> next_targets;
+            for (auto& buffer : buffers) next_targets.push_back({*buffer->PinStagedRepresentation(0, 64),
+                s->runtime.PhysicalIdentityForBinding(*buffer, 0, 64)});
+            const std::array<Plan::Command, 1> copy_only{{{Kind::Copy, 1, 0, 0, 0, 64}}};
+            const auto next = s->scheduler.RecordTransferBatch(next_targets, copy_only);
+            assert(next);
+            s->scheduler.RunWorker();s->gpu.Complete();
+            const auto* unknown = s->scheduler.CompletedTransferContent(next);
+            assert(unknown && unknown->WrittenBy(0, 1, 0, 64));
+            assert(!unknown->HasRoot(1, 0, 64, 0, 0));
+        }
+        if (mode >= 31) {
+            const auto history = transfer->PlannedContent();
+            const auto origins = transfer->HistoricalOrigins();
+            std::vector<Scheduler::TransferBuffer> again;
+            for (size_t i = 0; i < buffers.size(); ++i) again.push_back({*buffers[i]->PinStagedRepresentation(offsets[i], 64),
+                s->runtime.PhysicalIdentityForBinding(*buffers[i], offsets[i], 64)});
+            const std::array<Plan::Command, 1> partial{{{mode == 31 ? Kind::Fill : Kind::Copy, 1, 0, 16, 16, 16, 0xeeeeeeee}}};
+            Scheduler::Transfer next;
+            if (mode == 31 || mode == 32 || mode == 39) {
+                if (mode == 39) driver->fail_copy_record = true;
+                next = s->scheduler.RecordTransferBatch(again, partial);assert(next);
+            } else if (mode == 36) {
+                s->scheduler.Record([](vk::CommandBuffer) { ++driver->draws; });
+            } else if (mode == 34 || mode == 40) {
+                const std::array<VkBufferCopy, 2> regions{{{16, 16, 8}, {24, 24, 8}}};
+                s->scheduler.RecordBufferCopy(handles[1], handles[0], regions, true, mode == 40);
+            } else if (mode == 43) {
+                std::array<VkBufferCopy, 10> regions;
+                for (size_t i = 0; i < regions.size(); ++i) regions[i] = {16 + 4 * (i % 4), 16 + 4 * (i % 4), 4};
+                s->scheduler.RecordBufferCopy(handles[1], handles[0], regions, false); // >8-region fallback.
+            } else if (mode == 44) {
+                const std::array<VkBufferCopy, 1> regions{{{0, 32, 16}}};
+                s->scheduler.RecordBufferCopy(handles[0], handles[0], regions, true); // Legal disjoint self-copy.
+            } else if (mode != 42) {
+                const auto destination = mode == 37 ? handles[2] : handles[1];
+                const auto begin = mode == 38 ? 64 : offsets[1] + 16;
+                s->scheduler.RecordBufferFill(destination, begin, 16, 0xeeeeeeee);
+            }
+            const auto range = [&](size_t buffer, u64 begin, u64 length) {
+                return s->scheduler.CurrentTransferContentRange(transfer, s->runtime.test_mapping, buffer, begin, length);
+            };
+            if (mode == 45) {
+                const VkMemoryBarrier memory{VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr,
+                    VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT};
+                s->scheduler.RecordProvenanceBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, memory);
+            }
+            const bool unknown = mode == 36;
+            const bool disjoint = mode == 37 || mode == 38 || mode == 44;
+            assert(bool(range(1, 0, 16)) == !unknown); // Before execution/submit: intent cancellation already applies.
+            const auto has_root = [&](u64 begin, u64 length, Plan::Index fill, u64 root_begin) {
+                return s->scheduler.CurrentTransferHasRoot(transfer, s->runtime.test_mapping, 1, begin, length, fill, root_begin);
+            };
+            assert(has_root(0, 16, 0, 0) == !unknown);
+            assert(has_root(16, 16, 1, 16) == disjoint);
+            assert(!has_root(0, 64, 0, 0)); // Valid subrange never qualifies the whole historical graph.
+            assert(!has_root(0, 16, 1, 0) && !has_root(0, 16, 0, 4)); // Wrong root or projection.
+            assert(bool(range(1, 16, 16)) == disjoint);
+            assert(bool(range(1, 32, 32)) == !unknown);
+            assert(bool(range(0, 0, 64)) == (!unknown && mode != 44));
+            if (mode == 44) assert(range(0, 0, 16) && !range(0, 32, 16)); // Source is still untouched.
+            if (!next) {
+                if (mode == 41) driver->submit_result = VK_ERROR_DEVICE_LOST;
+                (void)s->scheduler.Flush();
+            }
+            bool loss{};
+            try {s->scheduler.RunWorker();} catch (const vk::Exception&) {loss = true;}
+            assert(loss == (mode == 41));
+            if (mode == 41) {
+                assert(driver->reported_losses == 1 && !range(1, 0, 16));
+                driver->submit_result = VK_SUCCESS;
+                assert(!range(1, 0, 16)); // A later status change cannot restore failure-domain qualification.
+            }
+            s->gpu.Complete();
+            assert(bool(range(1, 0, 16)) == (!unknown && mode != 41));
+            assert(bool(range(1, 16, 16)) == disjoint);
+            assert(bool(range(1, 32, 32)) == (!unknown && mode != 41));
+            assert(!range(1, 15, 2) || disjoint); // No partial overlap acceptance.
+            assert(!range(1, 0, 0) && !range(1, 64, 1) && !range(3, 0, 1));
+            assert(!range(1, ~u64{0}, 8));
+            assert(s->scheduler.CompletedTransferContent(transfer) == history.get());
+            assert(transfer->HistoricalOrigins() == origins && history->HasRoot(1, 16, 16, 1, 16));
+            if (mode == 39) assert(s->scheduler.PollCheckedTransfer(next) == State::Unknown);
+            if (mode == 32) {
+                const auto* imported = s->scheduler.CompletedTransferContent(next);
+                assert(imported && !imported->HasRoot(1, 16, 16, 0, 0)); // Cross-submission roots still Unknown.
+            }
+            if (mode != 36 && mode != 41) {
+                const auto& bytes = reinterpret_cast<Allocation*>(handles[1])->bytes;
+                const u8 expected = disjoint ? 99 : ((mode == 32 || mode == 34 || mode == 39 || mode == 40 || mode == 43) ? 77 : 238);
+                assert(bytes[offsets[1] + 16] == expected);
+                assert(bytes[offsets[1]] == 10 && bytes[offsets[1] + 32] == 10);
+            }
+        }
+        if (mode >= 23 && mode <= 30) {
+            const auto history = transfer->PlannedContent();
+            const auto origins = transfer->HistoricalOrigins();
+            assert(bool(s->scheduler.CurrentTransferContent(transfer, s->runtime.test_mapping)) == (mode != 29));
+            if (mode == 23) s->scheduler.Record([handle = handles[1]](vk::CommandBuffer cmd) {
+                cmd.FillBuffer(handle, 16, 16, 0xeeeeeeee);
+            });
+            if (mode == 24) s->scheduler.Record([a = handles[0], b = handles[1]](vk::CommandBuffer cmd) {
+                const std::array<VkBufferCopy, 1> region{{{0, 0, 64}}};cmd.CopyBuffer(a, b, region);
+            });
+            if (mode == 25) s->scheduler.Record([](vk::CommandBuffer) { ++driver->draws; });
+            if (mode == 26) s->scheduler.RecordWithUploadBuffer([](vk::CommandBuffer, vk::CommandBuffer) {});
+            if (mode == 27) buffers[1]->RevokeContentEligibility();
+            if (mode == 28) {
+                s->runtime.test_mapping.generation += 2; // Even identical geometry after ABA is stale.
+            }
+            if (mode == 30) {
+                std::vector<Scheduler::TransferBuffer> again;
+                for (auto& buffer : buffers) again.push_back({*buffer->PinStagedRepresentation(0, 64),
+                    s->runtime.PhysicalIdentityForBinding(*buffer, 0, 64)});
+                driver->fail_copy_record = true;
+                const auto failed = s->scheduler.RecordTransferBatch(again, commands);
+                assert(failed);
+                s->scheduler.RunWorker();s->gpu.Complete();
+                assert(s->scheduler.PollCheckedTransfer(failed) == State::Unknown);
+            }
+            assert(!s->scheduler.CurrentTransferContent(transfer, s->runtime.test_mapping));
+            assert(s->scheduler.CompletedTransferContent(transfer) == history.get());
+            assert(transfer->HistoricalOrigins() == origins && history->HasRoot(1, 16, 16, 1, 16));
+            if (mode <= 26) {
+                (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();
+                assert(!s->scheduler.CurrentTransferContent(transfer, s->runtime.test_mapping));
+                const auto& bytes = reinterpret_cast<Allocation*>(handles[1])->bytes;
+                if (mode == 23) assert(std::all_of(bytes.begin() + 16, bytes.begin() + 32,
+                    [](u8 byte) {return byte == 238;}));
+                if (mode == 24) assert(std::all_of(bytes.begin(), bytes.begin() + 64,
+                    [](u8 byte) {return byte == 77;}));
+                if (mode == 25) assert(driver->draws == 1);
+            }
+        }
+        if (mode == 13) {
+            assert(!s->scheduler.CurrentTransferContent(transfer, s->runtime.test_mapping));
+            s->gpu.Complete();assert(s->scheduler.CurrentTransferContent(transfer, s->runtime.test_mapping));
+        }
+        s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+        assert(transfer->ResourcesRetained() == (mode == 14)); // No queue attempt: quarantined until teardown.
+        assert(!s->scheduler.CompletedTransferContent(transfer));
+        assert(!s->scheduler.CurrentTransferContent(transfer, s->runtime.test_mapping));
+        assert(transfer->PlannedContent() && !transfer->HistoricalOrigins().empty());
+        if (mode == 17) assert(weak.expired());
+    }
+    std::cout << "PASS actual-body transfer content: checked Fill/Copy, exact coverage and dirty "
+                 "complements, source overwrite/copy-of-copy, independent replicas, pending/failed/partial "
+                 "recording, remap/dead backing, sealed/retired pins and no cross-submission roots; "
+                 "Vulkan dispatch/device execution is simulated\n";
+}

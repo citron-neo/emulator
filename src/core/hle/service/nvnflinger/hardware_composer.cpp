@@ -71,10 +71,11 @@ u32 HardwareComposer::ComposeLocked(f32* out_speed_scale, Display& display,
 
         const auto& buffer = m_framebuffers[consumer_id];
         const auto& item = buffer.item;
-        const auto& igbp_buffer = *item.graphic_buffer;
 
         // TODO: get proper Z-index from layer
         if (layer->visible) {
+            auto source = std::make_shared<const android::GraphicBufferSource>(item.graphic_buffer);
+            const auto& igbp_buffer = source->descriptor;
             composition_stack.emplace_back(HwcLayer{
                 .buffer_handle = igbp_buffer.BufferId(),
                 .offset = igbp_buffer.Offset(),
@@ -89,6 +90,7 @@ u32 HardwareComposer::ComposeLocked(f32* out_speed_scale, Display& display,
                 .transform = static_cast<android::BufferTransformFlags>(item.transform),
                 .crop_rect = item.crop,
                 .acquire_fence = item.fence,
+                .source_owner = std::move(source),
             });
         }
 

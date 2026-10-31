@@ -33,8 +33,10 @@ void KMemoryBlockManager::Finalize(KMemoryBlockSlabManager* slab_manager,
     auto it = m_memory_block_tree.begin();
     while (it != m_memory_block_tree.end()) {
         KMemoryBlock* block = std::addressof(*it);
-        it = m_memory_block_tree.erase(it);
+        // Keep the current record reachable if cleanup refuses or throws. The
+        // callback must not mutate this tree; commit bookkeeping only on return.
         block_callback(block->GetAddress(), block->GetSize());
+        it = m_memory_block_tree.erase(it);
         slab_manager->Free(block);
     }
 

@@ -10,7 +10,7 @@
 #include <span>
 #include <variant>
 #include <vector>
-#include <ankerl/unordered_dense.h>
+#include <boost/unordered/unordered_node_map.hpp>
 #include "common/bit_field.h"
 #include "common/common_types.h"
 
@@ -190,6 +190,7 @@ struct MacroInterpreterImpl final {
     bool carry_flag = false;
     bool execution_faulted = false;
     bool nested_macro_warning_reported = false;
+    bool large_render_target_dumped = false;
 };
 struct DynamicCachedMacro {
     virtual ~DynamicCachedMacro() = default;
@@ -237,8 +238,8 @@ struct MacroEngine {
         AnyCachedMacro program;
         u64 hash{};
     };
-    ankerl::unordered_dense::map<u32, CacheInfo> macro_cache;
-    ankerl::unordered_dense::map<u32, std::vector<u32>> uploaded_macro_code;
+    boost::unordered_node_map<u32, CacheInfo> macro_cache;
+    boost::unordered_node_map<u32, std::vector<u32>> uploaded_macro_code;
     bool is_interpreted;
 };
 

@@ -10,6 +10,7 @@
 #include "common/assert.h"
 #include "common/logging.h"
 #include "common/scope_exit.h"
+#include "common/terminal_fail_stop.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_event.h"
 #include "core/hle/service/nvdrv/core/container.h"
@@ -27,11 +28,25 @@ nvhost_ctrl::nvhost_ctrl(Core::System& system_, EventInterface& events_interface
       syncpoint_manager{core_.GetSyncpointManager()} {}
 
 nvhost_ctrl::~nvhost_ctrl() {
-    for (auto& event : events) {
-        if (!event.registered) {
-            continue;
+    try {
+        auto& host_syncpoints = system.Host1x().GetSyncpointManager();
+        // A queued action captures this. Deregistration removes it or waits for
+        // Increment's active callback under its guard. Do not hold events_mutex
+        // across that join, and do not infer completion from EventState.
+        for (auto& event : events) {
+            if (event.registered) {
+                host_syncpoints.DeregisterHostAction(event.assigned_syncpt, event.wait_handle);
+                event.wait_handle = {};
+            }
         }
-        events_interface.FreeEvent(event.kevent);
+        // Keep every KEvent/provider until all raw callbacks have drained.
+        for (auto& event : events) {
+            if (event.registered) {
+                events_interface.FreeEvent(event.kevent);
+            }
+        }
+    } catch (...) {
+        Common::TerminalFailStop("nvhost_ctrl.callback_join", "host_exception");
     }
 }
 
@@ -173,6 +188,13 @@ NvResult nvhost_ctrl::IocCtrlEventWait(IocCtrlEventWaitParams& params, bool is_a
         return NvResult::BadParameter;
     }
 
+    if (event.status.load(std::memory_order_acquire) == EventState::Signalling) {
+        // Signal can wake the guest before the callback publishes Signalled.
+        // Join that old callback before reusing its slot or replacing its handle.
+        host1x_syncpoint_manager.DeregisterHostAction(event.assigned_syncpt, event.wait_handle);
+        event.wait_handle = {};
+    }
+
     if (event.IsBeingUsed()) {
         return NvResult::BadParameter;
     }
@@ -280,12 +302,15 @@ NvResult nvhost_ctrl::IocCtrlClearEventWait(IocCtrlEventClearParams& params) {
     auto lock = NvEventsLock();
 
     auto& event = events[event_id];
-    if (event.status.exchange(EventState::Cancelling, std::memory_order_acq_rel) ==
-        EventState::Waiting) {
-        auto& host1x_syncpoint_manager = system.Host1x().GetSyncpointManager();
-        host1x_syncpoint_manager.DeregisterHostAction(event.assigned_syncpt, event.wait_handle);
+    const auto previous_status =
+        event.status.exchange(EventState::Cancelling, std::memory_order_acq_rel);
+    // Signalling is still an active callback. Join it before publishing Cancelled
+    // or clearing/reusing its KEvent; EventState alone is not completion.
+    auto& host1x_syncpoint_manager = system.Host1x().GetSyncpointManager();
+    host1x_syncpoint_manager.DeregisterHostAction(event.assigned_syncpt, event.wait_handle);
+    event.wait_handle = {};
+    if (previous_status == EventState::Waiting) {
         syncpoint_manager.UpdateMin(event.assigned_syncpt);
-        event.wait_handle = {};
     }
     event.fails++;
     event.status.store(EventState::Cancelled, std::memory_order_release);

@@ -117,6 +117,15 @@ void CheckCBufNVN(Info& info, IR::Inst& inst) {
 }
 
 void VisitUsages(Info& info, IR::Inst& inst) {
+    if (inst.GetOpcode() == IR::Opcode::StorageAtomicCompareExchange32) {
+        info.uses_storage_atomic_compare_exchange32 = true;
+    } else if (inst.GetOpcode() == IR::Opcode::StorageAtomicCompareExchange64) {
+        info.uses_storage_atomic_compare_exchange64 = true;
+    } else if (inst.GetOpcode() == IR::Opcode::GlobalAtomicCompareExchange32) {
+        info.uses_global_atomic_compare_exchange32 = true;
+    } else if (inst.GetOpcode() == IR::Opcode::GlobalAtomicCompareExchange64) {
+        info.uses_global_atomic_compare_exchange64 = true;
+    }
     switch (inst.GetOpcode()) {
     case IR::Opcode::CompositeConstructF16x2:
     case IR::Opcode::CompositeConstructF16x3:
@@ -352,6 +361,7 @@ void VisitUsages(Info& info, IR::Inst& inst) {
     case IR::Opcode::GlobalAtomicAnd64:
     case IR::Opcode::GlobalAtomicOr64:
     case IR::Opcode::GlobalAtomicXor64:
+    case IR::Opcode::GlobalAtomicCompareExchange64:
     case IR::Opcode::GlobalAtomicExchange64:
     case IR::Opcode::StorageAtomicIAdd64:
     case IR::Opcode::StorageAtomicSMin64:
@@ -361,6 +371,7 @@ void VisitUsages(Info& info, IR::Inst& inst) {
     case IR::Opcode::StorageAtomicAnd64:
     case IR::Opcode::StorageAtomicOr64:
     case IR::Opcode::StorageAtomicXor64:
+    case IR::Opcode::StorageAtomicCompareExchange64:
     case IR::Opcode::StorageAtomicExchange64:
         info.uses_int64 = true;
         break;
@@ -385,6 +396,7 @@ void VisitUsages(Info& info, IR::Inst& inst) {
     case IR::Opcode::GlobalAtomicAnd32:
     case IR::Opcode::GlobalAtomicOr32:
     case IR::Opcode::GlobalAtomicXor32:
+    case IR::Opcode::GlobalAtomicCompareExchange32:
     case IR::Opcode::GlobalAtomicExchange32:
     case IR::Opcode::GlobalAtomicIAdd64:
     case IR::Opcode::GlobalAtomicSMin64:
@@ -394,6 +406,7 @@ void VisitUsages(Info& info, IR::Inst& inst) {
     case IR::Opcode::GlobalAtomicAnd64:
     case IR::Opcode::GlobalAtomicOr64:
     case IR::Opcode::GlobalAtomicXor64:
+    case IR::Opcode::GlobalAtomicCompareExchange64:
     case IR::Opcode::GlobalAtomicExchange64:
     case IR::Opcode::GlobalAtomicIAdd32x2:
     case IR::Opcode::GlobalAtomicSMin32x2:
@@ -619,6 +632,7 @@ void VisitUsages(Info& info, IR::Inst& inst) {
     case IR::Opcode::StorageAtomicAnd32:
     case IR::Opcode::StorageAtomicOr32:
     case IR::Opcode::StorageAtomicXor32:
+    case IR::Opcode::StorageAtomicCompareExchange32:
     case IR::Opcode::StorageAtomicExchange32:
         info.used_storage_buffer_types |= IR::Type::U32;
         break;
@@ -715,7 +729,9 @@ void VisitUsages(Info& info, IR::Inst& inst) {
     case IR::Opcode::GlobalAtomicAnd64:
     case IR::Opcode::GlobalAtomicOr64:
     case IR::Opcode::GlobalAtomicXor64:
+    case IR::Opcode::GlobalAtomicCompareExchange64:
     case IR::Opcode::GlobalAtomicExchange64:
+    case IR::Opcode::StorageAtomicCompareExchange64:
     case IR::Opcode::StorageAtomicIAdd64:
     case IR::Opcode::StorageAtomicSMin64:
     case IR::Opcode::StorageAtomicUMin64:

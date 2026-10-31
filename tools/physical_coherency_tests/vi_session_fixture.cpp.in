@@ -1,0 +1,221 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include "common/owned_retirement.h"
+#include "common/scope_exit.h"
+using u32=unsigned;using s32=int;using u64=unsigned long long;using Result=int;
+constexpr Result ResultSuccess=0;
+#define R_UNLESS(c,r) do{if(!(c))return r;}while(false)
+#define R_TRY(e) do{const auto r=(e);if(r)return r;}while(false)
+#define R_RETURN(e) return (e)
+#define R_SUCCEED() return 0
+#define R_FAILED(e) ((e)!=0)
+#define R_ASSERT(e) do{if((e)!=0)throw 99;}while(false)
+#define LOG_ERROR(...) ((void)0)
+using namespace std::chrono_literals;
+std::atomic<bool> fail_next_allocation=false;
+// Keep the malloc/free replacement boundary visible to GCC's allocation analysis.
+[[gnu::noinline]] void* operator new(size_t n){if(fail_next_allocation.exchange(false))throw std::bad_alloc();if(auto* p=std::malloc(n))return p;throw std::bad_alloc();}
+[[gnu::noinline]] void operator delete(void* p)noexcept{std::free(p);}
+[[gnu::noinline]] void operator delete(void* p,size_t)noexcept{std::free(p);}
+void Require(bool ok,const char* text){if(!ok){std::cerr<<"FAIL "<<text<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Event{std::mutex mutex;std::condition_variable cv;bool ready=false;
+    void Set(){std::scoped_lock lock{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock lock{mutex};Require(cv.wait_for(lock,5s,[&]{return ready;}),"rendezvous timeout");}};
+template<class T>T Ready(std::future<T>& f){Require(f.wait_for(5s)==std::future_status::ready,"future timeout");return f.get();}
+struct Trace {
+    std::string fault;bool throws=false;std::map<std::string,int> calls;
+    bool no_owner=false,fail_prepare=false;
+    std::function<void(const std::string&)> hook;
+    int Step(const std::string& name){++calls[name];if(hook)hook(name);if(fault==name){if(throws)throw 7;return 1;}return 0;}
+    int process_owners=0,pool_destructors=0;
+    std::function<void()> release_hook;
+};
+namespace Common{using ProcessAddress=u64;}
+namespace Core::Memory{constexpr size_t CITRON_PAGESIZE=4096;}
+namespace Kernel {struct KProcess{u64 GetProcessId(){return 42;}};
+struct Block{size_t GetAddress()const{return 0;}size_t GetSize()const{return 16;}};
+struct KPageGroup:std::vector<Block>{std::shared_ptr<Trace> trace;
+    template<class K>KPageGroup(K& k,void*):trace{k.trace}{push_back({});}
+    ~KPageGroup(){++trace->pool_destructors;}};
+struct KMemoryManager{enum class Pool{Secure};enum class Direction{FromBack};static int EncodeOption(Pool,Direction){return 0;}};}
+namespace Service::Nvidia {
+using DeviceFD=int;constexpr DeviceFD INVALID_NVDRV_FD=-1;
+enum class NvResult{Success,Busy,InvalidState,NotImplemented};
+namespace NvCore {
+struct SessionId{size_t id{};};
+struct Container {
+    struct SessionLifetime{std::shared_ptr<Trace> trace;explicit SessionLifetime(std::shared_ptr<Trace> t):trace{std::move(t)}{++trace->process_owners;}
+        ~SessionLifetime(){if(trace->release_hook)trace->release_hook();--trace->process_owners;}};
+    std::shared_ptr<Trace> trace;
+    SessionId OpenSession(Kernel::KProcess*){if(trace->Step("session"))throw 7;return {5};}
+    void CloseSession(SessionId){trace->Step("session-close");}
+};
+}
+struct Device {std::shared_ptr<Trace> trace;void OnClose(DeviceFD){trace->Step("device-close");}};
+struct Module {
+    std::shared_ptr<Trace> trace;std::shared_ptr<Common::ProducerDrain> dispatch_domain=std::make_shared<Common::ProducerDrain>();
+    std::shared_ptr<Common::OwnedRetirementQueue> retirements=std::make_shared<Common::OwnedRetirementQueue>(dispatch_domain);
+    NvCore::Container core;std::unordered_map<DeviceFD,std::shared_ptr<Device>> open_files;
+    explicit Module(std::shared_ptr<Trace> t):trace{std::move(t)},core{trace}{}
+    auto TryEnterDispatch() const{return dispatch_domain->EnterCold();}
+    void QuarantineDispatch() const noexcept{dispatch_domain->Seal();}
+    auto RetirementQueue() const{return retirements;}
+    auto RetainProcessLifetime(Kernel::KProcess*,const Common::ProducerDrain::Entry&){
+        std::shared_ptr<NvCore::Container::SessionLifetime> result;
+        if(!trace->no_owner)result=std::make_shared<NvCore::Container::SessionLifetime>(trace);
+        if(trace->fail_prepare)fail_next_allocation=true;
+        return result;}
+    NvCore::Container& GetContainer(){return core;}
+    DeviceFD Open(const std::string&,NvCore::SessionId){if(trace->Step("open"))return INVALID_NVDRV_FD;
+        auto entry=TryEnterDispatch();if(!entry)return INVALID_NVDRV_FD;open_files.emplace(3,std::make_shared<Device>(Device{trace}));return 3;}
+    // @CLOSE_METHOD@
+};
+}
+namespace Service::android {struct BufferQueueProducer{std::shared_ptr<Trace> trace;
+    explicit BufferQueueProducer(std::shared_ptr<Trace> t):trace{std::move(t)}{}
+    ~BufferQueueProducer(){trace->Step("producer-destroy");}};}
+struct System{
+    std::shared_ptr<Trace> trace;
+    struct KernelProvider{std::shared_ptr<Trace> trace;struct Resource{int value{};int& GetBlockInfoManager(){return value;}} resource{};
+        auto& GetSystemSystemResource(){return resource;}auto& MemoryManager(){return *this;}
+        int AllocateAndOpen(Kernel::KPageGroup*,size_t,int){return trace->Step("allocate");}} kernel{trace};
+    struct PhysicalProvider{std::shared_ptr<Trace> trace;u32 bytes[4]{};
+        template<class T>T* GetPointer(size_t,size_t){if(trace->Step("fill"))throw 7;return reinterpret_cast<T*>(bytes);}} physical{trace};
+    auto& Kernel(){return kernel;}auto& DeviceMemory(){return physical;}
+};
+namespace Service::VI {
+namespace Nvidia=Service::Nvidia;
+constexpr Result ResultOperationFailed=1,ResultPermissionDenied=5,ResultNotFound=7;
+constexpr u32 SharedBufferSize=16;
+struct SharedMemoryPoolLayout{};constexpr SharedMemoryPoolLayout SharedBufferPoolLayout{};
+class SharedBufferManager;
+struct Container:std::enable_shared_from_this<Container>{
+    std::shared_ptr<Trace> trace;std::unique_ptr<SharedBufferManager> manager;
+    std::shared_ptr<android::BufferQueueProducer> registered;
+    explicit Container(std::shared_ptr<Trace> t):trace{std::move(t)}{}~Container();
+    int CreateStrayLayer(s32*,u64* id,u64){*id=8;return trace->Step("layer");}
+    int SetLayerBlending(u64,bool){return trace->Step("blend");}
+    int GetLayerProducerHandle(std::shared_ptr<android::BufferQueueProducer>* p,u64){registered=std::make_shared<android::BufferQueueProducer>(trace);*p=registered;return trace->Step("producer");}
+    int DestroyStrayLayer(u64){const int result=trace->Step("layer-destroy");if(!result)registered.reset();return result;}
+};
+// @SESSION_STRUCTS@
+struct SharedBufferManager {
+    u64 m_next_buffer_id=1,m_display_id=0,m_buffer_id=0;
+    std::map<u64,SharedBufferSession> m_sessions;
+    std::unique_ptr<Kernel::KPageGroup> m_buffer_page_group;
+    std::mutex m_guard;System& m_system;Container& m_container;const std::shared_ptr<Nvidia::Module> m_nvdrv;
+    SharedBufferManager(System& s,Container& c,std::shared_ptr<Nvidia::Module> m):m_system{s},m_container{c},m_nvdrv{std::move(m)}{}
+    Result CreateSession(Kernel::KProcess*,u64*,u64*,u64,bool);
+    void DestroySession(Kernel::KProcess*);
+    Result GetSharedBufferMemoryHandleId(u64*,s32*,SharedMemoryPoolLayout*,u64,u64);
+};
+Container::~Container()=default;
+// @ALLOCATE_HELPER@
+Result MapSharedBufferIntoProcessAddressSpace(Common::ProcessAddress* address,std::unique_ptr<Kernel::KPageGroup>&,Kernel::KProcess*,System& system){*address=64;return system.trace->Step("map");}
+Result AllocateHandleForBuffer(u32* handle,Nvidia::Module& module,Nvidia::DeviceFD,Common::ProcessAddress,u32){*handle=4;return module.trace->Step("handle");}
+Result FreeHandle(u32,Nvidia::Module& module,Nvidia::DeviceFD){Require(module.trace->calls["producer-destroy"]==1,"handle freed before completed slot owner release");return module.trace->Step("handle-free");}
+Result MakeGraphicBuffer(android::BufferQueueProducer& producer,u32 slot,u32){return producer.trace->Step("slot"+std::to_string(slot));}
+// @METHODS@
+}
+using Service::VI::Container;using Service::VI::SharedBufferManager;using D=Common::ProducerDrain::Result;
+void CloseInto(std::optional<Common::ProducerDrain::Closure>& target,const std::shared_ptr<Common::ProducerDrain>& domain){
+    auto closed=domain->TryClose(64);Require(bool(closed),"close failed");target.emplace(std::move(*closed));}
+struct Fixture {
+    std::shared_ptr<Trace> trace=std::make_shared<Trace>();System system{trace};Kernel::KProcess process;
+    std::shared_ptr<Service::Nvidia::Module> module=std::make_shared<Service::Nvidia::Module>(trace);
+    std::shared_ptr<Container> container=std::make_shared<Container>(trace);
+    Fixture(){container->manager=std::make_unique<SharedBufferManager>(system,*container,module);}
+    auto& Manager(){return *container->manager;}
+    int Create(){u64 buffer=77,layer=78;return Manager().CreateSession(&process,&buffer,&layer,1,false);}
+    bool Visible(){u64 size=0;s32 handle=0;Service::VI::SharedMemoryPoolLayout layout;
+        return Manager().GetSharedBufferMemoryHandleId(&size,&handle,&layout,Manager().m_buffer_id,42)==0;}
+};
+void Failure(const std::string& stage,bool throws) {
+    Fixture f;f.trace->fault=stage;f.trace->throws=throws;bool failed=false;
+    try{failed=f.Create()!=0;}catch(int){failed=true;}
+    Require(failed,"fault did not fail create");
+    Require(!f.Visible(),"failed create published partial session");
+    Require(!f.module->TryEnterDispatch() && f.trace->process_owners>0,"failed prefix released owners or reopened admission");
+    auto before=f.trace->calls;f.Manager().DestroySession(&f.process);
+    Require(f.trace->calls==before,"unknown create replayed cleanup");
+    if(stage=="slot0" || stage=="slot1"){
+        std::weak_ptr<Service::android::BufferQueueProducer> provider=f.container->registered;
+        f.container->registered.reset();Require(!provider.expired(),"unknown slot prefix lost producer owner");
+    }
+    std::weak_ptr<Container> vi=f.container;std::weak_ptr<Service::Nvidia::Module> nv=f.module;
+    f.container.reset();f.module.reset();
+    Require(!vi.expired() && !nv.expired() && f.trace->pool_destructors==0,"failed prefix lost VI/provider/pool owners");
+}
+void Refused(bool race) {
+    Fixture f;Require(f.Create()==0,"setup create failed");Event entered,release;
+    if(race)f.trace->hook=[&](const std::string& name){if(name=="handle-free"){entered.Set();release.Wait();}};
+    std::optional<Common::ProducerDrain::Closure> closure;
+    if(race){auto request=std::async(std::launch::async,[&]{f.Manager().DestroySession(&f.process);return true;});
+        entered.Wait();CloseInto(closure,f.module->dispatch_domain);release.Set();Require(Ready(request),"destroy did not return");}
+    else {CloseInto(closure,f.module->dispatch_domain);f.Manager().DestroySession(&f.process);}
+    Require(f.trace->calls["session-close"]==0,"refused Close released session owner");
+    Require(!f.Visible() && closure->Poll()==D::Unknown && !closure->ResumeNoEffects(),"refused destroy fabricated completion or clean drain");
+    if(!race)Require(f.trace->calls["layer-destroy"]==0 && f.trace->calls["handle-free"]==0,"closed destroy performed prefix effects");
+    if(!race){std::weak_ptr<Service::android::BufferQueueProducer> provider=f.container->registered;
+        f.container->registered.reset();Require(!provider.expired(),"closed retirement lost producer owner");}
+    auto before=f.trace->calls;f.Manager().DestroySession(&f.process);Require(f.trace->calls==before,"uncertain destroy repeated prefix");
+    std::weak_ptr<Container> owner=f.container;f.container.reset();f.module.reset();
+    Require(!owner.expired() && f.trace->process_owners>0,"refused destroy lost retained owner graph");
+}
+void Normal() {
+    Fixture f;Require(f.Create()==0 && f.Visible(),"successful create not published");
+    bool unlocked=false;std::optional<Common::ProducerDrain::Closure> closure;
+    f.trace->release_hook=[&]{unlocked=f.Manager().m_guard.try_lock();if(unlocked)f.Manager().m_guard.unlock();
+        CloseInto(closure,f.module->dispatch_domain);Require(closure->Poll()==D::Pending,"final release escaped counted destroy");};
+    f.Manager().DestroySession(&f.process);f.trace->release_hook=nullptr;
+    Require(!f.Visible() && f.Manager().m_sessions.empty() && f.trace->calls["session-close"]==1,
+            "normal destroy lost or repeated cleanup");
+    Require(unlocked && f.trace->process_owners==0,"final Process owner release held manager lock");
+    Require(closure && closure->Poll()==D::DrainedSubset && closure->ResumeNoEffects(),"normal destroy did not drain");
+    std::weak_ptr<Container> owner=f.container;f.container.reset();Require(owner.expired(),"healthy VI provider kept self cycle");
+}
+void HealthyDrop(){Fixture f;Require(f.Create()==0,"setup create failed");std::weak_ptr<Container> owner=f.container;
+    f.container.reset();Require(owner.expired() && f.trace->process_owners==0,"healthy committed session kept VI self cycle");}
+void ClosedCreate(){Fixture f;auto closure=f.module->dispatch_domain->TryClose(64);Require(bool(closure),"close failed");
+    Require(f.Create()!=0 && f.trace->calls.empty() && f.trace->process_owners==0,"closed create performed effects");
+    Require(closure->Poll()==D::DrainedSubset && closure->ResumeNoEffects(),"closed create poisoned healthy cancellation");}
+void Preparation(){for(bool allocation_failure:{false,true}){Fixture f;f.trace->no_owner=!allocation_failure;f.trace->fail_prepare=allocation_failure;
+    bool failed=false;try{failed=f.Create()!=0;}catch(const std::bad_alloc&){failed=true;}
+    Require(failed && f.trace->calls.empty() && f.Manager().m_sessions.empty() && f.trace->process_owners==0,
+            "retention preparation failure performed effects or leaked owners");
+    auto closure=f.module->dispatch_domain->TryClose(64);Require(bool(closure) && closure->Poll()==D::DrainedSubset && closure->ResumeNoEffects(),
+            "no-effect preparation failure sealed healthy domain");
+    std::weak_ptr<Container> owner=f.container;f.container.reset();Require(owner.expired(),"failed preparation kept VI self cycle");}}
+void CreateRace(){Fixture f;Event entered,release;f.trace->hook=[&](const std::string& n){if(n=="open"){entered.Set();release.Wait();}};
+    auto request=std::async(std::launch::async,[&]{return f.Create();});entered.Wait();auto closure=f.module->dispatch_domain->TryClose(64);
+    Require(bool(closure) && closure->Poll()==D::Pending,"active create escaped drain");release.Set();
+    Require(Ready(request)!=0 && !f.Visible() && closure->Poll()==D::Unknown && f.trace->process_owners>0,
+            "nested Open refusal lost partial owner disposition");}
+void DestroyFailure(const std::string& stage,bool throws){Fixture f;Require(f.Create()==0,"setup create failed");
+    f.trace->fault=stage;f.trace->throws=throws;try{f.Manager().DestroySession(&f.process);}catch(int){}
+    Require(!f.Visible() && !f.module->TryEnterDispatch() && f.trace->process_owners>0,"destroy failure released or republished partial owner");
+    if(stage!="session-close")Require(f.trace->calls["session-close"]==0,"destroy failure ran unowned suffix");
+    auto before=f.trace->calls;f.Manager().DestroySession(&f.process);Require(before==f.trace->calls,"unknown destroy replayed prefix");
+    std::weak_ptr<Container> owner=f.container;f.container.reset();f.module.reset();Require(!owner.expired(),"partial destroy lost VI anchor");}
+int main(int argc,char** argv) {
+    Require(argc==2,"missing case");const std::string name=argv[1];
+    if(name=="normal")Normal();else if(name=="prepare")Preparation();else if(name=="healthy-drop")HealthyDrop();else if(name=="closed-create")ClosedCreate();
+    else if(name=="create-race")CreateRace();else if(name=="closed")Refused(false);else if(name=="close-race")Refused(true);
+    else if(name.starts_with("destroy-throw-"))DestroyFailure(name.substr(14),true);
+    else if(name.starts_with("destroy-"))DestroyFailure(name.substr(8),false);
+    else if(name.starts_with("throw-"))Failure(name.substr(6),true);else Failure(name,false);
+    std::cout<<"PASS VI session "<<name<<'\n';
+}

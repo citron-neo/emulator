@@ -1,0 +1,184 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Actual Wait/Clear, NVDRV counter logic and Host1x queue; controlled kernel wake.
+#include <array>
+#include <atomic>
+#include <cassert>
+#include <chrono>
+#include <condition_variable>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <mutex>
+#include <stdexcept>
+#include "common/scope_exit.h"
+#include "core/hle/service/nvdrv/nvdata.h"
+#include "video_core/host1x/syncpoint_manager.h"
+using namespace Service::Nvidia;
+#define ASSERT(x) assert(x)
+#define ASSERT_MSG(x, ...) assert(x)
+#define LOG_DEBUG(...) ((void)0)
+#define LOG_WARNING(...) ((void)0)
+struct Gate {
+    std::mutex mutex;
+    std::condition_variable cv;
+    bool pause{true}, awakened{}, released{}, joining{}, finished{};
+    template<class F> bool Await(F predicate) {
+        std::unique_lock lock(mutex);
+        return cv.wait_for(lock, std::chrono::seconds(5), predicate);
+    }
+    void Release() {
+        std::lock_guard lock(mutex);
+        released = true;
+        pause = false;
+        cv.notify_all();
+    }
+};
+namespace Kernel {
+struct KEvent {
+    Gate& gate;
+    std::atomic<bool> signalled{};
+    unsigned signals{};
+    void Signal() {
+        signalled = true;
+        ++signals;
+        std::unique_lock lock(gate.mutex);
+        if (gate.pause) {
+            gate.awakened = true;
+            gate.cv.notify_all();
+            gate.cv.wait(lock, [&] { return gate.released; });
+        }
+    }
+    void Clear() { signalled = false; }
+};
+}
+struct ObservedHost : Tegra::Host1x::SyncpointManager {
+    std::function<void()> before_join;
+    void DeregisterHostAction(u32 id, u64 handle) {
+        if (before_join) before_join();
+        Tegra::Host1x::SyncpointManager::DeregisterHostAction(id, handle);
+    }
+};
+struct System {
+    struct Host { ObservedHost manager; auto& GetSyncpointManager() { return manager; } } host;
+    std::mutex mutex;
+    auto& Host1x() { return host; }
+    auto StallApplication() {
+        throw std::runtime_error("unexpected global stall");
+        return std::unique_lock{mutex};
+    }
+    void UnstallApplication() {}
+};
+struct Cache {
+    /* CACHE_INFO */
+    static constexpr size_t SyncpointCount = 192;
+    std::array<SyncpointInfo, SyncpointCount> syncpoints{};
+    struct HostRef {
+        Tegra::Host1x::SyncpointManager& manager;
+        auto& GetSyncpointManager() { return manager; }
+    } host1x;
+    explicit Cache(Tegra::Host1x::SyncpointManager& manager) : host1x{manager} {
+        syncpoints[1].reserved = true;
+        syncpoints[1].counter_max = 100;
+    }
+    bool HasSyncpointExpired(u32, u32) const;
+    u32 UpdateMin(u32);
+    u32 ReadSyncpointMinValue(u32);
+    bool IsSyncpointAllocated(u32) const;
+    /* IS_FENCE */
+};
+/* CACHE_METHODS */
+class nvhost_ctrl {
+public:
+    /* MEMBERS */
+    std::array<InternalEvent, MaxNvEvents> events;
+    System system;
+    Cache syncpoint_manager{system.host.manager};
+    std::mutex mutex;
+    std::unique_lock<std::mutex> NvEventsLock() { return std::unique_lock{mutex}; }
+    u32 FindFreeNvEvent(u32) { return 0; }
+    NvResult IocCtrlEventWait(IocCtrlEventWaitParams&, bool);
+    NvResult IocCtrlClearEventWait(IocCtrlEventClearParams&);
+};
+/* METHODS */
+void Require(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); }
+int main() try {
+    constexpr bool vulnerable = /* VULNERABLE */;
+    for (unsigned n = 0; n < /* REPEAT */; ++n) {
+        Gate gate;
+        Kernel::KEvent event{gate};
+        nvhost_ctrl ctrl;
+        auto& e = ctrl.events[0];
+        e.kevent = &event;
+        e.registered = true;
+        e.status = EventState::Available;
+        auto wait = [&](u32 target, u32 timeout = 100) {
+            nvhost_ctrl::IocCtrlEventWaitParams p{};
+            p.fence = {1, target}; p.timeout = timeout; p.value.raw = 0;
+            return ctrl.IocCtrlEventWait(p, false);
+        };
+        Require(wait(1) == NvResult::Timeout, "initial wait not pending");
+        Require(wait(2) == NvResult::BadParameter, "live Waiting event incorrectly reused");
+        auto producer = std::async(std::launch::async, [&] {
+            ctrl.system.host.manager.IncrementHost(1);
+        });
+        if (!gate.Await([&] { return gate.awakened; })) {
+            gate.Release(); producer.get();
+            throw std::runtime_error("wake gate timeout: infrastructure failure");
+        }
+        const auto phase = e.status.load();
+        const auto same = wait(1);
+        const auto poll = wait(2, 0);
+        event.Clear(); // Simulate the guest consuming/resetting its readable event.
+        ctrl.system.host.manager.before_join = [&] {
+            std::lock_guard lock(gate.mutex);
+            gate.joining = true;
+            gate.cv.notify_all();
+        };
+        auto next = std::async(std::launch::async, [&] {
+            const auto result = wait(2);
+            std::lock_guard lock(gate.mutex);
+            gate.finished = true;
+            gate.cv.notify_all();
+            return result;
+        });
+        bool reached = gate.Await([&] { return gate.joining || gate.finished; });
+        bool joined, finished;
+        {
+            std::lock_guard lock(gate.mutex);
+            joined = gate.joining;
+            finished = gate.finished;
+        }
+        // Always release/join both tasks before asserting an outcome.
+        gate.Release(); producer.get();
+        const auto result = next.get();
+        Require(reached, "rearm gate timeout: infrastructure failure");
+        Require(phase == EventState::Signalling, "wrong callback phase");
+        Require(same == NvResult::Success, "completed target must bypass busy check");
+        Require(poll == NvResult::Timeout, "zero timeout must not join or become successful");
+        if constexpr (vulnerable) {
+            Require(!joined && result == NvResult::BadParameter,
+                    "historical post-wake BadParameter not reproduced");
+            Require(e.status == EventState::Signalled, "old callback did not finish");
+            Require(wait(2) == NvResult::Timeout, "rearm after publication failed");
+        } else {
+            Require(joined && !finished && result == NvResult::Timeout,
+                    "rearm rejected or bypassed active callback join");
+        }
+        Require(e.status == EventState::Waiting && !event.signalled,
+                "old callback clobbered new wait or manufactured completion");
+        Require(wait(3) == NvResult::BadParameter, "new live wait accepted another target");
+        ctrl.system.host.manager.IncrementHost(1);
+        Require(event.signalled && event.signals == 2 && e.status == EventState::Signalled,
+                "new wait did not complete exactly once at target2");
+        nvhost_ctrl::IocCtrlEventClearParams clear{};
+        Require(ctrl.IocCtrlClearEventWait(clear) == NvResult::Success, "clear completed failed");
+        Require(ctrl.IocCtrlClearEventWait(clear) == NvResult::Success, "duplicate clear failed");
+        Require(e.wait_handle == 0 && e.status == EventState::Cancelled && !event.signalled,
+                "completed clear did not retire handle and reset event");
+    }
+    std::cout << "PASS x" << /* REPEAT */ << (vulnerable ? " historical BadParameter witness" : " post-wake rearm joins old callback") << '\n';
+    std::cout << "PASS completed/zero-timeout/live-wait controls, exact target completion, duplicate clear\n";
+} catch (const std::exception& error) {
+    std::cerr << "FAIL: " << error.what() << '\n';
+    return 1;
+}

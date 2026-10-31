@@ -43,6 +43,7 @@ struct FramebufferTextureInfo {
     u32 height{};
     u32 scaled_width{};
     u32 scaled_height{};
+    std::shared_ptr<const struct PresentationSource> native_owner;
 };
 
 class BlitScreen {
@@ -65,7 +66,8 @@ public:
 
 private:
     void WaitIdle();
-    void SetWindowAdaptPass();
+    std::unique_ptr<WindowAdaptPass> CreateWindowAdaptPass(Settings::ScalingFilter requested_filter,
+                                                           VkFormat requested_format);
     vk::Framebuffer CreateFramebuffer(const VkImageView& image_view, VkExtent2D extent,
                                       VkRenderPass render_pass);
 

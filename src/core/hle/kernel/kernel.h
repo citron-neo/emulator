@@ -17,6 +17,8 @@
 #include "core/hle/kernel/k_slab_heap.h"
 #include "core/hle/kernel/k_typed_address.h"
 #include "core/hle/kernel/svc_common.h"
+#include "core/hle/kernel/guest_execution_drain.h"
+#include "core/hle/kernel/process_owner_roster.h"
 
 namespace Core {
 class ExclusiveMonitor;
@@ -107,6 +109,9 @@ public:
 
     /// Clears all resources in use by the kernel instance.
     void Shutdown();
+    // Cold ownership bootstrap must refuse reuse of this thread's native Kernel
+    // TLS; the query never dereferences a possibly retired binding.
+    static bool HasCurrentHostKernelBinding() noexcept;
 
     /// Close all active services in use by the kernel instance.
     void CloseServices();
@@ -263,6 +268,28 @@ public:
     /// Suspend/unsuspend emulated processes.
     void SuspendEmulation(bool suspend);
 
+    // Prototype: closes real backend entry on every core, polls without waiting.
+    // No automatic interrupt, host-producer closure or guest-backed permission.
+    [[nodiscard]] std::optional<GuestExecutionDrain> TryCloseGuestExecution(u32 poll_budget=64);
+
+    // Closes all process initialization (including service-process common setup)
+    // through initial PageTable/TLS rollback. Creation/publication are separate gates.
+    [[nodiscard]] std::optional<Common::ProducerDrain::Closure>
+    TryCloseGuestProcessInitialization(u32 poll_budget = 64);
+
+    // Retention only; callers must separately close/join initialization, ordinary
+    // writers, services and publication. A current snapshot grants no admission.
+    [[nodiscard]] std::optional<ProcessOwnerRoster::Snapshot> TryRetainProcessOwners() const;
+    [[nodiscard]] std::optional<ProcessOwnerRoster::CreationClosure> TryCloseProcessCreation();
+    const std::shared_ptr<Common::ProducerDrain>& ProcessPublicationDomain() const;
+    // All Memory facades share this domain, including untracked/service views.
+    // Closing it proves only managed API stores; raw/NCE/GPU producers remain.
+    const std::shared_ptr<Common::ProducerDrain>& ManagedGuestWriteDomain() const;
+    const std::shared_ptr<Common::ProducerDrain>& AudioRenderDomain() const;
+    const std::shared_ptr<Common::ProducerDrain>& AudioCallbackDomain() const;
+    const std::shared_ptr<Common::ProducerDrain>& Host1xSubmitDomain() const;
+    const std::shared_ptr<Common::ProducerDrain>& NvdrvDispatchDomain() const;
+
     /// Exceptional exit application process.
     void ExceptionalExitApplication();
 
@@ -302,6 +329,13 @@ public:
 private:
     friend class KProcess;
     friend class KThread;
+
+    u64 RegisterProcessOwner(KProcess* process);
+    void BeginProcessOwnerRetirement(u64 id);
+    void CompleteProcessOwnerRetirement(u64 id);
+
+    [[nodiscard]] std::optional<Common::ProducerDrain::Entry>
+    TryEnterGuestProcessInitialization();
 
     /// Creates a new object ID, incrementing the internal object ID counter.
     u32 CreateNewObjectID();

@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <functional>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <new>
+#include <string>
+#include <thread>
+#include <vector>
+#include "common/common_types.h"
+using namespace std::chrono_literals;
+std::atomic<bool> fail_next_allocation=false;
+void* operator new(std::size_t size){if(fail_next_allocation.exchange(false))throw std::bad_alloc{};if(auto* p=std::malloc(size?size:1))return p;throw std::bad_alloc{};}
+[[gnu::noinline]] void operator delete(void* p)noexcept{std::free(p);}
+[[gnu::noinline]] void operator delete(void* p,std::size_t)noexcept{std::free(p);}
+void Require(bool value,const char* why){if(!value){std::cerr<<"FAIL "<<why<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Gate{std::mutex mutex;std::condition_variable cv;bool ready=false;
+    void Set(){std::scoped_lock l{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{mutex};Require(cv.wait_for(l,5s,[&]{return ready;}),"rendezvous timeout");}};
+thread_local int thread_identity;
+struct ObservedMutex{std::mutex mutex;std::atomic<const void*> owner=nullptr;std::function<void()> before;
+    void lock(){if(before)before();mutex.lock();owner=&thread_identity;}
+    void unlock(){owner=nullptr;mutex.unlock();}
+    bool HeldByCurrent()const{return owner==&thread_identity;}};
+namespace Tegra::Host1x{@DECLARATION@}
+@METHODS@
+using Manager=Tegra::Host1x::SyncpointManager;
+struct Payload{
+    Manager& manager;int& releases;const char* witness;std::function<void()> after;
+    Payload(Manager& m,int& n,const char* w):manager{m},releases{n},witness{w}{}
+    ~Payload(){Require(!manager.guard.HeldByCurrent(),witness);++releases;if(after)after();}
+};
+auto Owner(Manager& m,int& n,const char* why){return std::make_shared<Payload>(m,n,why);}
+constexpr const char* executed="executed action retired captured owner under guard";
+constexpr const char* cancelled="cancelled action retired captured owner under guard";
+void Execute(){Manager m;int released=0,calls=0,reentered=0;
+    for(int i=0;i<2;++i){auto owner=Owner(m,released,executed);
+        owner->after=[&]{m.RegisterGuestAction(1,1,[&]{++reentered;});};
+        m.RegisterGuestAction(0,1,[&,owner]{Require(m.guard.HeldByCurrent(),"callback execution escaped existing guard semantics");++calls;});}
+    m.IncrementGuest(0);Require(calls==2&&released==2&&reentered==0,"executed payloads not retired exactly once");
+    m.IncrementGuest(1);Require(reentered==2,"owner destructor could not register a later action");}
+void Cancel(){Manager m;int released=0,calls=0,reentered=0;auto owner=Owner(m,released,cancelled);
+    owner->after=[&]{m.RegisterGuestAction(1,1,[&]{++reentered;});};
+    auto handle=m.RegisterGuestAction(0,1,[&,owner]{Require(false,"cancellation executed action");++calls;});owner.reset();
+    m.DeregisterGuestAction(0,handle);Require(released==1&&calls==0,"cancelled owner not retired exactly once");
+    m.DeregisterGuestAction(0,handle);m.IncrementGuest(1);Require(reentered==1&&released==1,"cancelled owner destructor failed reentry");}
+void Identity(){Manager m;int first=0,second=0,calls=0;
+    auto a=Owner(m,first,cancelled),b=Owner(m,second,"cancellation changed unrelated action identity");
+    auto id=m.RegisterHostAction(0,1,[a]{});m.RegisterHostAction(0,2,[&,b]{++calls;});a.reset();b.reset();
+    m.DeregisterHostAction(0,0);m.DeregisterHostAction(0,999);m.DeregisterHostAction(0,id);
+    Require(first==1&&second==0&&calls==0,"cancellation changed unrelated action identity");
+    m.IncrementHost(0);Require(calls==0,"future host action executed early");m.IncrementHost(0);
+    Require(second==1&&calls==1,"host payload not retired");}
+void Active(){Manager m;int releases=0;Gate entered,release,attempt;
+    auto owner=Owner(m,releases,executed);std::weak_ptr<Payload> weak=owner;
+    auto id=m.RegisterGuestAction(0,1,[&,owner]{entered.Set();release.Wait();Require(!weak.expired(),"active callback lost captured owner");});owner.reset();
+    std::thread increment([&]{m.IncrementGuest(0);});entered.Wait();m.guard.before=[&]{attempt.Set();};
+    std::thread cancel([&]{m.DeregisterGuestAction(0,id);});attempt.Wait();
+    Require(!weak.expired(),"active action cancelled before callback return");release.Set();increment.join();cancel.join();
+    Require(weak.expired()&&releases==1,"active action owner not retired exactly once");}
+void ThrowPrefix(){Manager m;int released=0,pending_released=0,calls=0;
+    auto a=Owner(m,released,executed),b=Owner(m,pending_released,cancelled);
+    m.RegisterGuestAction(0,1,[a]{});auto id=m.RegisterGuestAction(0,1,[&,b]{++calls;throw 7;});a.reset();b.reset();
+    try{m.IncrementGuest(0);Require(false,"callback exception swallowed");}catch(int){}
+    Require(released==1&&pending_released==0&&calls==1,"throwing callback lost retained failing action");
+    // Explicit removal, not replay. The existing callback-exception policy is unchanged.
+    m.DeregisterGuestAction(0,id);Require(pending_released==1&&calls==1,"failed callback was replayed on cancellation");}
+void Normal(){Manager m;std::vector<int> order;
+    auto ready=m.RegisterGuestAction(0,0,[&]{order.push_back(0);});Require(ready==0,"ready registration changed handle semantics");
+    auto later=m.RegisterGuestAction(0,2,[&]{order.push_back(2);});auto earlier=m.RegisterGuestAction(0,1,[&]{order.push_back(1);});
+    Require(later!=earlier&&earlier!=0,"queued action identity lost");Gate waiting;
+    std::thread waiter([&]{waiting.Set();m.WaitGuest(0,2);});waiting.Wait();
+    m.IncrementGuest(0);Require(order==std::vector<int>({0,1}),"guest callback order changed");
+    m.IncrementGuest(0);waiter.join();Require(order==std::vector<int>({0,1,2})&&m.IsReadyGuest(0,2),"guest wait/completion changed");}
+void Shared(){Manager m;int releases=0,calls=0;auto owner=Owner(m,releases,executed);std::weak_ptr<Payload> weak=owner;
+    m.RegisterGuestAction(0,1,[&,owner]{++calls;});auto id=m.RegisterGuestAction(1,1,[owner]{});owner.reset();
+    m.IncrementGuest(0);Require(releases==0&&!weak.expired()&&calls==1,"first fence retired shared request owner");
+    m.DeregisterGuestAction(1,id);Require(releases==1&&weak.expired(),"final shared action failed owner retirement");}
+void ReserveFailure(){Manager m;int releases=0,calls=0;auto owner=Owner(m,releases,cancelled);
+    auto id=m.RegisterGuestAction(0,1,[&,owner]{++calls;});owner.reset();bool caught=false;
+    fail_next_allocation=true;try{m.IncrementGuest(0);}catch(const std::bad_alloc&){caught=true;}
+    Require(caught&&!fail_next_allocation&&calls==0&&releases==0&&m.GetGuestSyncpointValue(0)==1&&m.guest_action_storage[0].size()==1,
+            "reserve failure changed action ownership or executed callbacks");
+    m.DeregisterGuestAction(0,id);Require(releases==1&&calls==0,"reserve failure cleanup replayed callback");}
+int main(int argc,char** argv){Require(argc==2,"missing case");std::string c=argv[1];
+    if(c=="execute")Execute();else if(c=="cancel")Cancel();else if(c=="identity")Identity();else if(c=="active")Active();
+    else if(c=="throw-prefix")ThrowPrefix();else if(c=="normal")Normal();else if(c=="shared-owner")Shared();else if(c=="reserve-failure")ReserveFailure();else Require(false,"unknown case");
+    std::cout<<"PASS syncpoint retirement "<<c<<'\n';}

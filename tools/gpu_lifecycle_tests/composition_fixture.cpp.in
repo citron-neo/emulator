@@ -1,0 +1,245 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <list>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <semaphore>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <type_traits>
+#include <utility>
+#include <vector>
+#include <vulkan/vulkan.h>
+#include "common/common_types.h"
+#include "common/scope_exit.h"
+#include "common/terminal_fail_stop.h"
+#include "video_core/renderer_vulkan/present/present_push_constants.h"
+static std::string fault,gate,retirement_fault;
+static constexpr bool fixed=@FIXED@;
+static std::binary_semaphore entered{0},resume{0},joining{0};
+static bool gated{},armed{},internal_finish{};
+static int configured{},presented{},recreated{},passes_changed{};
+static void event(const char*s){std::fprintf(stderr,"EVENT %s\n",s);std::fflush(stderr);}
+static void check(bool b,const char*s){if(!b){std::fprintf(stderr,"FAIL %s\n",s);std::fflush(stderr);std::_Exit(91);}}
+static void pause_at(const char*s){if(gate==s&&!gated){gated=true;entered.release();resume.acquire();}}
+struct Root {int refs{},clears{},draws{},ended{};bool live=true;};
+static std::map<uintptr_t,std::shared_ptr<Root>> roots;
+static uintptr_t next_id=1;
+namespace Settings {
+enum class ScalingFilter{NearestNeighbor,Bilinear,Bicubic,Lanczos,Gaussian,ScaleForce,ScaleFx,CRTEasyMode,CRTRoyale,Cas,Fsr,Fsr2};
+struct Value{float value=1;float GetValue()const{return value;}};
+struct Choice{ScalingFilter value=ScalingFilter::Bilinear;ScalingFilter GetValue()const{return value;}};
+inline struct {Value bg_red,bg_green,bg_blue,lanczos_quality,crt_scanline_strength,crt_curvature,crt_gamma,crt_bloom,crt_mask_type,crt_brightness,crt_alpha;Choice scaling_filter;}values;
+}
+namespace Layout{struct FramebufferLayout{u32 width=4,height=4;struct Screen{u32 GetWidth()const{return 4;}u32 GetHeight()const{return 4;}}screen;};}
+namespace Tegra{enum class BlendMode{Opaque,Premultiplied,Coverage};struct FramebufferConfig{BlendMode blending{};bool is_applet=true;u64 owner_aruid=1;int z_index=1;};}
+namespace VideoCore::Capture {static constexpr Layout::FramebufferLayout Layout{};}
+namespace Vulkan {
+struct Scheduler;
+namespace vk {
+struct Exception:std::exception{VkResult GetResult()const{return VK_ERROR_DEVICE_LOST;}};
+template<class H,int Kind>struct Native{
+    uintptr_t id{};std::shared_ptr<Root>root;
+    Native()=default;explicit Native(std::shared_ptr<Root>r):id{next_id++},root{std::move(r)}{roots[id]=root;}
+    Native(const Native&)=delete;Native&operator=(const Native&)=delete;
+    Native(Native&&r)noexcept:id{std::exchange(r.id,0)},root{std::move(r.root)}{}
+    Native&operator=(Native&&r)noexcept{Reset();id=std::exchange(r.id,0);root=std::move(r.root);return *this;}
+    ~Native(){Reset();}
+    void Reset()noexcept{if(root){if(armed)check(root->refs==0,"Frame owner unwound with uncertain composition");root->live=false;event(Kind==0?"image.destroy":Kind==1?"view.destroy":Kind==2?"framebuffer.destroy":"pass.destroy");root.reset();id=0;}}
+    H operator*()const{return reinterpret_cast<H>(id);}
+    explicit operator bool()const{return id!=0;}
+};
+using Image=Native<VkImage,0>;using ImageView=Native<VkImageView,1>;using Framebuffer=Native<VkFramebuffer,2>;
+using RenderPass=Native<VkRenderPass,3>;using PipelineLayout=Native<VkPipelineLayout,3>;using Pipeline=Native<VkPipeline,3>;using Sampler=Native<VkSampler,3>;
+struct Semaphore{VkSemaphore operator*()const{return nullptr;}};struct Fence{};
+struct CommandBuffer {
+    Scheduler*s{};std::shared_ptr<Root>target;
+    void ClearAttachments(std::initializer_list<VkClearAttachment>,std::initializer_list<VkClearRect>);
+    void BindPipeline(VkPipelineBindPoint,VkPipeline);
+    template<class...T>void PushConstants(T&&...){Step("push");}
+    void BindDescriptorSets(VkPipelineBindPoint,VkPipelineLayout,u32,VkDescriptorSet,std::initializer_list<u32>){Step("bind");}
+    void Draw(int,int,int,int);void EndRenderPass();void Step(const char*);
+};
+}
+@FRAME@
+struct Scheduler{
+    std::jthread worker;std::mutex submit_mutex;
+    struct Job{std::function<void(vk::CommandBuffer)>run;std::vector<std::shared_ptr<Root>>owners;};
+    std::vector<Job>jobs;std::vector<std::function<void()>>native;
+    std::vector<std::shared_ptr<Root>>sources;std::shared_ptr<Root>target,pass;
+    std::function<void()> closed_observer;
+    bool closed{},joined{},retired{},idle_fail{},final_record{};int submits{},records{},scopes{},finishes{};u64 tick=1;
+    struct Scope{Scheduler*s;Scope(Scheduler*p):s{p}{++s->scopes;event("source_scope.begin");}~Scope(){--s->scopes;event("source_scope.end");}};
+    Scope BeginPresentationSources(){return Scope{this};}
+    void RequireNativeBorrowAdmission()const{if(closed){if(closed_observer)closed_observer();Common::TerminalFailStop("native_borrow.entry","closed_admission");}}
+    template<class F>void Record(F f){
+        ++records;if(final_record&&fault=="record-before")throw std::bad_alloc();
+        std::vector<std::shared_ptr<Root>>borrow=sources;if(final_record){borrow.push_back(target);borrow.push_back(pass);}
+        for(auto&r:borrow)++r->refs;
+        jobs.push_back({std::move(f),std::move(borrow)});
+        if(final_record){pause_at("enqueue");if(fault=="record-enqueued")throw std::bad_alloc();if(fault=="submit-partial"||fault=="submit-full"){Drain();Submit(fault=="submit-partial");throw vk::Exception{};}}
+    }
+    void Drain(){auto work=std::move(jobs);jobs.clear();for(auto&j:work){j.run(vk::CommandBuffer{this,{}});native.push_back([owners=std::move(j.owners)]{for(auto&r:owners)--r->refs;});}}
+    void Submit(bool partial=false){++submits;const size_t n=partial?(native.size()+1)/2:native.size();for(size_t i=0;i<n;++i)native[i]();native.erase(native.begin(),native.begin()+n);}
+    struct Master{Scheduler*s;VkResult PollNativeResourceLifetime(u64){if(retirement_fault=="poll-pending")return VK_NOT_READY;if(retirement_fault=="poll-error")return VK_ERROR_DEVICE_LOST;return s->jobs.empty()&&s->native.empty()?VK_SUCCESS:VK_NOT_READY;}};
+    std::unique_ptr<Master> master_semaphore=std::make_unique<Master>(this);
+    u64 CurrentTick()const{return tick;}
+    void WaitWorker(){if(retirement_fault=="worker")throw std::runtime_error("waitworker");Drain();}
+    void Finish(){RequireNativeBorrowAdmission();++finishes;if(final_record&&retirement_fault=="before")throw std::runtime_error("finish");Drain();if(final_record&&retirement_fault=="partial"){Submit(true);throw vk::Exception{};}Submit();++tick;}
+    void FinishNativeBorrow();
+    void Flush(VkSemaphore){if(fault=="flush"){Drain();Submit(true);throw vk::Exception{};}Finish();}
+    void Shutdown(){closed=true;event("shutdown.closed");if(worker.joinable()){joining.release();worker.join();}Drain();joined=true;event("shutdown.joined");if(idle_fail)Common::TerminalFailStop("renderer.native_idle","vulkan_result",VK_ERROR_DEVICE_LOST);Submit();retired=true;event("shutdown.idle");}
+};
+@NATIVE_BORROW@
+static void BeginRenderPass(vk::CommandBuffer&cb,VkRenderPass,VkFramebuffer framebuffer,VkExtent2D){cb.target=roots.at(reinterpret_cast<uintptr_t>(framebuffer));cb.Step("begin");}
+void vk::CommandBuffer::Step(const char*at){pause_at(at);check(!target||target->live,"callback read retired Frame");if(fault==std::string("worker-")+at){if(std::string(at)=="end")throw Exception{};throw std::runtime_error("callback");}}
+void vk::CommandBuffer::ClearAttachments(std::initializer_list<VkClearAttachment>,std::initializer_list<VkClearRect>){Step("clear");s->native.push_back([r=target]{check(r->live,"native clear used retired Frame");++r->clears;});}
+void vk::CommandBuffer::BindPipeline(VkPipelineBindPoint,VkPipeline){Step("pipeline");}
+void vk::CommandBuffer::Draw(int,int,int,int){Step("draw");s->native.push_back([r=target]{check(r->live,"native draw used retired Frame");++r->draws;});}
+void vk::CommandBuffer::EndRenderPass(){Step("end");s->native.push_back([r=target]{++r->ended;});}
+struct Device{};struct MemoryAllocator{};struct Memory{};struct RasterizerVulkan{};
+struct Filters{Settings::ScalingFilter get_scaling_filter()const{return Settings::values.scaling_filter.GetValue();}};
+struct Layer{
+    Scheduler*s{};std::shared_ptr<Root>owner=std::make_shared<Root>();
+    Layer()=default;
+    template<class...T>Layer(const Device&,MemoryAllocator&,Scheduler&sc,Memory&,T&&...):s{&sc}{}
+    ~Layer(){if(armed)check(owner->refs==0,"source owner released with unfinished work");}
+    bool ConfigureDraw(PresentPushConstants*,VkDescriptorSet*d,RasterizerVulkan&,VkSampler,size_t,const Tegra::FramebufferConfig&,const Layout::FramebufferLayout&){
+        ++configured;if(fault=="configure")throw std::runtime_error("helper");
+        s->sources.push_back(owner);s->Record([](vk::CommandBuffer){});
+        if(internal_finish)s->Finish();*d=reinterpret_cast<VkDescriptorSet>(1);return true;
+    }
+};
+struct WindowAdaptPass{
+    std::shared_ptr<Root>owner=std::make_shared<Root>();
+    vk::RenderPass render_pass{owner};vk::PipelineLayout pipeline_layout{owner};vk::Sampler sampler{owner};
+    vk::Pipeline opaque_pipeline{owner},premultiplied_pipeline{owner},coverage_pipeline{owner};
+    void Draw(RasterizerVulkan&,Scheduler&,size_t,std::list<Layer>&,std::span<const Tegra::FramebufferConfig>,const Layout::FramebufferLayout&,Frame*);
+    VkDescriptorSetLayout GetDescriptorSetLayout(){return reinterpret_cast<VkDescriptorSetLayout>(1);}
+    VkRenderPass GetRenderPass(){return *render_pass;}
+};
+static void BeforeFinalRecord(Scheduler&s,Frame*dst,const std::shared_ptr<Root>&owner){
+    s.final_record=true;s.target=dst->framebuffer.root;s.pass=owner;event("composition.borrow");
+    check(configured>=2,"composition started before ConfigureDraw success");
+    if(fault=="capture")throw std::bad_alloc();
+}
+@WINDOW@
+struct PresentManager{void Present(Frame*){++presented;if(fault=="present")throw vk::Exception{};}void RecreateFrame(Frame*,u32,u32,VkFormat,VkRenderPass){++recreated;}};
+struct BlitScreen{
+    Memory device_memory;Device device;MemoryAllocator memory_allocator;PresentManager present_manager;Scheduler&scheduler;Filters filters;
+    size_t image_count=3,image_index{};VkFormat swapchain_view_format=VK_FORMAT_R8G8B8A8_UNORM;
+    Settings::ScalingFilter scaling_filter=Settings::ScalingFilter::Bilinear;
+    std::unique_ptr<WindowAdaptPass>window_adapt=std::make_unique<WindowAdaptPass>();std::list<Layer>layers;
+    explicit BlitScreen(Scheduler&s):scheduler{s}{}
+    void WaitIdle(){scheduler.Finish();}
+    std::unique_ptr<WindowAdaptPass>CreateWindowAdaptPass(Settings::ScalingFilter,VkFormat){++passes_changed;return std::make_unique<WindowAdaptPass>();}
+    void SetWindowAdaptPass(){++passes_changed;layers.clear();window_adapt=std::make_unique<WindowAdaptPass>();scaling_filter=filters.get_scaling_filter();}
+    void DrawToFrame(RasterizerVulkan&,Frame*,std::span<const Tegra::FramebufferConfig>,const Layout::FramebufferLayout&,size_t,VkFormat);
+};
+@BLIT@
+static Frame MakeFrame(){Frame f{};f.width=4;f.height=4;@FRAME_FORMAT@auto r=std::make_shared<Root>();f.image=vk::Image{r};f.image_view=vk::ImageView{r};f.framebuffer=vk::Framebuffer{r};return f;}
+static constexpr VkExtent2D CaptureImageSize{4,4};static constexpr VkFormat CaptureFormat=VK_FORMAT_R8G8B8A8_UNORM;
+static vk::Image CreateWrappedImage(MemoryAllocator&,VkExtent2D,VkFormat){return vk::Image{std::make_shared<Root>()};}
+static vk::ImageView CreateWrappedImageView(const Device&,vk::Image&i,VkFormat){return vk::ImageView{i.root};}
+struct RendererVulkan{
+    @APPLET_STATE@
+    AppletCaptureState applet_capture_state{AppletCaptureState::Empty};
+    Scheduler&scheduler;Device device;MemoryAllocator memory_allocator;RasterizerVulkan rasterizer;Frame applet_frame=MakeFrame();
+    BlitScreen&blit_swapchain;PresentManager present_manager;
+    struct Swapchain{size_t GetImageCount()const{return 3;}VkFormat GetImageViewFormat()const{return VK_FORMAT_R8G8B8A8_UNORM;}}swapchain;
+    struct Window{Layout::FramebufferLayout GetFramebufferLayout()const{return {};}}render_window;
+    struct Blit{BlitScreen*target;int calls{};
+        vk::Framebuffer CreateFramebuffer(const Layout::FramebufferLayout&,VkImageView,VkFormat){return vk::Framebuffer{std::make_shared<Root>()};}
+        void DrawToFrame(RasterizerVulkan&r,Frame*f,std::span<const Tegra::FramebufferConfig>c,const Layout::FramebufferLayout&l,size_t n,VkFormat fmt){++calls;target->scheduler.final_record=false;target->DrawToFrame(r,f,c,l,n,fmt);}
+    }blit_applet;
+    RendererVulkan(Scheduler&s,BlitScreen*b):scheduler{s},blit_swapchain{*b},blit_applet{b}{}
+    u64 GetMainApplicationAruid()const{return 0;}
+    void RenderAppletCaptureLayer(std::span<const Tegra::FramebufferConfig>);
+    std::vector<u8>GetAppletCaptureBuffer();
+    void PresentFrame(Frame*frame,std::span<const Tegra::FramebufferConfig>framebuffers){
+@PRESENT_GUARD@
+    }
+};
+@APPLET_METHODS@
+
+}
+int main(int argc,char**argv){
+    if(argc!=3)return 2;
+    std::string mode=argv[1];const size_t slot=std::stoul(argv[2]);
+    std::atexit([]{event("atexit");});Vulkan::Scheduler s;Vulkan::BlitScreen blit{s};blit.image_index=slot;
+    const bool split=mode.starts_with("split-");if(split){mode=mode.substr(6);internal_finish=true;}
+    std::array<Tegra::FramebufferConfig,2>configs{};configs[1].blending=Tegra::BlendMode::Coverage;
+    Vulkan::RasterizerVulkan raster;
+    try{
+        auto frame=Vulkan::MakeFrame();armed=true;
+        auto draw=[&]{s.final_record=false;s.sources.clear();auto layout=Layout::FramebufferLayout{};if(mode=="closed-recreate")layout.width=8;blit.DrawToFrame(raster,&frame,configs,layout,mode=="closed-recreate"?7:3,mode=="closed-recreate"?VK_FORMAT_B8G8R8A8_UNORM:VK_FORMAT_R8G8B8A8_UNORM);};
+        if(mode=="multi-slot"||mode=="multi-slot-partial"){
+            std::array<Vulkan::Frame,3>frames{Vulkan::MakeFrame(),Vulkan::MakeFrame(),Vulkan::MakeFrame()};blit.image_index=0;
+            auto draw_slot=[&](size_t i){s.final_record=false;s.sources.clear();blit.DrawToFrame(raster,&frames[i],configs,Layout::FramebufferLayout{},3,VK_FORMAT_R8G8B8A8_UNORM);};
+            draw_slot(0);draw_slot(1);fault=mode=="multi-slot"?"record-enqueued":"submit-partial";
+            bool threw=false;try{draw_slot(2);}catch(...){threw=true;}
+            check(threw&&blit.image_index==2,"failed third slot advanced or suppressed error");
+            check(s.jobs.empty()&&s.native.empty()&&std::all_of(frames.begin(),frames.end(),[](auto&f){return f.framebuffer.root->refs==0&&f.framebuffer.root->ended==1;}),"composition did not retire all Frame slots");
+            fault.clear();draw_slot(2);s.Finish();check(frames[2].framebuffer.root->ended==2,"third slot retry failed");
+        }else if(mode=="applet-configure-failure"||mode=="applet-composition-failure"){
+            blit.image_index=0;Vulkan::RendererVulkan r{s,&blit};
+            fault=mode=="applet-configure-failure"?"configure":"record-enqueued";
+            bool threw=false;try{r.RenderAppletCaptureLayer(configs);}catch(...){threw=true;}
+            check(threw&&r.applet_capture_state==Vulkan::RendererVulkan::AppletCaptureState::Failed,"Configure failure bypassed applet isolation");
+            fault.clear();s.Finish();
+            {Vulkan::BlitScreen healthy{s};r.blit_applet.target=&healthy;r.RenderAppletCaptureLayer(configs);
+            check(r.blit_applet.calls==1&&r.GetAppletCaptureBuffer().empty(),"healthy composition reopened failed applet");}
+        }else if(mode=="normal"||mode=="lanczos"||mode=="crt"){
+            if(mode=="lanczos")Settings::values.scaling_filter.value=Settings::ScalingFilter::Lanczos;
+            if(mode=="crt")Settings::values.scaling_filter.value=Settings::ScalingFilter::CRTEasyMode;
+            blit.scaling_filter=Settings::values.scaling_filter.value;
+            draw();check(blit.image_index==(slot+1)%3,"successful composition did not advance slot");
+            check(s.submits==(split?2:0),"composition added normal submission");
+            check(frame.framebuffer.root->ended==0,"enqueue treated as completed Frame");
+            s.Finish();check(frame.framebuffer.root->clears==1&&frame.framebuffer.root->draws==2&&frame.framebuffer.root->ended==1,"native composition incomplete");++presented;
+            draw();s.Finish();check(frame.framebuffer.root->ended==2,"completed Frame retry failed");
+        }else if(mode.starts_with("present-")){
+            Vulkan::RendererVulkan r{s,&blit};fault=mode.substr(8);r.PresentFrame(&frame,configs);check(false,"failed dequeued Frame returned");
+        }else if(mode=="closed"||mode=="closed-direct"||mode=="closed-recreate"||mode=="closed-fastpath"){
+            s.closed=true;
+            if(mode=="closed-recreate"||mode=="closed-fastpath")s.closed_observer=[&]{check(blit.image_count==3&&blit.swapchain_view_format==VK_FORMAT_R8G8B8A8_UNORM&&blit.layers.empty(),"closed Blit mutated metadata before admission");};
+            if(mode!="closed-direct")draw();else {for(int i=0;i<2;++i)blit.layers.emplace_back(blit.device,blit.memory_allocator,s,blit.device_memory);blit.window_adapt->Draw(raster,s,slot,blit.layers,configs,Layout::FramebufferLayout{},&frame);}
+            check(false,"closed composition entry admitted");
+        }else if(mode=="gate"||mode=="shutdown-active"||mode=="idle-failure"){
+            gate=mode=="gate"?"enqueue":"draw";
+            if(mode=="gate"){
+                std::jthread owner([&]{draw();});entered.acquire();
+                check(frame.framebuffer.root->refs>0&&s.scopes==1&&blit.image_index==slot,"queued composition lost owner or advanced slot");resume.release();owner.join();s.Finish();
+            }else{
+                draw();s.worker=std::jthread([&]{s.Drain();});entered.acquire();
+                std::jthread observer([&]{joining.acquire();check(s.closed&&!s.joined&&!s.retired&&frame.framebuffer.root->refs>0,"shutdown skipped active composition join");event("join.blocked");resume.release();});
+                s.idle_fail=mode=="idle-failure";s.Shutdown();observer.join();
+            }
+        }else if(mode.starts_with("worker-")){
+            draw();fault=mode;event("failure.armed");s.Drain();check(false,"composition callback failure escaped terminal boundary");
+        }else{
+            fault=mode;if(mode.starts_with("retire-")){retirement_fault=mode.substr(7);fault="record-enqueued";}
+            try{draw();}catch(...){
+                event("failure.escaped");check(blit.image_index==slot,"failed composition advanced slot");
+                if constexpr(!fixed){throw;}
+                check(retirement_fault.empty(),"unconfirmed retirement returned");
+                check(s.jobs.empty()&&s.native.empty()&&frame.framebuffer.root->refs==0,"composition escaped before checked retirement");
+                check(s.scopes==0,"checked error retained source scope");
+                const int ended=frame.framebuffer.root->ended;fault.clear();draw();s.Finish();
+                check(frame.framebuffer.root->ended==ended+1,"checked composition retry failed");
+            }
+            // Historical code now unwinds the actual Frame declaration with queued/native effects.
+        }
+        if(!s.retired){fault.clear();s.Shutdown();}
+    }catch(...){check(false,"unexpected host exception escaped");}
+    armed=false;check(presented==(mode=="normal"||mode=="lanczos"||mode=="crt"),"failed Frame reached presentation");
+    event("owners.released");std::fprintf(stderr,"PASS composition %s slot=%zu\n",argv[1],slot);
+}

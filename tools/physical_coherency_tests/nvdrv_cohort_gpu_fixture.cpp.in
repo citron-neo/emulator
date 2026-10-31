@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+using Service::Nvidia::Module;
+using Service::Nvidia::NVDRV;
+using Service::Nvidia::NvResult;
+using Service::Nvidia::Ioctl;
+using VideoCommon::GPUThread::ThreadManager;
+template<class P> static NvResult NvIoctl(Module&m,int fd,u32 cmd,P&params){
+ Ioctl ioctl{};ioctl.cmd.Assign(cmd);ioctl.group.Assign(0);ioctl.length.Assign(sizeof(P));
+ auto in=std::span<const u8>{reinterpret_cast<const u8*>(&params),sizeof(P)};
+ auto out=std::span<u8>{reinterpret_cast<u8*>(&params),sizeof(P)};return m.Ioctl1(fd,ioctl,in,out);
+}
+static bool JointLifetimeReady(Kernel::ProcessCohortStop& close,std::weak_ptr<Module> owner,
+ const std::atomic<unsigned>&gpu_finished,bool gpu_joined){
+ return close.Poll()==Kernel::ProcessCohortStop::Result::BackendsStopped&&owner.expired()&&active_signals==0
+  && gpu_finished==1 && gpu_joined;
+}
+int main(int argc,char**argv){
+ Require(argc==2,"expected case");mode=argv[1];
+ using R=Kernel::ProcessCohortStop::Result;using D=Common::ProducerDrain::Result;
+ Kernel::KernelCore kernel;auto&system=kernel.System();
+ Kernel::KProcess process{kernel},idle{kernel};
+ Tegra::Host1x::Host1x host{system};system.fixture_host=&host;
+ auto module=std::make_shared<Module>(system);auto facade=std::make_shared<NVDRV>(module,process);
+ auto queue=module->RetirementQueue();auto sid=**facade->session_retirement->published;
+ auto fd=module->Open("/dev/nvhost-ctrl",sid);Require(fd>=0,"actual nvhost device open failed");
+ struct Register{u32 slot;}reg{0};Require(NvIoctl(*module,fd,0x1f,reg)==NvResult::Success,"register failed");
+ struct Wait{Service::Nvidia::NvFence fence;u32 timeout,value;}wait{{2,1},100,0};
+ Require(NvIoctl(*module,fd,0x1e,wait)==NvResult::Timeout,"wait did not queue actual callback");
+ std::weak_ptr<Module> owner=module;
+ std::weak_ptr<std::array<u8,4096>> backing=system.DeviceMemory().buffer.allocation;
+ Core::Memory::Memory view{kernel.ManagedGuestWriteDomain(),system.DeviceMemory().buffer.allocation->data()};
+ u8* raw_alias=view.impl->GetPointerImpl(0,[]{},[]{});
+ Require(raw_alias!=nullptr,"actual pointer translation failed");
+ VideoCore::RendererBase renderer;Core::Frontend::GraphicsContext context;Tegra::Control::Scheduler scheduler;
+ ThreadManager gpu{system,true};gpu.StartThread(renderer,context,scheduler);
+ Tegra::Host1x::SyncptIncrManager increments{host};
+ Event tail_entered,tail_release,stopping,joined,queued,block_entered,block_release;
+ stop_requested=&stopping;worker_joined=&joined;
+ std::atomic<unsigned> gpu_calls{},gpu_finished{};
+ joint_signal=[&]{signal_entered.Set();signal_release.Wait();};
+ std::future<void> sent,blocker;
+ if(mode=="queued-cancel"){
+  blocker=std::async(std::launch::async,[&]{gpu.RunOnGpuThread([&]{block_entered.Set();block_release.Wait();});});
+  block_entered.Wait();command_queued=&queued;
+  sent=std::async(std::launch::async,[keep=facade, &gpu,&increments,&gpu_calls]{
+   gpu.RunOnGpuThread([keep,&increments,&gpu_calls]{++gpu_calls;increments.Increment(2);});});
+  queued.Wait();facade.reset();module.reset();
+  Require(!owner.expired(),"queued GPU callback lost facade owner");
+  auto close=process.TryStopProcessCohort(256);Require(bool(close),"queued cohort refused");
+  Require(close->Poll()==R::BackendsStopped&&close->GuestBackingAdmission()==D::Unknown,
+   "queued callback counterexample changed");
+  auto stop=std::async(std::launch::async,[&]{gpu.Stop();});stopping.Wait();Ready(sent);
+  Require(!owner.expired()&&gpu_calls==0&&freed_events==0,"cancellation dropped queued owner before worker join");
+  block_release.Set();Ready(blocker);Ready(stop);
+  Require(gpu_calls==0&&signals==0&&!owner.expired()&&process.refs>1,
+   "cancelled capture did not defer actual session retirement");
+  // Only the inert blocker ran: no guest/native write or queued syncpoint effect.
+  Require(close->CancelNoEffects(),"effect-free cancelled queue failed cohort cancellation");
+  Require(queue->Drain()&&owner.expired()&&freed_events==1,"resumed cancelled owner did not retire");
+  system.DeviceMemory().buffer.allocation.reset();Require(!backing.expired(),"cohort lost actual session backing");
+  close.reset();Require(backing.expired()&&process.refs==1&&idle.refs==1,"cancelled graph leaked owners");
+  std::cout<<"PASS nvdrv-cohort-gpu "<<mode<<"\n";return 0;
+ }
+ sent=std::async(std::launch::async,[&]{gpu.RunOnGpuThread([&]{
+  ++gpu_calls;increments.Increment(2);tail_entered.Set();tail_release.Wait();++gpu_finished;
+ });});signal_entered.Wait();
+ if(mode=="subset-gap"){
+  auto close=process.TryStopProcessCohort(256);Require(bool(close),"subset cohort refused");
+  Require(close->Poll()==R::BackendsStopped&&active_signals==1&&gpu_finished==0,
+   "missing same-graph Host1x/GPU subset counterexample");
+  Require(close->GuestBackingAdmission()==D::Unknown,"active Host1x subset granted admission");
+  signal_release.Set();tail_entered.Wait();tail_release.Set();Ready(sent);gpu.Stop();
+  facade.reset();module.reset();kernel.NvdrvDispatchDomain()->Seal();
+  Require(!owner.expired()&&freed_events==0&&process.refs>1&&!backing.expired(),
+   "Unknown retirement discarded actual graph");
+  Require(close->Poll()==R::Unknown&&!close->CancelNoEffects(),"Unknown graph reopened cohort");
+  std::cout<<"WITNESS BackendsStopped with active Host1x/GPU; admission Unknown; final graph retained\n"
+           <<"PASS nvdrv-cohort-gpu "<<mode<<"\n";std::cout.flush();
+  // Uncertain records deliberately retain raw facade dependencies. Do not invent
+  // trusted disposal or let fixture Kernel/System destruct under those owners.
+  std::_Exit(0);
+ }
+ Kernel::KThread backend_thread{idle};std::thread cpu;
+ std::promise<void> unlock_entered,unlock_release;auto unlocked=unlock_entered.get_future();
+ if(mode=="backend-active"){
+  idle.backend.unlock_entered=&unlock_entered;idle.backend.unlock_release=unlock_release.get_future().share();
+  cpu=std::thread([&]{kernel.PhysicalCore(0).RunThread(&backend_thread);});
+  Until([&]{return idle.backend.running.load();});
+ }
+ module.reset();auto retiring=std::async(std::launch::async,[&]{facade.reset();});cancel_entered.Wait();
+ auto close=process.TryStopProcessCohort(mode=="timeout"?2:256);Require(bool(close),"active cohort refused");
+ Require(close->Poll()==R::Pending,"cohort acknowledged active final retirement");
+ if(mode=="backend-active"){
+  Require(unlocked.wait_for(5s)==std::future_status::ready,"backend failed UnlockThread rendezvous");
+  Require(bool(kernel.NvdrvDispatchDomain()->TryEnter()),"host close preceded backend acknowledgement");
+  unlock_release.set_value();cpu.join();
+  Require(close->Poll()==R::Pending,"backend join bypassed active retirement");
+ }
+ Require(!kernel.NvdrvDispatchDomain()->TryEnter(),"cohort left new NVDRV ingress open");
+ Require(bool(kernel.Host1xSubmitDomain()->TryEnter())&&bool(kernel.ManagedGuestWriteDomain()->TryEnter()),
+  "inner writer closed before outer retirement");
+ Require(active_signals==1&&freed_events==0&&process.refs>1&&!backing.expired(),"active joint graph lost owners");
+ if(mode=="timeout"){
+  while(close->Poll()==R::Pending){}
+  Require(close->Poll()==R::Unknown,"retirement timeout did not quarantine");
+ }
+ std::future<void> stop;
+ if(mode=="gpu-stop"){
+  stop=std::async(std::launch::async,[&]{gpu.Stop();});stopping.Wait();
+  Require(stop.wait_for(0ms)!=std::future_status::ready,"GPU stop skipped active Host1x worker");
+ }
+ signal_release.Set();tail_entered.Wait();Ready(retiring);
+ Require(owner.expired()&&active_signals==0&&freed_events==1&&module_ends==1,
+  "Host1x join failed final target retirement");
+ Require(!JointLifetimeReady(*close,owner,gpu_finished,false),"cohort substituted for GPU last use");
+ if(mode=="escaped-alias"){
+  raw_alias[5]=85;Require(raw_alias[5]==85&&close->GuestBackingAdmission()==D::Unknown,
+   "same-graph closure concealed escaped writer");
+ }
+ tail_release.Set();Ready(sent);if(stop.valid())Ready(stop);else gpu.Stop();
+ Require(gpu_calls==1&&gpu_finished==1,"GPU worker failed actual callback completion");
+ if(mode=="timeout")Require(close->Poll()==R::Unknown&&!close->CancelNoEffects(),"late GPU join reopened Unknown");
+ else{
+  Require(JointLifetimeReady(*close,owner,gpu_finished,true),"joined graph did not finish named lifetimes");
+  if(mode=="late-seal"){
+   kernel.NvdrvDispatchDomain()->Seal();
+   Require(close->Poll()==R::Unknown&&!close->CancelNoEffects(),"late NVDRV seal reopened cohort");
+  }
+ }
+ Require(close->GuestBackingAdmission()==D::Unknown,"joint lifetimes granted guest admission");
+ system.DeviceMemory().buffer.allocation.reset();Require(!backing.expired(),"cohort lost actual session backing");
+ close.reset();Require(backing.expired()&&process.refs==1&&idle.refs==1,"joined cohort leaked Process/backing");
+ std::cout<<"PASS nvdrv-cohort-gpu "<<mode<<"\n";
+}

@@ -3146,7 +3146,7 @@ private:
 
     u32 ProcessShadowRam(u32 method, u32 argument);
 
-    void ProcessDirtyRegisters(u32 method, u32 argument);
+    void ProcessDirtyRegisters(u32 method, u32 argument, bool from_sink = false);
 
     void ConsumeSinkImpl() override;
 

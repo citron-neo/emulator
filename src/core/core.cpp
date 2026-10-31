@@ -38,10 +38,13 @@
 #include "common/fs/fs.h"
 #include "common/logging.h"
 #include "common/settings.h"
+#include "common/terminal_fail_stop.h"
 #include "common/settings_enums.h"
 #include "common/string_util.h"
 #include "core/arm/exclusive_monitor.h"
 #include "core/core.h"
+#include "core/frontend/emu_window.h"
+#include "core/frontend/graphics_context.h"
 #include "core/core_timing.h"
 #include "core/cpu_manager.h"
 #include "core/debugger/debugger.h"
@@ -93,6 +96,7 @@
 #include "hid_core/hid_core.h"
 #include "network/network.h"
 #include "video_core/host1x/host1x.h"
+#include "core/restricted_process_renderer.h"
 #include "video_core/renderer_base.h"
 #include "video_core/video_core.h"
 
@@ -211,6 +215,7 @@ struct System::Impl {
         if (layout_changed) {
             device_memory.reset();
             guest_memory_from_gpu = false;
+            guest_memory_lazy_backing = false;
             guest_memory_from_gpu_unavailable = false;
         }
 
@@ -330,7 +335,24 @@ struct System::Impl {
     /// never will: the Android frontend loads the driver after System::Initialize has created
     /// guest memory.
     void UseGuestMemoryFromGpu(Frontend::EmuWindow& emu_window) {
-        if (guest_memory_from_gpu || guest_memory_from_gpu_unavailable) {
+        if (guest_memory_from_gpu || guest_memory_lazy_backing) {
+            return;
+        }
+#if defined(__linux__)
+        if (Settings::values.use_lazy_guest_backing.GetValue()) {
+            Common::LazyBackingParams params;
+            params.exporter = VideoCore::CreateGuestBackingExporter(emu_window);
+            const bool export_available = params.exporter != nullptr;
+            device_memory.reset();
+            device_memory.emplace(std::move(params));
+            guest_memory_lazy_backing = true;
+            LOG_INFO(Core, "Lazy physical backing: on (32 MiB {}, renderer direct access disabled)",
+                     export_available ? "GPU-exportable chunks with CPU-only fallback"
+                                      : "CPU-only memfd chunks");
+            return;
+        }
+#endif
+        if (guest_memory_from_gpu_unavailable) {
             return;
         }
         // The size DeviceMemory gives itself (device_memory.cpp).
@@ -343,7 +365,7 @@ struct System::Impl {
         }
         device_memory.reset();
         try {
-            device_memory.emplace(exported.fds);
+            device_memory.emplace(exported.fds, exported.direct_importable);
         } catch (const std::exception& e) {
             // HostMemory has closed the descriptors; guest memory comes from the usual place
             LOG_ERROR(Core, "Guest memory from the GPU driver could not be mapped: {}", e.what());
@@ -497,15 +519,25 @@ struct System::Impl {
         exit_locked = false;
         exit_requested = false;
 
-        if (gpu_core) {
-            gpu_core->NotifyShutdown();
+        const char* stage = "system.producer_close";
+        try {
+            if (gpu_core) {
+                gpu_core->NotifyShutdown();
+            }
+            stop_event.request_stop();
+            core_timing.SyncPause(false);
+            Network::CancelPendingSocketOperations();
+
+            stage = "system.execution_stop";
+            kernel.SuspendEmulation(true);
+            // Before service/Process owners or GPU/Host1x/backing can retire.
+            stage = "system.gpu_drain";
+            if (gpu_core) {
+                gpu_core->Shutdown();
+            }
+        } catch (...) {
+            Common::TerminalFailStop(stage, "host_exception");
         }
-
-        stop_event.request_stop();
-        core_timing.SyncPause(false);
-        Network::CancelPendingSocketOperations();
-
-        kernel.SuspendEmulation(true);
         kernel.CloseServices();
         kernel.ShutdownCores();
 
@@ -658,6 +690,7 @@ struct System::Impl {
     bool is_async_gpu{};
     bool extended_memory_layout{};
     bool guest_memory_from_gpu{}; ///< device_memory is backed by memory the GPU driver exported
+    bool guest_memory_lazy_backing{};
     bool guest_memory_from_gpu_unavailable{}; ///< The driver cannot provide it in this process
 
     ExecuteProgramCallback execute_program_callback;
@@ -707,9 +740,28 @@ struct System::Impl {
     bool is_qlaunch_session = false;
 };
 
+void System::InitializeRestrictedOwner(Frontend::EmuWindow& window) {
+    // Fresh private System only. No exporter, services, guest thread or Vulkan
+    // context is admitted by this lifetime-only owner bootstrap.
+    impl->kernel.Initialize();
+    impl->cpu_manager.Initialize();
+    impl->host1x_core.emplace(*this);
+    impl->gpu_core = std::make_unique<Tegra::GPU>(*this, true, false);
+    impl->gpu_core->BindRenderer(Detail::CreateRestrictedProcessRenderer(window));
+    impl->gpu_core->Start();
+    impl->cpu_manager.OnGpuReady();
+    impl->core_timing.SyncPause(false);
+}
+
 System::System() : impl{std::make_unique<Impl>(*this)} {}
 
-System::~System() = default;
+System::~System() {
+    // Fallback for callers that did not explicitly stop a live emulation session.
+    // Impl's reverse member order would otherwise destroy backing before GPU.
+    if (impl && impl->gpu_core) {
+        impl->ShutdownMainProcess();
+    }
+}
 
 CpuManager& System::GetCpuManager() {
     return impl->cpu_manager;
@@ -1226,3 +1278,17 @@ u64 System::GetMainApplicationAruid() const {
 }
 
 } // namespace Core
+
+#ifdef CITRON_SCHEDULER_TESTS
+#include "core/scheduler_system_test_access.h"
+void Core::SystemTestAccess::Initialize(System& system, Frontend::EmuWindow& window,
+                                          RendererFactory factory) {
+    system.impl->InitializeKernel(system, window);
+    system.impl->host1x_core.emplace(system);
+    system.impl->gpu_core = std::make_unique<Tegra::GPU>(system, true, false);
+    system.impl->gpu_core->BindRenderer(factory(system));
+    system.impl->gpu_core->Start();
+    system.impl->cpu_manager.OnGpuReady();
+    system.impl->core_timing.SyncPause(false);
+}
+#endif

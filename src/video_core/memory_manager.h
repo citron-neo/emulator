@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string_view>
@@ -18,6 +19,8 @@
 #include "video_core/cache_types.h"
 #include "video_core/host1x/gpu_device_memory_manager.h"
 #include "video_core/pte_kind.h"
+#include "video_core/physical_memory.h"
+#include "video_core/physical_access_plan.h"
 
 namespace VideoCore {
 class RasterizerInterface;
@@ -33,6 +36,9 @@ class System;
 
 namespace Tegra {
 
+class GPU;
+class RasterizerBindingState;
+
 class MemoryManager final {
 public:
     explicit MemoryManager(Core::System& system_, u64 address_space_bits_ = 40,
@@ -47,10 +53,26 @@ public:
         return unique_identifier;
     }
 
-    /// Binds a renderer to the memory manager.
-    void BindRasterizer(VideoCore::RasterizerInterface* rasterizer);
+    /// Cold compatibility check only: accepts the enrolled owner/target while
+    /// open. Never installs/replaces a raw pointer or calls back into the GPU.
+    [[nodiscard]] bool BindRasterizer(VideoCore::RasterizerInterface* rasterizer);
 
     [[nodiscard]] std::optional<DAddr> GpuToCpuAddress(GPUVAddr addr) const;
+
+    // Caller retains this MemoryManager and its device manager during resolution.
+    // Returned stamps can be validated safely after either manager is destroyed.
+    [[nodiscard]] PhysicalResolveResult ResolvePhysicalRanges(
+        GPUVAddr address, u64 size, PhysicalResolveTiming* timing = nullptr) const;
+
+    /// Caller retains GPU/device/HostMemory owners during resolution; call outside cache/PTE
+    /// locks. A remap during pinning rejects the plan. Success retains physical storage only.
+    [[nodiscard]] std::optional<PhysicalAccessPlan> PinPhysicalRanges(GPUVAddr address,
+                                                                   u64 size) const;
+
+    /// Both storage plans must coexist at one mapping validation point. No lock/permission is
+    /// retained after return, and neither plan grants GPU representation or data admission.
+    [[nodiscard]] std::optional<PhysicalCopyPlan> PinPhysicalCopyRanges(
+        GPUVAddr source, u64 source_size, GPUVAddr destination, u64 destination_size) const;
 
     [[nodiscard]] std::optional<DAddr> GpuToCpuAddress(GPUVAddr addr, std::size_t size) const;
 
@@ -132,7 +154,12 @@ public:
     GPUVAddr Map(GPUVAddr gpu_addr, DAddr dev_addr, std::size_t size,
                  PTEKind kind = PTEKind::INVALID, bool is_big_pages = true);
     GPUVAddr MapSparse(GPUVAddr gpu_addr, std::size_t size, bool is_big_pages = true);
+    // Throws UnmapFailure on cancellation/failure. Remaining mapping owners must
+    // stay retained; this lifetime is terminally quarantined until teardown.
     void Unmap(GPUVAddr gpu_addr, std::size_t size);
+    bool HasUnmapFailure() const noexcept { return unmap_failed.load(std::memory_order_acquire); }
+    // Failure-only publication for callers with partial metadata/cleanup effects.
+    void QuarantineUnmap() noexcept { unmap_failed.store(true, std::memory_order_release); }
 
     void FlushRegion(GPUVAddr gpu_addr, size_t size,
                      VideoCommon::CacheType which = VideoCommon::CacheType::All) const;
@@ -145,8 +172,19 @@ public:
 
     size_t MaxContinuousRange(GPUVAddr gpu_addr, size_t size) const;
 
-    bool IsWithinGPUAddressRange(GPUVAddr gpu_addr) const {
-        return gpu_addr < address_space_size;
+    /// Incremented on every page table change; lets callers cache layout queries.
+    u64 MapGeneration() const noexcept {
+        return map_generation.load(std::memory_order_acquire);
+    }
+
+    /// Updates never invoke rasterizer callbacks while holding this lock.
+    /// Readers may hold cache locks, but must not submit work under this lock.
+    auto AcquireMappingRead() const {
+        return std::unique_lock{page_table_guard};
+    }
+
+    bool IsWithinGPUAddressRange(GPUVAddr gpu_addr, u64 size = 1) const {
+        return gpu_addr < address_space_size && size <= address_space_size - gpu_addr;
     }
 
     PTEKind GetPageKind(GPUVAddr gpu_addr) const;
@@ -160,6 +198,13 @@ public:
     u8* GetSpan(const GPUVAddr src_addr, const std::size_t size);
 
 private:
+    friend class GPU;
+    // Only the GPU's retained publication path may perform first enrollment.
+    bool AttachRasterizer(std::shared_ptr<RasterizerBindingState> binding);
+    std::atomic_bool unmap_failed{};
+    std::mutex rasterizer_binding_mutex;
+    std::atomic<std::shared_ptr<RasterizerBindingState>> rasterizer_binding;
+
     template <bool is_big_pages, typename FuncMapped, typename FuncReserved, typename FuncUnmapped>
     inline void MemoryOperation(GPUVAddr gpu_src_addr, std::size_t size, FuncMapped&& func_mapped,
                                 FuncReserved&& func_reserved, FuncUnmapped&& func_unmapped) const;
@@ -223,6 +268,9 @@ private:
     GPUVAddr PageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr dev_addr, size_t size,
                          PTEKind kind);
 
+    template <bool is_big_page, EntryType entry_type>
+    void NotifyMappingChange(GPUVAddr gpu_addr, size_t size);
+
     template <EntryType entry_type>
     GPUVAddr BigPageTableOp(GPUVAddr gpu_addr, [[maybe_unused]] DAddr dev_addr, size_t size,
                             PTEKind kind);
@@ -242,6 +290,9 @@ private:
     boost::container::small_vector<std::pair<DAddr, std::size_t>, 32> page_stash2{};
 
     mutable std::mutex guard;
+    std::mutex mapping_update_guard;
+    Common::MappingLifetime mapping_lifetime;
+    std::mutex& page_table_guard{mapping_lifetime.Get()->mutex};
 
     static constexpr size_t continuous_bits = 64;
 
@@ -251,6 +302,7 @@ private:
     static std::atomic<size_t> unique_identifier_generator;
 
     Common::ScratchBuffer<u8> tmp_buffer;
+    std::atomic<u64>& map_generation{mapping_lifetime.Get()->generation};
 };
 
 } // namespace Tegra

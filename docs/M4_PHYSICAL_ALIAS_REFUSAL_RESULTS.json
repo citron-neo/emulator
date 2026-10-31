@@ -1,0 +1,1392 @@
+{
+  "date": "2026-10-28 Asia/Taipei",
+  "initial_base": "b6de86d4efcb70dff966cd920275751822e16ae8",
+  "audited_head": "9e4b3f101d99fe865efa097c9809f0ecca3f158b",
+  "branch": "codex/issue-372-fixes",
+  "ci": "deferred; no inspection/dispatch",
+  "production_changes": [],
+  "summary": {
+    "alias_processes": 24,
+    "production_refusal_processes": 3,
+    "metadata_diagnostic_processes": 3,
+    "entry_guard_negative_processes": 15,
+    "false_admission_negative_processes": 3,
+    "mapping_regression_processes": 3,
+    "strict_production_objects": 2,
+    "physical_freeze": "Open; raw pointers/aliases/PTE operations remain unexcluded; Windows refuses",
+    "guest_backing_admission": "Unknown",
+    "native_gpu_completion": "Unproved",
+    "native_kernel_owner_rerun": false
+  },
+  "sources_raw_sha256": {
+    "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+    "src/common/host_memory.h": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+    "src/common/host_mapping_domain.h": "979b9ee6c9780f82cf82cb90a235cdd4ca9ae7f40654d6a33d3245cdc6b79694",
+    "src/common/published_guest_chunk.h": "2e8c72d029a04bc9c5cc85bbb72e3156eb9bbee3e893b8c24d74334d50a8049e",
+    "src/common/pinned_physical_memory.h": "b39399eec2de2703433acad85ec84e790ffa2c46978f5902b3936483733c9071",
+    "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+    "src/tests/common/windows_alias_freeze.cpp": "91b2d9dff3bc27f69d99c12d3055586ffba842e2819833f0a0ac94a6b5ce972b",
+    "src/tests/CMakeLists.txt": "7c3c2d4942951614975d4de7adbf360ee8b23d2c4adc2df6416600344623d36d",
+    "tools/physical_coherency_tests/prepare_windows_alias_freeze_controls.py": "d7170b0f062783d4cbf5b640c86572df9707213c1e7aac5088fb4f8c55f8a96c",
+    "tools/physical_coherency_tests/run_windows_alias_freeze_tests.py": "1600bf77cf2d2be91b4959a06bfd754ab09f93bbad1ffe3db71ae5ac3cf5f425",
+    "src/tests/common/windows_mapping_owner.cpp": "6e3d95d4d1c20682e759e1b192ae56c1bb77aa72c3b3c69138f5d5729645197d",
+    "tools/physical_coherency_tests/run_windows_mapping_owner_tests.py": "a063d2d2c062a774bfc319bfded56a67ac00a63541c4f711d39082631420d860",
+    "tools/physical_coherency_tests/prepare_windows_mapping_owner_controls.py": "bd0f4ff40de4ec5c35dcdb5abf0322c33acabb32c12859b1addd6c890f07ac1a",
+    "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+    "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+    "src/core/device_memory.cpp": "5c67e6a2b019b08bb070e7f54f8de5670bb4816755b9608d70950bdf195ce615",
+    "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+    "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+    "src/core/hle/service/nvdrv/core/container.h": "7f7f117669e99242f84506994e2f3af3bb538a962ef0a0c1208d39cfb96bd562",
+    "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+    "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+    "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+    "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+    "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+    "src/video_core/gpu.h": "b55625f616af2deb74407ec05104babd5712211c56dce28bad5c3b9f73b68786",
+    "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+    "src/video_core/memory_manager.h": "85146d67f5eafb4bd458132a9599f7b74722b3c511155fb830b74983da78fcb8",
+    "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+    "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+    "src/video_core/renderer_vulkan/present/layer.h": "a5ae6c6c6523f43de2bc0a7ed2c462c66daf489748f831a3805aae75d706878d",
+    "src/video_core/renderer_vulkan/vk_blit_screen.h": "aeebb35ff8bfedf20438c207d102175042680fb482b45baa5088c2fbbe9f01a6",
+    "src/video_core/renderer_vulkan/vk_master_semaphore.h": "33584679044080c5defd0ab256d879788736382ce825bcb86260013fc602c5b6",
+    "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+    "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+    "src/video_core/renderer_vulkan/vk_rasterizer.h": "d59ccb65cbbe53264bc1b00472c96518b8d4a17f3e25d8ad663cea05b06be357",
+    "src/video_core/renderer_vulkan/vk_scheduler.h": "6da3dbbc5741a059fab77f1e876c9c00fcf3fbf37efbe46841bc7cf50d081dc6",
+    "src/video_core/renderer_vulkan/vk_texture_cache.h": "02e5863edc34eed1c5f2d46f8c3f4f1c141821beffa393949bd76f321ff71125",
+    "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+    "tools/physical_coherency_tests/run_windows_production_checks.py": "69d52b57680415a9a85eb6a1e254cf6ab2cd970e482db676088f6f22913c6b8d"
+  },
+  "sources_git_lf_sha256": {
+    "src/common/host_memory.cpp": "1bc0bbf7249f41e9c7f56e88ade4a7d1229ea0b53eb9b692c9a63b8e25aab205",
+    "src/common/host_memory.h": "6d7636f6639adc554e2bb247566e9c24802585b52498db286ee7383149642b45",
+    "src/common/host_mapping_domain.h": "22fce52d07cb07c27308e8d1cbcd2bdb2df94a1ce829fdada0f59709c482cc4b",
+    "src/common/published_guest_chunk.h": "9241018ffb32531ceeae4466f1aa16b881e3d1f8c7bf5e8b2a418167d380b533",
+    "src/common/pinned_physical_memory.h": "a7aa364cf1c4c2a8fc2ad22f17261de4e6f2817cac0f0ef6dbf9b78e19715ff4",
+    "src/common/retained_backing_storage.h": "228c6661913d504906dcd09e243d3471c6d9aa79613bbcd1cd8f4d373de56166",
+    "src/tests/common/windows_alias_freeze.cpp": "167406f4f828f10e6302111c56fbaddae51aa7ed26dc429b139175e00900da2a",
+    "src/tests/CMakeLists.txt": "2edb28b99a60378ada4feb064b5b255e17e0cffea1665026168e9ca689b65d54",
+    "tools/physical_coherency_tests/prepare_windows_alias_freeze_controls.py": "2957a0050321da912f80cd6fb4e7df35e500a7e296d5c8e3c1be35eb4893cb03",
+    "tools/physical_coherency_tests/run_windows_alias_freeze_tests.py": "958070ab0cd3f2c320d3512884629c406f3c218a6ac7f3983ce048a1cc5741a9",
+    "src/tests/common/windows_mapping_owner.cpp": "439c74a11230c53486e41eca55620b7e4560f3fdc9c2f703de3b20f9f3cece35",
+    "tools/physical_coherency_tests/run_windows_mapping_owner_tests.py": "c2800aea0903a7011f6c2c50f6f3dd0c611973f2701cbb72a8090d8dca13b395",
+    "tools/physical_coherency_tests/prepare_windows_mapping_owner_controls.py": "b0d7009d6736d457f8859adf331a12c1311204f04cd66a6a68f41c953dc86683",
+    "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+    "src/common/terminal_ingress.h": "184102c599ff77014512996218a965d83f15b9d7dc7e0bcfde62c7bd1af186ed",
+    "src/core/device_memory.cpp": "5c3cb273ff98c8757662670c5d1bff75601090bbd5811725ae506239731a017f",
+    "src/core/device_memory_manager.h": "4c91627f0eae285412bcafa9bff0050b020eafce9cd86701abeeff94967268f5",
+    "src/core/device_memory_manager.inc": "2cbdb107bee460e1d9d843039c8831048d15e30b3f7e1dfc77bc40e11637349f",
+    "src/core/hle/service/nvdrv/core/container.h": "4391ded1478f4db2a4cb3e9758d9c19d951e0dcfefd3072a72b807d6efe4243b",
+    "src/core/hle/service/nvdrv/core/nvmap.h": "356612c09918dd336a6299db586b7a60fee48d21957e9f240c46a762d132d89f",
+    "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "6aa054515312dad923a50fafe8676eb789d775a6049f895d1564c150fb2c5738",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "69bab440d56023e630ff67fddc4c96d2373da90e110c8d5a600f8cc920da134f",
+    "src/video_core/acknowledged_callback.h": "80b716b154fde5b8134903d93f7b3b598aeb74b8c5c9834993a70e52ae6a9314",
+    "src/video_core/control/channel_state.h": "0304c0cce92d247e0895bdbc0ca9cfe7d0c163239b9ad4584c2e213addd5eca5",
+    "src/video_core/framebuffer_config.h": "347a806c4b2b71bb17ff0b290218bb8da81ecaef56dc5ae18292fbc3bbe0a647",
+    "src/video_core/gpu.h": "5b7768ebda9e6d8e436f42800cf37af4bf56e48f3decc4187f85ec13732ac312",
+    "src/video_core/gpu_thread.h": "22173347e472f2a280dfd776190a4315e4e654561004e045289b2b1a2e8058cf",
+    "src/video_core/memory_manager.h": "bc762f561d3f6c059d629440baf50995acab568a5ed9ce5681ad54cae0389f63",
+    "src/video_core/rasterizer_binding_state.h": "67ea10e23d7fdc0260e1037b19290c61ff1e6b7cd2953e9f5ce3ed084af7f421",
+    "src/video_core/rasterizer_interface.h": "719c851ed4742932a90ea5a8f509c621d893d0cf13146141eea76f2d4229d6b0",
+    "src/video_core/renderer_vulkan/present/layer.h": "ea9a4b0bc9c40407f577dad1df8ad91fafd865e74b19d354640febb53dadf868",
+    "src/video_core/renderer_vulkan/vk_blit_screen.h": "228c1b1cb53e8d4df25e10eed6317a591273e856e19fe04b92c490b7a9d63a38",
+    "src/video_core/renderer_vulkan/vk_master_semaphore.h": "71f816cb2e4d2917d3e2e5bf2b890f093dcceeb94ec64183ab14b891ad1652c4",
+    "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+    "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+    "src/video_core/renderer_vulkan/vk_rasterizer.h": "0f21f1a38c5235c28d4e1eca86c298fdaf88887752a62ce4fd815ae1081d2da5",
+    "src/video_core/renderer_vulkan/vk_scheduler.h": "b9bc5816762b8672498a486dde3352b7b4a2693aaceb21935ca5633a8a8ced36",
+    "src/video_core/renderer_vulkan/vk_texture_cache.h": "ce866b1e084cbd5ca25490d0290149e663023c1c23f346b237f70e17f5fb7f73",
+    "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+    "tools/physical_coherency_tests/run_windows_production_checks.py": "395db17a4c9873605ef9625d26701362a3962cc1fdc3a83548a5334cc0bd0030"
+  },
+  "final_alias": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "revision": "b6de86d4efcb70dff966cd920275751822e16ae8",
+    "records": [
+      {
+        "name": "production",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\windows_alias_freeze_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "production-0.log",
+        "binary_sha256": "4c2226d44f67c7ad00d1724fdaaef53bdcccb8ea35b4ad5413089c8552aa15e8"
+      },
+      {
+        "name": "production",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\windows_alias_freeze_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "production-1.log",
+        "binary_sha256": "4c2226d44f67c7ad00d1724fdaaef53bdcccb8ea35b4ad5413089c8552aa15e8"
+      },
+      {
+        "name": "production",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\windows_alias_freeze_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "production-2.log",
+        "binary_sha256": "4c2226d44f67c7ad00d1724fdaaef53bdcccb8ea35b4ad5413089c8552aa15e8"
+      },
+      {
+        "name": "metadata",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_metadata.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 42,
+        "actual_exit": 42,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "metadata-0.log",
+        "binary_sha256": "eff9707305859e2ffadef74bade2243854fd8304b3c849febf4e2d84b3e6e1ed"
+      },
+      {
+        "name": "metadata",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_metadata.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 42,
+        "actual_exit": 42,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "metadata-1.log",
+        "binary_sha256": "eff9707305859e2ffadef74bade2243854fd8304b3c849febf4e2d84b3e6e1ed"
+      },
+      {
+        "name": "metadata",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_metadata.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 42,
+        "actual_exit": 42,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "metadata-2.log",
+        "binary_sha256": "eff9707305859e2ffadef74bade2243854fd8304b3c849febf4e2d84b3e6e1ed"
+      },
+      {
+        "name": "map",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_map.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-map-was-not-refused",
+        "log": "map-0.log",
+        "binary_sha256": "ac3c822c6c555a1de5d0cb721830a26e477cccd091c3baf9bbc154f127cfcbc2"
+      },
+      {
+        "name": "map",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_map.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-map-was-not-refused",
+        "log": "map-1.log",
+        "binary_sha256": "ac3c822c6c555a1de5d0cb721830a26e477cccd091c3baf9bbc154f127cfcbc2"
+      },
+      {
+        "name": "map",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_map.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-map-was-not-refused",
+        "log": "map-2.log",
+        "binary_sha256": "ac3c822c6c555a1de5d0cb721830a26e477cccd091c3baf9bbc154f127cfcbc2"
+      },
+      {
+        "name": "unmap",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_unmap.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-unmap-was-not-refused",
+        "log": "unmap-0.log",
+        "binary_sha256": "865580022ac7de407513b8490e31085d99af88337de5915bed12186373d3a893"
+      },
+      {
+        "name": "unmap",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_unmap.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-unmap-was-not-refused",
+        "log": "unmap-1.log",
+        "binary_sha256": "865580022ac7de407513b8490e31085d99af88337de5915bed12186373d3a893"
+      },
+      {
+        "name": "unmap",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_unmap.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-unmap-was-not-refused",
+        "log": "unmap-2.log",
+        "binary_sha256": "865580022ac7de407513b8490e31085d99af88337de5915bed12186373d3a893"
+      },
+      {
+        "name": "protect",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_protect.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-protect-was-not-refused",
+        "log": "protect-0.log",
+        "binary_sha256": "34cb7332edb51fc8b1cad65ac1cf42ff7a15076469ae2e0650127a5987389bf1"
+      },
+      {
+        "name": "protect",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_protect.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-protect-was-not-refused",
+        "log": "protect-1.log",
+        "binary_sha256": "34cb7332edb51fc8b1cad65ac1cf42ff7a15076469ae2e0650127a5987389bf1"
+      },
+      {
+        "name": "protect",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_protect.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-protect-was-not-refused",
+        "log": "protect-2.log",
+        "binary_sha256": "34cb7332edb51fc8b1cad65ac1cf42ff7a15076469ae2e0650127a5987389bf1"
+      },
+      {
+        "name": "clear",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_clear.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-clear-was-not-refused",
+        "log": "clear-0.log",
+        "binary_sha256": "9931755010c377019a26a4f9490e283fe9bbe7dae96bbebdef5fb1aa157209f4"
+      },
+      {
+        "name": "clear",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_clear.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-clear-was-not-refused",
+        "log": "clear-1.log",
+        "binary_sha256": "9931755010c377019a26a4f9490e283fe9bbe7dae96bbebdef5fb1aa157209f4"
+      },
+      {
+        "name": "clear",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_clear.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-clear-was-not-refused",
+        "log": "clear-2.log",
+        "binary_sha256": "9931755010c377019a26a4f9490e283fe9bbe7dae96bbebdef5fb1aa157209f4"
+      },
+      {
+        "name": "pin",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_pin.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-pin-was-not-refused",
+        "log": "pin-0.log",
+        "binary_sha256": "cd95217a92cf278725f33b3cd4ae98a794af5aad60d509a72cf44e948949e09a"
+      },
+      {
+        "name": "pin",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_pin.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-pin-was-not-refused",
+        "log": "pin-1.log",
+        "binary_sha256": "cd95217a92cf278725f33b3cd4ae98a794af5aad60d509a72cf44e948949e09a"
+      },
+      {
+        "name": "pin",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_pin.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: closed-pin-was-not-refused",
+        "log": "pin-2.log",
+        "binary_sha256": "cd95217a92cf278725f33b3cd4ae98a794af5aad60d509a72cf44e948949e09a"
+      },
+      {
+        "name": "guest_admission",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_guest_admission.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: unproved-physical-admission",
+        "log": "guest_admission-0.log",
+        "binary_sha256": "860d106b256ce3126c25754820ccd2d7e3043e7fb81600b80bd6de2121e6b76f"
+      },
+      {
+        "name": "guest_admission",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_guest_admission.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: unproved-physical-admission",
+        "log": "guest_admission-1.log",
+        "binary_sha256": "860d106b256ce3126c25754820ccd2d7e3043e7fb81600b80bd6de2121e6b76f"
+      },
+      {
+        "name": "guest_admission",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_guest_admission.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": true,
+        "marker": "ALIAS FREEZE CHECK: unproved-physical-admission",
+        "log": "guest_admission-2.log",
+        "binary_sha256": "860d106b256ce3126c25754820ccd2d7e3043e7fb81600b80bd6de2121e6b76f"
+      }
+    ],
+    "controls": {
+      "controls": [
+        {
+          "name": "metadata",
+          "expected_exit": 42,
+          "marker": "COMPLETE native alias exclusion/refusal teardown",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "b8403afa1908b0bf6a10f60145ac3037cf32a97e9e1cc82f6c5230417ad2c592",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": null
+        },
+        {
+          "name": "map",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-map-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "2806bf925767990e4927a9b58f130a8c828c6f38aa80fc256f556ca9fcdd0314",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::Map("
+        },
+        {
+          "name": "unmap",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-unmap-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "63cc0cdb13f6dea1cc9559c712bcba674696eff7c92d307437efa09270c5b4af",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::Unmap("
+        },
+        {
+          "name": "protect",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-protect-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "7a5079cfec6d5887f3905f173fbba12efd3017e65f1877b4a27a0ffb2e649471",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::Protect("
+        },
+        {
+          "name": "clear",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-clear-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "33f82805ccb1e2c3dba3e99a0ac32bc2187512d4558cc4a2574b92a784087478",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::ClearBackingRegion("
+        },
+        {
+          "name": "pin",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-pin-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "a8971aaace9230976b2ae8cfd5ee80e0d1f2eb82c3aa84b817b5c8584bfa48e7",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "std::optional<PinnedPhysicalMemory> HostMemory::PinPhysicalRange("
+        },
+        {
+          "name": "guest_admission",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: unproved-physical-admission",
+          "arguments": [],
+          "cpp_sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+          "header_sha256": {
+            "common/host_mapping_domain.h": "65fa429439d7314faca31900432608901baaefa94753fbc9810a52f88650ce7d"
+          },
+          "diagnostic_enrollment": false,
+          "omitted_method": null
+        }
+      ],
+      "original_cpp_sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "overlay_sha256": "23f5a4470ad7a32e66aacd7a3729ebf302b25d14fe1bae673de3035b351a22f9",
+      "boundary": "Metadata enrollment is counterfactual only; no physical/Windows support enabled in production"
+    },
+    "source_sha256": {
+      "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "src/common/host_memory.h": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+      "src/common/host_mapping_domain.h": "979b9ee6c9780f82cf82cb90a235cdd4ca9ae7f40654d6a33d3245cdc6b79694",
+      "src/common/published_guest_chunk.h": "2e8c72d029a04bc9c5cc85bbb72e3156eb9bbee3e893b8c24d74334d50a8049e",
+      "src/common/pinned_physical_memory.h": "b39399eec2de2703433acad85ec84e790ffa2c46978f5902b3936483733c9071",
+      "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+      "src/tests/common/windows_alias_freeze.cpp": "91b2d9dff3bc27f69d99c12d3055586ffba842e2819833f0a0ac94a6b5ce972b",
+      "src/tests/CMakeLists.txt": "7c3c2d4942951614975d4de7adbf360ee8b23d2c4adc2df6416600344623d36d",
+      "tools/physical_coherency_tests/prepare_windows_alias_freeze_controls.py": "d7170b0f062783d4cbf5b640c86572df9707213c1e7aac5088fb4f8c55f8a96c",
+      "tools/physical_coherency_tests/run_windows_alias_freeze_tests.py": "1600bf77cf2d2be91b4959a06bfd754ab09f93bbad1ffe3db71ae5ac3cf5f425"
+    },
+    "passed": true,
+    "boundary": "Windows production freeze refuses. Forced metadata enrollment is diagnostic, never physical exclusion or production acceptance. GuestBackingAdmission remains false; GPU/guest/Vulkan unproved."
+  },
+  "final_logs": {
+    "clear-0.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-clear-was-not-refused\n\n",
+    "clear-1.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-clear-was-not-refused\n\n",
+    "clear-2.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-clear-was-not-refused\n\n",
+    "guest_admission-0.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nWITNESS queued old pointer writes through readonly physical alias\n\nWITNESS raw VirtualProtect changes PTE permissions outside the ledger\n\nALIAS FREEZE CHECK: unproved-physical-admission\n\n",
+    "guest_admission-1.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nWITNESS queued old pointer writes through readonly physical alias\n\nWITNESS raw VirtualProtect changes PTE permissions outside the ledger\n\nALIAS FREEZE CHECK: unproved-physical-admission\n\n",
+    "guest_admission-2.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nWITNESS queued old pointer writes through readonly physical alias\n\nWITNESS raw VirtualProtect changes PTE permissions outside the ledger\n\nALIAS FREEZE CHECK: unproved-physical-admission\n\n",
+    "map-0.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-map-was-not-refused\n\n",
+    "map-1.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-map-was-not-refused\n\n",
+    "map-2.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-map-was-not-refused\n\n",
+    "metadata-0.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nPASS metadata-only closure refuses six mutation entries; escapes remain recorded\n\nWITNESS queued old pointer writes through readonly physical alias\n\nWITNESS raw VirtualProtect changes PTE permissions outside the ledger\n\nWITNESS saved virtual pointer follows remap; canonical identity remains distinct\n\nCOMPLETE native alias exclusion/refusal teardown\n\n",
+    "metadata-1.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nPASS metadata-only closure refuses six mutation entries; escapes remain recorded\n\nWITNESS queued old pointer writes through readonly physical alias\n\nWITNESS raw VirtualProtect changes PTE permissions outside the ledger\n\nWITNESS saved virtual pointer follows remap; canonical identity remains distinct\n\nCOMPLETE native alias exclusion/refusal teardown\n\n",
+    "metadata-2.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nPASS metadata-only closure refuses six mutation entries; escapes remain recorded\n\nWITNESS queued old pointer writes through readonly physical alias\n\nWITNESS raw VirtualProtect changes PTE permissions outside the ledger\n\nWITNESS saved virtual pointer follows remap; canonical identity remains distinct\n\nCOMPLETE native alias exclusion/refusal teardown\n\n",
+    "pin-0.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-pin-was-not-refused\n\n",
+    "pin-1.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-pin-was-not-refused\n\n",
+    "pin-2.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-pin-was-not-refused\n\n",
+    "production-0.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nWITNESS queued old pointer writes through readonly physical alias\n\nWITNESS raw VirtualProtect changes PTE permissions outside the ledger\n\nWITNESS saved virtual pointer follows remap; canonical identity remains distinct\n\nCOMPLETE native alias exclusion/refusal teardown\n\n",
+    "production-1.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nWITNESS queued old pointer writes through readonly physical alias\n\nWITNESS raw VirtualProtect changes PTE permissions outside the ledger\n\nWITNESS saved virtual pointer follows remap; canonical identity remains distinct\n\nCOMPLETE native alias exclusion/refusal teardown\n\n",
+    "production-2.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nWITNESS queued old pointer writes through readonly physical alias\n\nWITNESS raw VirtualProtect changes PTE permissions outside the ledger\n\nWITNESS saved virtual pointer follows remap; canonical identity remains distinct\n\nCOMPLETE native alias exclusion/refusal teardown\n\n",
+    "protect-0.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-protect-was-not-refused\n\n",
+    "protect-1.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-protect-was-not-refused\n\n",
+    "protect-2.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-protect-was-not-refused\n\n",
+    "unmap-0.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-unmap-was-not-refused\n\n",
+    "unmap-1.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-unmap-was-not-refused\n\n",
+    "unmap-2.log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: closed-unmap-was-not-refused\n\n"
+  },
+  "mapping_regression": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "revision": "b6de86d4efcb70dff966cd920275751822e16ae8",
+    "baseline": false,
+    "records": [
+      {
+        "name": "positive",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\windows_mapping_owner_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "marker": "COMPLETE native mapping teardown",
+        "passed": true,
+        "log": "positive-0.log",
+        "binary_sha256": "8b63f212a7c50a7aee274e02352e5f3cfb11102ad84ed68a9028f3893a54f98f"
+      },
+      {
+        "name": "positive",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\windows_mapping_owner_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "marker": "COMPLETE native mapping teardown",
+        "passed": true,
+        "log": "positive-1.log",
+        "binary_sha256": "8b63f212a7c50a7aee274e02352e5f3cfb11102ad84ed68a9028f3893a54f98f"
+      },
+      {
+        "name": "positive",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\windows_mapping_owner_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "marker": "COMPLETE native mapping teardown",
+        "passed": true,
+        "log": "positive-2.log",
+        "binary_sha256": "8b63f212a7c50a7aee274e02352e5f3cfb11102ad84ed68a9028f3893a54f98f"
+      }
+    ],
+    "passed": true,
+    "sha256": {
+      "src/common/published_guest_chunk.h": "2e8c72d029a04bc9c5cc85bbb72e3156eb9bbee3e893b8c24d74334d50a8049e",
+      "src/common/host_memory.h": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+      "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "src/common/host_mapping_domain.h": "979b9ee6c9780f82cf82cb90a235cdd4ca9ae7f40654d6a33d3245cdc6b79694",
+      "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+      "src/common/pinned_physical_memory.h": "b39399eec2de2703433acad85ec84e790ffa2c46978f5902b3936483733c9071",
+      "src/tests/common/windows_mapping_owner.cpp": "6e3d95d4d1c20682e759e1b192ae56c1bb77aa72c3b3c69138f5d5729645197d",
+      "src/tests/CMakeLists.txt": "7c3c2d4942951614975d4de7adbf360ee8b23d2c4adc2df6416600344623d36d",
+      "tools/physical_coherency_tests/run_windows_mapping_owner_tests.py": "a063d2d2c062a774bfc319bfded56a67ac00a63541c4f711d39082631420d860",
+      "tools/physical_coherency_tests/prepare_windows_mapping_owner_controls.py": "bd0f4ff40de4ec5c35dcdb5abf0322c33acabb32c12859b1addd6c890f07ac1a"
+    },
+    "boundary": "Actual common library and Windows Kernelbase maps; Windows freeze remains unsupported/refused; no physical isolation, GPU or guest admission"
+  },
+  "mapping_regression_logs": {
+    "positive-0.log": "PASS replacement invalidates epoch; paused alias writer retains old storage; final native release\n\nPASS real Windows alias/remap/protection/retained-allocation effects; all unproved freezes refuse\n\nCOMPLETE native mapping teardown\n\n",
+    "positive-1.log": "PASS replacement invalidates epoch; paused alias writer retains old storage; final native release\n\nPASS real Windows alias/remap/protection/retained-allocation effects; all unproved freezes refuse\n\nCOMPLETE native mapping teardown\n\n",
+    "positive-2.log": "PASS replacement invalidates epoch; paused alias writer retains old storage; final native release\n\nPASS real Windows alias/remap/protection/retained-allocation effects; all unproved freezes refuse\n\nCOMPLETE native mapping teardown\n\n"
+  },
+  "production_objects": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+    "opus_evidence": null,
+    "compiler": "g++ (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+    "boost_root": "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+    "boost_version_header": "//  Boost version.hpp configuration header file  ------------------------------//\n\n//  (C) Copyright John maddock 1999. Distributed under the Boost\n//  Software License, Version 1.0. (See accompanying file\n//  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)\n\n//  See http://www.boost.org/libs/config for documentation\n\n#ifndef BOOST_VERSION_HPP\n#define BOOST_VERSION_HPP\n\n//\n//  Caution: this is the only Boost header that is guaranteed\n//  to change with every Boost release. Including this header\n//  will cause a recompile every time a new Boost version is\n//  used.\n//\n//  BOOST_VERSION % 100 is the patch level\n//  BOOST_VERSION / 100 % 1000 is the minor version\n//  BOOST_VERSION / 100000 is the major version\n\n#define BOOST_VERSION 108700\n\n//\n//  BOOST_LIB_VERSION must be defined to be the same as BOOST_VERSION\n//  but as a *string* in the form \"x_y[_z]\" where x is the major version\n//  number, y is the minor version number, and z is the patch level if not 0.\n//  This is used by <config/auto_link.hpp> to select which library version to link to.\n\n#define BOOST_LIB_VERSION \"1_87\"\n\n#endif\n",
+    "boost_official_archive_sha256": null,
+    "sha256": {
+      "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+      "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+      "src/core/device_memory.cpp": "5c67e6a2b019b08bb070e7f54f8de5670bb4816755b9608d70950bdf195ce615",
+      "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+      "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+      "src/core/hle/service/nvdrv/core/container.h": "7f7f117669e99242f84506994e2f3af3bb538a962ef0a0c1208d39cfb96bd562",
+      "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+      "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+      "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+      "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+      "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+      "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+      "src/video_core/gpu.h": "b55625f616af2deb74407ec05104babd5712211c56dce28bad5c3b9f73b68786",
+      "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+      "src/video_core/memory_manager.h": "85146d67f5eafb4bd458132a9599f7b74722b3c511155fb830b74983da78fcb8",
+      "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+      "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+      "src/video_core/renderer_vulkan/present/layer.h": "a5ae6c6c6523f43de2bc0a7ed2c462c66daf489748f831a3805aae75d706878d",
+      "src/video_core/renderer_vulkan/vk_blit_screen.h": "aeebb35ff8bfedf20438c207d102175042680fb482b45baa5088c2fbbe9f01a6",
+      "src/video_core/renderer_vulkan/vk_master_semaphore.h": "33584679044080c5defd0ab256d879788736382ce825bcb86260013fc602c5b6",
+      "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+      "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+      "src/video_core/renderer_vulkan/vk_rasterizer.h": "d59ccb65cbbe53264bc1b00472c96518b8d4a17f3e25d8ad663cea05b06be357",
+      "src/video_core/renderer_vulkan/vk_scheduler.h": "6da3dbbc5741a059fab77f1e876c9c00fcf3fbf37efbe46841bc7cf50d081dc6",
+      "src/video_core/renderer_vulkan/vk_texture_cache.h": "02e5863edc34eed1c5f2d46f8c3f4f1c141821beffa393949bd76f321ff71125",
+      "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+      "tools/physical_coherency_tests/run_windows_production_checks.py": "69d52b57680415a9a85eb6a1e254cf6ab2cd970e482db676088f6f22913c6b8d"
+    },
+    "objects": [
+      {
+        "source": "src/common/host_memory.cpp",
+        "sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+        "object_sha256": "fa657617b8106907e66153deeaa4331d563027dc60665d86eefcdeeecb42a6de",
+        "object_size": 148739,
+        "command": [
+          "g++",
+          "-std=c++23",
+          "-O1",
+          "-DNDEBUG",
+          "-DARCHITECTURE_x86_64",
+          "-DBOOST_ASIO_DISABLE_CONCEPTS",
+          "-fno-strict-aliasing",
+          "-Werror=conversion",
+          "-Wno-sign-conversion",
+          "-I",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+          "-c",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common\\host_memory.cpp",
+          "-o",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\production\\0-host_memory.o"
+        ],
+        "warnings": ""
+      },
+      {
+        "source": "src/core/device_memory.cpp",
+        "sha256": "5c67e6a2b019b08bb070e7f54f8de5670bb4816755b9608d70950bdf195ce615",
+        "object_sha256": "0a793871f008238319413e26bf9fec172ef71f43768ba701959ddb04ffbf8850",
+        "object_size": 4124,
+        "command": [
+          "g++",
+          "-std=c++23",
+          "-O1",
+          "-DNDEBUG",
+          "-DARCHITECTURE_x86_64",
+          "-DBOOST_ASIO_DISABLE_CONCEPTS",
+          "-fno-strict-aliasing",
+          "-Werror=conversion",
+          "-Wno-sign-conversion",
+          "-I",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+          "-c",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\device_memory.cpp",
+          "-o",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\production\\1-device_memory.o"
+        ],
+        "warnings": ""
+      }
+    ],
+    "shader_evidence": null,
+    "window_shader_evidence": null,
+    "boundary": "Actual production Windows x64 object compilation with real headers. No application link, runtime, native Vulkan or Android claim."
+  },
+  "first_readonly_preparation_failure": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "revision": "b6de86d4efcb70dff966cd920275751822e16ae8",
+    "records": [
+      {
+        "name": "production",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\windows_alias_freeze_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 91,
+        "passed": false,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "production-0.log",
+        "binary_sha256": "ac2b179fa70f24f6a1522e177666e39c68811f566bd747163b02476df443644c"
+      }
+    ],
+    "controls": {
+      "controls": [
+        {
+          "name": "metadata",
+          "expected_exit": 42,
+          "marker": "COMPLETE native alias exclusion/refusal teardown",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "b8403afa1908b0bf6a10f60145ac3037cf32a97e9e1cc82f6c5230417ad2c592",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": null
+        },
+        {
+          "name": "map",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-map-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "200e3f89fcc0a4cd91f122aca112c6cbc49543b44a69f1881150205976cac08e",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::Map("
+        },
+        {
+          "name": "unmap",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-unmap-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "63cc0cdb13f6dea1cc9559c712bcba674696eff7c92d307437efa09270c5b4af",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::Unmap("
+        },
+        {
+          "name": "protect",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-protect-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "7a5079cfec6d5887f3905f173fbba12efd3017e65f1877b4a27a0ffb2e649471",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::Protect("
+        },
+        {
+          "name": "clear",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-clear-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "33f82805ccb1e2c3dba3e99a0ac32bc2187512d4558cc4a2574b92a784087478",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::ClearBackingRegion("
+        },
+        {
+          "name": "pin",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-pin-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "a8971aaace9230976b2ae8cfd5ee80e0d1f2eb82c3aa84b817b5c8584bfa48e7",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "std::optional<PinnedPhysicalMemory> HostMemory::PinPhysicalRange("
+        },
+        {
+          "name": "direct",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-direct-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "c02b7ff08bf137638564cb901d5a99447893adda7bd79bb44316dbbb97eb4202",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::EnableDirectMappedAddress("
+        },
+        {
+          "name": "guest_admission",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: unproved-physical-admission",
+          "arguments": [],
+          "cpp_sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+          "header_sha256": {
+            "common/host_mapping_domain.h": "65fa429439d7314faca31900432608901baaefa94753fbc9810a52f88650ce7d"
+          },
+          "diagnostic_enrollment": false,
+          "omitted_method": null
+        }
+      ],
+      "original_cpp_sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "overlay_sha256": "891d0277520d9cf0e8e44d3853b7c3e4b6d3261978dd30a9a95dee23c384f19d",
+      "boundary": "Metadata enrollment is counterfactual only; no physical/Windows support enabled in production"
+    },
+    "source_sha256": {
+      "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "src/common/host_memory.h": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+      "src/common/host_mapping_domain.h": "979b9ee6c9780f82cf82cb90a235cdd4ca9ae7f40654d6a33d3245cdc6b79694",
+      "src/common/published_guest_chunk.h": "2e8c72d029a04bc9c5cc85bbb72e3156eb9bbee3e893b8c24d74334d50a8049e",
+      "src/common/pinned_physical_memory.h": "b39399eec2de2703433acad85ec84e790ffa2c46978f5902b3936483733c9071",
+      "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+      "src/tests/common/windows_alias_freeze.cpp": "5ba66c550510691928e4051b22faf35caa4c370f6db9884af7fb02c28843c621",
+      "src/tests/CMakeLists.txt": "7c3c2d4942951614975d4de7adbf360ee8b23d2c4adc2df6416600344623d36d",
+      "tools/physical_coherency_tests/prepare_windows_alias_freeze_controls.py": "9c98c6cdc7e49d0a24ec7bf69929133561ed8fa0d2f7126a46a8815149c2ad4d",
+      "tools/physical_coherency_tests/run_windows_alias_freeze_tests.py": "1600bf77cf2d2be91b4959a06bfd754ab09f93bbad1ffe3db71ae5ac3cf5f425"
+    },
+    "passed": false,
+    "boundary": "Windows production freeze refuses. Forced metadata enrollment is diagnostic, never physical exclusion or production acceptance. GuestBackingAdmission remains false; GPU/guest/Vulkan unproved."
+  },
+  "first_readonly_failure_log": "ALIAS FREEZE CHECK: independent-native-alias-permissions\n\n",
+  "first_map_control_failure": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "revision": "b6de86d4efcb70dff966cd920275751822e16ae8",
+    "records": [
+      {
+        "name": "production",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\windows_alias_freeze_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "production-0.log",
+        "binary_sha256": "45de6305348b107704461c9269b03c00746607c054b3a0d516aa13f81e6de872"
+      },
+      {
+        "name": "production",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\windows_alias_freeze_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "production-1.log",
+        "binary_sha256": "45de6305348b107704461c9269b03c00746607c054b3a0d516aa13f81e6de872"
+      },
+      {
+        "name": "production",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\windows_alias_freeze_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "production-2.log",
+        "binary_sha256": "45de6305348b107704461c9269b03c00746607c054b3a0d516aa13f81e6de872"
+      },
+      {
+        "name": "metadata",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_metadata.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 42,
+        "actual_exit": 42,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "metadata-0.log",
+        "binary_sha256": "d70e4deda67ccfca7038dfbe4b1283d9695322e03fb39a7c85b77a152ec909cd"
+      },
+      {
+        "name": "metadata",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_metadata.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 42,
+        "actual_exit": 42,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "metadata-1.log",
+        "binary_sha256": "d70e4deda67ccfca7038dfbe4b1283d9695322e03fb39a7c85b77a152ec909cd"
+      },
+      {
+        "name": "metadata",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_metadata.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 42,
+        "actual_exit": 42,
+        "passed": true,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "log": "metadata-2.log",
+        "binary_sha256": "d70e4deda67ccfca7038dfbe4b1283d9695322e03fb39a7c85b77a152ec909cd"
+      },
+      {
+        "name": "map",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\native-build\\bin\\alias_freeze_map.exe",
+          "--metadata-counterfactual"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "passed": false,
+        "marker": "ALIAS FREEZE CHECK: closed-map-was-not-refused",
+        "log": "map-0.log",
+        "binary_sha256": "50e1875aa884e33ef7c463b1bc663c2480223f532808e1265b7dfd632eaf4b93"
+      }
+    ],
+    "controls": {
+      "controls": [
+        {
+          "name": "metadata",
+          "expected_exit": 42,
+          "marker": "COMPLETE native alias exclusion/refusal teardown",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "b8403afa1908b0bf6a10f60145ac3037cf32a97e9e1cc82f6c5230417ad2c592",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": null
+        },
+        {
+          "name": "map",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-map-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "200e3f89fcc0a4cd91f122aca112c6cbc49543b44a69f1881150205976cac08e",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::Map("
+        },
+        {
+          "name": "unmap",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-unmap-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "63cc0cdb13f6dea1cc9559c712bcba674696eff7c92d307437efa09270c5b4af",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::Unmap("
+        },
+        {
+          "name": "protect",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-protect-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "7a5079cfec6d5887f3905f173fbba12efd3017e65f1877b4a27a0ffb2e649471",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::Protect("
+        },
+        {
+          "name": "clear",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-clear-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "33f82805ccb1e2c3dba3e99a0ac32bc2187512d4558cc4a2574b92a784087478",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "void HostMemory::ClearBackingRegion("
+        },
+        {
+          "name": "pin",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: closed-pin-was-not-refused",
+          "arguments": [
+            "--metadata-counterfactual"
+          ],
+          "cpp_sha256": "a8971aaace9230976b2ae8cfd5ee80e0d1f2eb82c3aa84b817b5c8584bfa48e7",
+          "header_sha256": {},
+          "diagnostic_enrollment": true,
+          "omitted_method": "std::optional<PinnedPhysicalMemory> HostMemory::PinPhysicalRange("
+        },
+        {
+          "name": "guest_admission",
+          "expected_exit": 91,
+          "marker": "ALIAS FREEZE CHECK: unproved-physical-admission",
+          "arguments": [],
+          "cpp_sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+          "header_sha256": {
+            "common/host_mapping_domain.h": "65fa429439d7314faca31900432608901baaefa94753fbc9810a52f88650ce7d"
+          },
+          "diagnostic_enrollment": false,
+          "omitted_method": null
+        }
+      ],
+      "original_cpp_sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "overlay_sha256": "23f5a4470ad7a32e66aacd7a3729ebf302b25d14fe1bae673de3035b351a22f9",
+      "boundary": "Metadata enrollment is counterfactual only; no physical/Windows support enabled in production"
+    },
+    "source_sha256": {
+      "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "src/common/host_memory.h": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+      "src/common/host_mapping_domain.h": "979b9ee6c9780f82cf82cb90a235cdd4ca9ae7f40654d6a33d3245cdc6b79694",
+      "src/common/published_guest_chunk.h": "2e8c72d029a04bc9c5cc85bbb72e3156eb9bbee3e893b8c24d74334d50a8049e",
+      "src/common/pinned_physical_memory.h": "b39399eec2de2703433acad85ec84e790ffa2c46978f5902b3936483733c9071",
+      "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+      "src/tests/common/windows_alias_freeze.cpp": "91b2d9dff3bc27f69d99c12d3055586ffba842e2819833f0a0ac94a6b5ce972b",
+      "src/tests/CMakeLists.txt": "7c3c2d4942951614975d4de7adbf360ee8b23d2c4adc2df6416600344623d36d",
+      "tools/physical_coherency_tests/prepare_windows_alias_freeze_controls.py": "e6bf600a5168a6609ed453c54e0fdf5f266858edbc912371adbdd6a261fe3584",
+      "tools/physical_coherency_tests/run_windows_alias_freeze_tests.py": "1600bf77cf2d2be91b4959a06bfd754ab09f93bbad1ffe3db71ae5ac3cf5f425"
+    },
+    "passed": false,
+    "boundary": "Windows production freeze refuses. Forced metadata enrollment is diagnostic, never physical exclusion or production acceptance. GuestBackingAdmission remains false; GPU/guest/Vulkan unproved."
+  },
+  "first_map_control_failure_log": "OBSERVE native Map(Read) protection=4\n\nWITNESS Map(Read) metadata alone is not readonly PTE proof\n\nALIAS FREEZE CHECK: metadata-closure-census\n\n",
+  "controls": {
+    "controls": [
+      {
+        "name": "metadata",
+        "expected_exit": 42,
+        "marker": "COMPLETE native alias exclusion/refusal teardown",
+        "arguments": [
+          "--metadata-counterfactual"
+        ],
+        "cpp_sha256": "b8403afa1908b0bf6a10f60145ac3037cf32a97e9e1cc82f6c5230417ad2c592",
+        "header_sha256": {},
+        "diagnostic_enrollment": true,
+        "omitted_method": null
+      },
+      {
+        "name": "map",
+        "expected_exit": 91,
+        "marker": "ALIAS FREEZE CHECK: closed-map-was-not-refused",
+        "arguments": [
+          "--metadata-counterfactual"
+        ],
+        "cpp_sha256": "2806bf925767990e4927a9b58f130a8c828c6f38aa80fc256f556ca9fcdd0314",
+        "header_sha256": {},
+        "diagnostic_enrollment": true,
+        "omitted_method": "void HostMemory::Map("
+      },
+      {
+        "name": "unmap",
+        "expected_exit": 91,
+        "marker": "ALIAS FREEZE CHECK: closed-unmap-was-not-refused",
+        "arguments": [
+          "--metadata-counterfactual"
+        ],
+        "cpp_sha256": "63cc0cdb13f6dea1cc9559c712bcba674696eff7c92d307437efa09270c5b4af",
+        "header_sha256": {},
+        "diagnostic_enrollment": true,
+        "omitted_method": "void HostMemory::Unmap("
+      },
+      {
+        "name": "protect",
+        "expected_exit": 91,
+        "marker": "ALIAS FREEZE CHECK: closed-protect-was-not-refused",
+        "arguments": [
+          "--metadata-counterfactual"
+        ],
+        "cpp_sha256": "7a5079cfec6d5887f3905f173fbba12efd3017e65f1877b4a27a0ffb2e649471",
+        "header_sha256": {},
+        "diagnostic_enrollment": true,
+        "omitted_method": "void HostMemory::Protect("
+      },
+      {
+        "name": "clear",
+        "expected_exit": 91,
+        "marker": "ALIAS FREEZE CHECK: closed-clear-was-not-refused",
+        "arguments": [
+          "--metadata-counterfactual"
+        ],
+        "cpp_sha256": "33f82805ccb1e2c3dba3e99a0ac32bc2187512d4558cc4a2574b92a784087478",
+        "header_sha256": {},
+        "diagnostic_enrollment": true,
+        "omitted_method": "void HostMemory::ClearBackingRegion("
+      },
+      {
+        "name": "pin",
+        "expected_exit": 91,
+        "marker": "ALIAS FREEZE CHECK: closed-pin-was-not-refused",
+        "arguments": [
+          "--metadata-counterfactual"
+        ],
+        "cpp_sha256": "a8971aaace9230976b2ae8cfd5ee80e0d1f2eb82c3aa84b817b5c8584bfa48e7",
+        "header_sha256": {},
+        "diagnostic_enrollment": true,
+        "omitted_method": "std::optional<PinnedPhysicalMemory> HostMemory::PinPhysicalRange("
+      },
+      {
+        "name": "guest_admission",
+        "expected_exit": 91,
+        "marker": "ALIAS FREEZE CHECK: unproved-physical-admission",
+        "arguments": [],
+        "cpp_sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+        "header_sha256": {
+          "common/host_mapping_domain.h": "65fa429439d7314faca31900432608901baaefa94753fbc9810a52f88650ce7d"
+        },
+        "diagnostic_enrollment": false,
+        "omitted_method": null
+      }
+    ],
+    "original_cpp_sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+    "overlay_sha256": "23f5a4470ad7a32e66aacd7a3729ebf302b25d14fe1bae673de3035b351a22f9",
+    "boundary": "Metadata enrollment is counterfactual only; no physical/Windows support enabled in production"
+  },
+  "build": {
+    "command": "@echo off\nset GIT_CONFIG_COUNT=1\nset GIT_CONFIG_KEY_0=core.longpaths\nset GIT_CONFIG_VALUE_0=true\nset VCPKG_TOOLCHAIN_FILE=C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-native-owner/vcpkg-root/scripts/buildsystems/vcpkg.cmake\ncall \"C:\\Program Files\\Microsoft Visual Studio\\18\\Professional\\Common7\\Tools\\VsDevCmd.bat\" -no_logo -arch=x64\nif errorlevel 1 exit /b %errorlevel%\ncmake -S \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator\" -B \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build\" -G Ninja -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_MAKE_PROGRAM=C:/Strawberry/c/bin/ninja.exe -DCMAKE_BUILD_TYPE=Release -DCITRON_USE_CPM=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF -DVCPKG_MANIFEST_MODE=ON -DVCPKG_MANIFEST_FEATURES=citron-tests -DVCPKG_INSTALLED_DIR=C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-native-owner/vcpkg-installed -DENABLE_QT=OFF -DENABLE_SDL2=OFF -DENABLE_CUBEB=OFF -DENABLE_WEB_SERVICE=OFF -DENABLE_LIBUSB=OFF -DENABLE_OPENSSL=OFF -DCITRON_ROOM=OFF -DCITRON_TESTS=ON -DCITRON_CHECK_SUBMODULES=OFF -DCITRON_USE_PRECOMPILED_HEADERS=ON -DCITRON_USE_BUNDLED_FFMPEG=ON -DCITRON_ENABLE_LTO=OFF -DCITRON_CRASH_DUMPS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_PROJECT_INCLUDE=C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/controls/alias_controls.cmake\n\n\n\nif errorlevel 1 exit /b %errorlevel%\ncmake --build \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build\" --target windows_mapping_owner_tests windows_alias_freeze_tests alias_freeze_metadata alias_freeze_map alias_freeze_unmap alias_freeze_protect alias_freeze_clear alias_freeze_pin alias_freeze_guest_admission --parallel 6\nexit /b %errorlevel%\n",
+    "logs": {
+      "build-permission-preparation.log": {
+        "sha256": "9ab20e5963058daa58d426be66d4fe5e00f7474cdb95e22afa76a3180d57b360",
+        "bytes": 1163595,
+        "last_lines": [
+          "[23/25] Linking CXX executable bin\\alias_freeze_pin.exe",
+          "[24/25] Linking CXX executable bin\\alias_freeze_guest_admission.exe",
+          "[25/25] Linking CXX executable bin\\windows_alias_freeze_tests.exe"
+        ]
+      },
+      "build-regression.log": {
+        "sha256": "c824ec404b4348b7d2f90830fc2669f61a9ca193876f665760211f7beba236f4",
+        "bytes": 54924,
+        "last_lines": [
+          "注意: 包含文件:   C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common/retained_backing_storage.h",
+          "注意: 包含文件:   C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common/virtual_buffer.h",
+          "[12/12] Linking CXX executable bin\\windows_mapping_owner_tests.exe"
+        ]
+      },
+      "build-targeted-control.log": {
+        "sha256": "547da03cd77aea640bf09c1874dfb37155640d1ad2708ff060fa9770214d2d4f",
+        "bytes": 881530,
+        "last_lines": [
+          "注意: 包含文件:   C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common/virtual_buffer.h",
+          "注意: 包含文件:  C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common/polyfill_thread.h",
+          "[17/17] Linking CXX executable bin\\alias_freeze_guest_admission.exe"
+        ]
+      },
+      "build.log": {
+        "sha256": "9e8d3a2376b446025fa217ca410803a3447f4f5dea3b58407f0216f0062c031d",
+        "bytes": 1728458,
+        "last_lines": [
+          "[71/73] Linking CXX executable bin\\alias_freeze_direct.exe",
+          "[72/73] Linking CXX executable bin\\windows_alias_freeze_tests.exe",
+          "[73/73] Linking CXX executable bin\\alias_freeze_guest_admission.exe"
+        ]
+      }
+    },
+    "compile_commands": [
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_metadata.dir\\.diagnostics\\m4-alias-b6\\controls\\metadata\\host_memory.cpp.obj /FdCMakeFiles\\alias_freeze_metadata.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\metadata\\host_memory.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\metadata\\host_memory.cpp",
+        "output": "CMakeFiles\\alias_freeze_metadata.dir\\.diagnostics\\m4-alias-b6\\controls\\metadata\\host_memory.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_metadata.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj /FdCMakeFiles\\alias_freeze_metadata.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "output": "CMakeFiles\\alias_freeze_metadata.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_map.dir\\.diagnostics\\m4-alias-b6\\controls\\map\\host_memory.cpp.obj /FdCMakeFiles\\alias_freeze_map.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\map\\host_memory.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\map\\host_memory.cpp",
+        "output": "CMakeFiles\\alias_freeze_map.dir\\.diagnostics\\m4-alias-b6\\controls\\map\\host_memory.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_map.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj /FdCMakeFiles\\alias_freeze_map.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "output": "CMakeFiles\\alias_freeze_map.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_unmap.dir\\.diagnostics\\m4-alias-b6\\controls\\unmap\\host_memory.cpp.obj /FdCMakeFiles\\alias_freeze_unmap.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\unmap\\host_memory.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\unmap\\host_memory.cpp",
+        "output": "CMakeFiles\\alias_freeze_unmap.dir\\.diagnostics\\m4-alias-b6\\controls\\unmap\\host_memory.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_unmap.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj /FdCMakeFiles\\alias_freeze_unmap.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "output": "CMakeFiles\\alias_freeze_unmap.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_protect.dir\\.diagnostics\\m4-alias-b6\\controls\\protect\\host_memory.cpp.obj /FdCMakeFiles\\alias_freeze_protect.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\protect\\host_memory.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\protect\\host_memory.cpp",
+        "output": "CMakeFiles\\alias_freeze_protect.dir\\.diagnostics\\m4-alias-b6\\controls\\protect\\host_memory.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_protect.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj /FdCMakeFiles\\alias_freeze_protect.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "output": "CMakeFiles\\alias_freeze_protect.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_clear.dir\\.diagnostics\\m4-alias-b6\\controls\\clear\\host_memory.cpp.obj /FdCMakeFiles\\alias_freeze_clear.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\clear\\host_memory.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\clear\\host_memory.cpp",
+        "output": "CMakeFiles\\alias_freeze_clear.dir\\.diagnostics\\m4-alias-b6\\controls\\clear\\host_memory.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_clear.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj /FdCMakeFiles\\alias_freeze_clear.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "output": "CMakeFiles\\alias_freeze_clear.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_pin.dir\\.diagnostics\\m4-alias-b6\\controls\\pin\\host_memory.cpp.obj /FdCMakeFiles\\alias_freeze_pin.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\pin\\host_memory.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\pin\\host_memory.cpp",
+        "output": "CMakeFiles\\alias_freeze_pin.dir\\.diagnostics\\m4-alias-b6\\controls\\pin\\host_memory.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_pin.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj /FdCMakeFiles\\alias_freeze_pin.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "output": "CMakeFiles\\alias_freeze_pin.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\guest_admission\\include -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_guest_admission.dir\\.diagnostics\\m4-alias-b6\\controls\\guest_admission\\host_memory.cpp.obj /FdCMakeFiles\\alias_freeze_guest_admission.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\guest_admission\\host_memory.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\guest_admission\\host_memory.cpp",
+        "output": "CMakeFiles\\alias_freeze_guest_admission.dir\\.diagnostics\\m4-alias-b6\\controls\\guest_admission\\host_memory.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-alias-b6\\controls\\guest_admission\\include -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /FoCMakeFiles\\alias_freeze_guest_admission.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj /FdCMakeFiles\\alias_freeze_guest_admission.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "output": "CMakeFiles\\alias_freeze_guest_admission.dir\\src\\tests\\common\\windows_alias_freeze.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\xbyak -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\demangle -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /we4242 /we4254 /we4800 /YuC:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build/src/common/CMakeFiles/common.dir/cmake_pch.hxx /FpC:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build/src/common/CMakeFiles/common.dir/./cmake_pch.cxx.pch /FIC:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build/src/common/CMakeFiles/common.dir/cmake_pch.hxx /Fosrc\\common\\CMakeFiles\\common.dir\\host_memory.cpp.obj /Fdsrc\\common\\CMakeFiles\\common.dir\\common.pdb /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common\\host_memory.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common\\host_memory.cpp",
+        "output": "src\\common\\CMakeFiles\\common.dir\\host_memory.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTAINER_DYN_LINK -DBOOST_CONTAINER_NO_LIB -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_FILESYSTEM_DYN_LINK=1 -DBOOST_FILESYSTEM_NO_LIB -DBOOST_PROCESS_DYN_LINK -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /YuC:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build/src/tests/CMakeFiles/tests.dir/cmake_pch.hxx /FpC:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build/src/tests/CMakeFiles/tests.dir/./cmake_pch.cxx.pch /FIC:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build/src/tests/CMakeFiles/tests.dir/cmake_pch.hxx /Fosrc\\tests\\CMakeFiles\\tests.dir\\common\\host_memory.cpp.obj /Fdsrc\\tests\\CMakeFiles\\tests.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\host_memory.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\host_memory.cpp",
+        "output": "src\\tests\\CMakeFiles\\tests.dir\\common\\host_memory.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /Fosrc\\tests\\CMakeFiles\\windows_mapping_owner_tests.dir\\common\\windows_mapping_owner.cpp.obj /Fdsrc\\tests\\CMakeFiles\\windows_mapping_owner_tests.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_mapping_owner.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_mapping_owner.cpp",
+        "output": "src\\tests\\CMakeFiles\\windows_mapping_owner_tests.dir\\common\\windows_mapping_owner.cpp.obj"
+      },
+      {
+        "directory": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/native-build",
+        "command": "C:\\PROGRA~1\\MICROS~2\\18\\PROFES~1\\VC\\Tools\\MSVC\\1451~1.362\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DARCHITECTURE_x86_64=1 -DBOOST_ALL_NO_LIB -DBOOST_ASIO_DISABLE_CONCEPTS -DBOOST_CONTEXT_DYN_LINK=\"\" -DBOOST_CONTEXT_EXPORT=EXPORT -DBOOST_CONTEXT_NO_LIB=\"\" -DCITRON_BUILD_TYPE=\\\"Stable\\\" -DDYNARMIC_XBYAK_CUSTOM_CONTAINERS -DFMT_SHARED -DNDEBUG -DNOMINMAX -DUNICODE -DWIN32_LEAN_AND_MEAN -DWINVER=0x0A00 -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS -D_HAS_DEPRECATED_RESULT_OF -D_SCL_SECURE_NO_WARNINGS -D_UNICODE -D_WIN32_WINNT=0x0A00 -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\. -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\.\\stb -IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include -external:IC:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /WX- /O2 /Ob2 /DNDEBUG /MD -std:c++latest -MD /wd4996 /wd4267 /std:c++latest /MD /wd4464 /wd4711 /wd4820 /Zm200 /Zo /permissive- /EHsc /utf-8 /volatile:iso /Zc:inline /W4 /WX /we4062 /we4189 /we4265 /we4388 /we4389 /we4456 /we4457 /we4458 /we4459 /we4505 /we4547 /we4549 /we4555 /we4826 /we5038 /we5233 /we5245 /wd4100 /wd4324 /wd4201 /wd4702 /wd4127 /MP /Zc:preprocessor /external:anglebrackets /external:W0 /Zc:externConstexpr /Zc:throwingNew /GT /experimental:module- /Z7 /QIntel-jcc-erratum /GS- /Fosrc\\tests\\CMakeFiles\\windows_alias_freeze_tests.dir\\common\\windows_alias_freeze.cpp.obj /Fdsrc\\tests\\CMakeFiles\\windows_alias_freeze_tests.dir\\ /FS -c C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "file": "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\tests\\common\\windows_alias_freeze.cpp",
+        "output": "src\\tests\\CMakeFiles\\windows_alias_freeze_tests.dir\\common\\windows_alias_freeze.cpp.obj"
+      }
+    ],
+    "fresh_common_build": true,
+    "kernel_or_vulkan_runtime": false,
+    "vulkan_acceptance_copy": false
+  },
+  "sync_provenance": {
+    "commits": [
+      "9e4b3f101d99fe865efa097c9809f0ecca3f158b Fix portable reinterpret staging size check [skip ci]",
+      "b6de86d4efcb70dff966cd920275751822e16ae8 Fix staging ranges for image reinterpretation copies [skip ci]",
+      "d8e21a983a73098f98d01c84cd068dddc9a7a26a Publish batched buffer downloads to host reads [skip ci]",
+      "080f8ba43e4b7199994059b785479577d56f095c Reclaim speculative physical map tails before failing reservations [skip ci]"
+    ],
+    "changed_sources": [
+      "src/core/hle/kernel/k_page_table_base.cpp",
+      "src/video_core/renderer_vulkan/vk_buffer_cache.cpp",
+      "src/video_core/renderer_vulkan/vk_texture_cache.cpp"
+    ],
+    "during_validation_delta": [
+      "src/video_core/renderer_vulkan/vk_texture_cache.cpp"
+    ],
+    "statement": "Incoming texture-cache-only commit preserved; all accepted fixture/production inputs hash-identical at audited head. Synced KPageTable dependency means prior native System/Kernel result is historical."
+  },
+  "cleanup": {
+    "status": "complete",
+    "removed_files": 108,
+    "removed_bytes": 295219541,
+    "inventory_sha256": "79710532cc93bb9d704f7c10084f90cb1899f6f1f297823a35e01ae996e3e3f6",
+    "inventory_local_path": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-alias-b6/cleanup-inventory.json",
+    "remaining_temporary_binaries_and_fixtures": [],
+    "method": "Resolve in-task paths, verify per-leaf size/SHA256, unlink files individually; no recursive directory deletion. Keep logs/manifests/build commands and existing dependency caches."
+  }
+}

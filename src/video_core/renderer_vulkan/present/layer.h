@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "common/math_util.h"
 #include "video_core/host1x/gpu_device_memory_manager.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
@@ -45,7 +47,7 @@ public:
                    const PresentFilters& filters);
     ~Layer();
 
-    void ConfigureDraw(PresentPushConstants* out_push_constants,
+    bool ConfigureDraw(PresentPushConstants* out_push_constants,
                        VkDescriptorSet* out_descriptor_set, RasterizerVulkan& rasterizer,
                        VkSampler sampler, size_t image_index,
                        const Tegra::FramebufferConfig& framebuffer,
@@ -54,14 +56,25 @@ public:
 private:
     void CreateDescriptorPool();
     void CreateDescriptorSets(VkDescriptorSetLayout layout);
-    void CreateStagingBuffer(const Tegra::FramebufferConfig& framebuffer);
-    void CreateRawImages(const Tegra::FramebufferConfig& framebuffer);
+    // Owner-thread recording eligibility only; Recorded is not native completion.
+    enum class RawUploadState { Empty, Recording, Recorded, Failed };
+    struct RawResources {
+        vk::Buffer buffer;
+        std::vector<vk::Image> images;
+        std::vector<vk::ImageView> views;
+        std::vector<u64> ticks;
+        std::vector<RawUploadState> uploads;
+    };
+    vk::Buffer CreateStagingBuffer(const Tegra::FramebufferConfig& framebuffer);
+    RawResources CreateRawImages(const Tegra::FramebufferConfig& framebuffer);
     void CreateFSR(VkExtent2D output_size);
     void CreateFSR2(VkExtent2D output_size);
 
     void RefreshResources(const Tegra::FramebufferConfig& framebuffer);
     void SetAntiAliasPass();
     void ReleaseRawImages();
+    void WaitForResourceUses();
+    void ClearRawImages();
 
     u64 CalculateBufferSize(const Tegra::FramebufferConfig& framebuffer) const;
     u64 GetRawImageOffset(const Tegra::FramebufferConfig& framebuffer, size_t image_index) const;
@@ -70,7 +83,7 @@ private:
     void SetVertexData(PresentPushConstants& data, const Layout::FramebufferLayout& layout,
                        const Common::Rectangle<f32>& crop) const;
     void UpdateDescriptorSet(VkImageView image_view, VkSampler sampler, size_t image_index);
-    void UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t image_index);
+    bool UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t image_index);
 
 private:
     const Device& device;
@@ -87,6 +100,7 @@ private:
     std::vector<vk::ImageView> raw_image_views{};
     u32 raw_width{};
     u32 raw_height{};
+    u32 raw_stride{};
     Service::android::PixelFormat pixel_format{};
 
     Settings::AntiAliasing anti_alias_setting{};
@@ -95,6 +109,9 @@ private:
     std::unique_ptr<FSR> fsr{};
     std::unique_ptr<FSR2> fsr2{};
     std::vector<u64> resource_ticks{};
+    std::vector<RawUploadState> raw_upload_states{};
+    // Shared helper/descriptor failure is sticky across slots and raw generations.
+    bool post_upload_failed{};
 };
 
 } // namespace Vulkan

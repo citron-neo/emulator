@@ -7,14 +7,14 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 
 #include "common/common_funcs.h"
 #include "common/common_types.h"
+#include "common/owned_retirement.h"
 #include "core/hle/service/nvnflinger/pixel_format.h"
 
-namespace Service::Nvidia::NvCore {
-class NvMap;
-} // namespace Service::Nvidia::NvCore
+namespace Service::Nvidia { class Module; }
 
 namespace Service::android {
 
@@ -104,12 +104,27 @@ static_assert(sizeof(NvGraphicBuffer) == 0x16C, "NvGraphicBuffer has wrong size"
 class GraphicBuffer final : public NvGraphicBuffer {
 public:
     explicit GraphicBuffer(u32 width, u32 height, PixelFormat format, u32 usage);
-    explicit GraphicBuffer(Service::Nvidia::NvCore::NvMap& nvmap,
-                           std::shared_ptr<NvGraphicBuffer> buffer);
+    static std::shared_ptr<GraphicBuffer> TryCreate(
+        const std::shared_ptr<Service::Nvidia::Module>& owner,
+        std::shared_ptr<NvGraphicBuffer> buffer, const Common::ProducerDrain::Entry& dispatch);
     ~GraphicBuffer();
 
 private:
-    Service::Nvidia::NvCore::NvMap* m_nvmap{};
+    GraphicBuffer(std::shared_ptr<Service::Nvidia::Module> owner,
+                  std::shared_ptr<NvGraphicBuffer> buffer);
+    std::shared_ptr<Service::Nvidia::Module> m_owner;
+    Common::OwnedRetirementQueue::Owner m_retirement;
+};
+
+// CPU source lifetime through deferred composition, not a mapping/native-use
+// lease. Freeze the descriptor separately from other mutable wrapper aliases.
+struct GraphicBufferSource {
+    const std::shared_ptr<const GraphicBuffer> owner;
+    const NvGraphicBuffer descriptor;
+
+    explicit GraphicBufferSource(std::shared_ptr<const GraphicBuffer> buffer)
+        : owner{std::move(buffer)},
+          descriptor{owner ? static_cast<const NvGraphicBuffer&>(*owner) : NvGraphicBuffer{}} {}
 };
 
 } // namespace Service::android

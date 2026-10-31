@@ -1,0 +1,36 @@
+{
+  "replacements": [
+    [
+      "    scheduler.RequireNativeBorrowAdmission();\n    using namespace VideoCore::Capture;",
+      "    if (applet_capture_state == AppletCaptureState::Recording ||\n        applet_capture_state == AppletCaptureState::Failed ||\n        applet_capture_state == AppletCaptureState::Closed) return {};\n    scheduler.RequireNativeBorrowAdmission();\n    using namespace VideoCore::Capture;"
+    ],
+    [
+      "    if (!applet_frame.image) {\n        return out;\n    }",
+      "    if (!applet_frame.image) {\n        return out;\n    }\n    if (applet_capture_state != AppletCaptureState::Recorded) return {};"
+    ],
+    [
+      "    // Filter layers that belong to applets (non-zero owner_aruid and not main application)",
+      "    if (applet_capture_state == AppletCaptureState::Recording ||\n        applet_capture_state == AppletCaptureState::Failed ||\n        applet_capture_state == AppletCaptureState::Closed) return;\n    // Filter layers that belong to applets (non-zero owner_aruid and not main application)"
+    ],
+    [
+      "    blit_applet.DrawToFrame(rasterizer, &applet_frame, applet_layers, VideoCore::Capture::Layout, 1,\n                            CaptureFormat);",
+      "    // Recorded only admits a checked readback; it is not native/content completion.\n    applet_capture_state = AppletCaptureState::Recording;\n    try {\n        blit_applet.DrawToFrame(rasterizer, &applet_frame, applet_layers,\n                               VideoCore::Capture::Layout, 1, CaptureFormat);\n        applet_capture_state = AppletCaptureState::Recorded;\n    } catch (...) {\n        // A prefix may already be recorded/submitted. Retain all owners and never\n        // retry/replay this applet path or expose a possibly partial image.\n        applet_capture_state = AppletCaptureState::Failed;\n        throw;\n    }"
+    ],
+    [
+      "    terminal_shutdown_started = true;",
+      "    terminal_shutdown_started = true;\n    applet_capture_state = AppletCaptureState::Closed;"
+    ]
+  ],
+  "state": "    enum class AppletCaptureState { Empty, Recording, Recorded, Failed, Closed };\n    // Owning GPU thread, then terminal teardown after outer producer join.\n    AppletCaptureState applet_capture_state{AppletCaptureState::Empty};",
+  "scheduler_replacements": [
+    [
+      "    return presentation_sources.RetireAfterIdle();",
+      "    if (!presentation_sources.RetireAfterIdle()) return false;\n    native_resources_retired = true;\n    return true;"
+    ]
+  ],
+  "release_method": "void Scheduler::WaitForResourceRelease(u64 tick) {\n    // Terminal Renderer disposal publishes this only after join and checked idle.\n    if (native_resources_retired) return;\n    RequireNativeBorrowAdmission();\n    Wait(tick);\n}",
+  "layer_replacement": [
+    "        scheduler.Wait(tick);",
+    "        scheduler.WaitForResourceRelease(tick);"
+  ]
+}

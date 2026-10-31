@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "common/common_types.h"
+#include "common/host_memory.h"
 
 namespace Common {
 class DynamicLibrary;
@@ -19,6 +20,7 @@ struct GuestMemoryExport {
     std::vector<int> fds;
     /// False when the reason it did not happen will not change for the rest of the process
     bool retry{true};
+    bool direct_importable{}; ///< known non-dedicated, unpadded buffer payloads
 };
 
 /// Allocates guest memory from the Vulkan driver in `library`. A Vulkan device can import such
@@ -36,5 +38,9 @@ struct GuestMemoryExport {
 /// result cannot be mapped the ways Common::HostMemory maps guest memory.
 [[nodiscard]] GuestMemoryExport ExportGuestMemory(const Common::DynamicLibrary& library,
                                                   u64 total_size, u64 chunk_size);
+
+/// One long-lived export-only device; does not allocate any guest chunks at creation.
+[[nodiscard]] std::shared_ptr<Common::GuestBackingExporter> CreateGuestBackingExporter(
+    std::shared_ptr<Common::DynamicLibrary> library);
 
 } // namespace Vulkan

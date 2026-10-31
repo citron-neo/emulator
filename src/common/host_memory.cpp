@@ -40,6 +40,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
+#include <cstring>
 #include <limits>
 #include <mutex>
 #include <optional>
@@ -508,12 +509,24 @@ static void* ChooseVirtualBase(size_t virtual_size) {
 class HostMemory::Impl {
 public:
     explicit Impl(size_t backing_size_, size_t virtual_size_, std::span<const int> backing_fds,
-                  size_t chunk_size_)
+                  size_t chunk_size_, bool lazy_backing_ = false,
+                  std::shared_ptr<GuestBackingExporter> exporter_ = {})
         : backing_size{backing_size_}, virtual_size{virtual_size_},
-          chunk_size{backing_fds.empty() ? backing_size_ : chunk_size_} {
+          chunk_size{lazy_backing_ ? chunk_size_ : (backing_fds.empty() ? backing_size_ : chunk_size_)},
+          lazy_backing{lazy_backing_}, exporter{std::move(exporter_)} {
         assert(backing_fds.size() <= MaxBackingChunks &&
                (backing_fds.empty() || chunk_size * backing_fds.size() == backing_size));
-        fds.fill(-1);
+        if (lazy_backing && (!backing_fds.empty() || chunk_size == 0 ||
+                             chunk_size % PageAlignment != 0 || backing_size % chunk_size != 0)) {
+            throw std::invalid_argument("Invalid lazy physical backing geometry");
+        }
+        fds.assign(lazy_backing ? backing_size / chunk_size : MaxBackingChunks, -1);
+        if (lazy_backing) {
+            exported_slots.resize(fds.size());
+            export_info.resize(fds.size());
+            ready = std::make_unique<std::atomic<bool>[]>(fds.size());
+        }
+        backing_files.resize(fds.size());
         std::ranges::copy(backing_fds, fds.begin());
         bool good = false;
         SCOPE_EXIT {
@@ -529,7 +542,7 @@ public:
         }
 
         // Backing memory initialization
-        if (backing_fds.empty()) {
+        if (backing_fds.empty() && !lazy_backing) {
 #if defined(__FreeBSD__) && __FreeBSD__ < 13
             // XXX Drop after FreeBSD 12.* reaches EOL on 2024-06-30
             fds[0] = shm_open(SHM_ANON, O_RDWR, 0600);
@@ -550,11 +563,12 @@ public:
             }
         }
 
-        // The backing view is one address range: a reservation with every chunk mapped over it.
+        // The backing view keeps a stable address. Eager backing maps every chunk;
+        // lazy backing leaves cold chunks inaccessible until EnsureBackingRange.
         backing_base = static_cast<u8*>(mmap(nullptr, backing_size, PROT_NONE,
                                              MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0));
         bool mapped = backing_base != MAP_FAILED;
-        for (size_t offset = 0; mapped && offset < backing_size; offset += chunk_size) {
+        for (size_t offset = 0; !lazy_backing && mapped && offset < backing_size; offset += chunk_size) {
             mapped = mmap(backing_base + offset, chunk_size, PROT_READ | PROT_WRITE,
                           MAP_SHARED | MAP_FIXED, fds[offset / chunk_size], 0) != MAP_FAILED;
         }
@@ -579,12 +593,19 @@ public:
         // (System::UseGuestMemoryFromGpu in core.cpp). The kernel does not merge neighbouring
         // mappings of those, so MergeMappings does. Remember which files the backing is, as
         // /proc/self/maps names them.
-        merge_by_hand = !backing_fds.empty();
-        for (size_t chunk = 0; merge_by_hand && chunk < backing_fds.size(); ++chunk) {
-            struct stat st {};
-            merge_by_hand = fstat(fds[chunk], &st) == 0;
-            backing_files[chunk] = {(static_cast<u64>(major(st.st_dev)) << 32) | minor(st.st_dev),
-                                    static_cast<u64>(st.st_ino)};
+        // HIGH RISK: layout_mutex excludes layout writers, not borrowed guest
+        // pointers or running NCE accesses. Keep the upstream eager path, but do
+        // not enable background MAP_FIXED remapping for lazy backing until its
+        // pointer-use boundary is validated on Linux/Android (see the roadmap).
+        merge_by_hand = !lazy_backing && !backing_fds.empty();
+        for (size_t chunk = 0; chunk < backing_fds.size(); ++chunk) {
+            if (!RecordBackingFile(chunk, fds[chunk])) {
+                merge_by_hand = false;
+            }
+        }
+        if (lazy_backing) {
+            LOG_WARNING(HW_Memory,
+                        "Lazy backing VMA merging disabled pending mapping-use validation");
         }
 
         max_map_count = ReadUnsignedFile("/proc/sys/vm/max_map_count");
@@ -597,10 +618,161 @@ public:
             vma_sampler_thread =
                 std::jthread([this](std::stop_token stop_token) { VmaSamplerLoop(stop_token); });
         }
+        if (lazy_backing) {
+            backing_stats_thread = std::jthread([this](std::stop_token token) {
+                while (Common::StoppableTimedWait(token, std::chrono::seconds{5})) {
+                    LogBackingStats();
+                }
+            });
+        }
         good = true;
     }
 
+    // Published chunks are never replaced within a live arena. A ready range is
+    // therefore a query/cache-hit path, not a new mapping/publication operation.
+    bool BackingRangeReady(size_t offset, size_t length) const {
+        if (!lazy_backing || length == 0) return true;
+        const size_t first = offset / chunk_size;
+        const size_t last = (offset + length - 1) / chunk_size;
+        for (size_t index = first; index <= last; ++index) {
+            if (!ready[index].load(std::memory_order_acquire)) return false;
+        }
+        return true;
+    }
+
+    void EnsureBackingRange(size_t offset, size_t length) {
+        if (offset > backing_size || length > backing_size - offset) {
+            throw std::out_of_range("Physical backing access exceeds arena");
+        }
+        if (!lazy_backing || length == 0) {
+            return;
+        }
+        const size_t first = offset / chunk_size;
+        const size_t last = (offset + length - 1) / chunk_size;
+        for (size_t index = first; index <= last; ++index) {
+            if (ready[index].load(std::memory_order_acquire)) {
+                chunk_cache_hits.fetch_add(1, std::memory_order_relaxed);
+                continue;
+            }
+            // mmap must complete before another thread can obtain a pointer or alias.
+            std::scoped_lock lock{backing_mutex};
+            if (ready[index].load(std::memory_order_relaxed)) {
+                chunk_cache_hits.fetch_add(1, std::memory_order_relaxed);
+                continue;
+            }
+            int fd = -1;
+            bool exported = false;
+            bool published = false;
+            SCOPE_EXIT {
+                if (!published && fd >= 0) {
+                    if (exported) {
+                        exporter->ReleaseChunk(fd);
+                    } else {
+                        close(fd);
+                    }
+                }
+            };
+            if (exporter) {
+                const auto start = std::chrono::steady_clock::now();
+                fd = exporter->CreateChunk(chunk_size);
+                const u64 elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                        std::chrono::steady_clock::now() - start).count();
+                export_duration_ns.fetch_add(elapsed, std::memory_order_relaxed);
+                u64 peak = peak_export_duration_ns.load(std::memory_order_relaxed);
+                while (elapsed > peak && !peak_export_duration_ns.compare_exchange_weak(
+                                            peak, elapsed, std::memory_order_relaxed)) {
+                }
+                if (fd >= 0) {
+                    exported = true;
+                    if (mmap(backing_base + index * chunk_size, chunk_size,
+                             PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0) == MAP_FAILED) {
+                        exporter->ReleaseChunk(fd);
+                        fd = -1;
+                        exported = false;
+                    }
+                }
+                if (fd < 0) {
+                    export_failures.fetch_add(1, std::memory_order_relaxed);
+                }
+            }
+            if (!exported) {
+#if defined(__FreeBSD__) && __FreeBSD__ < 13
+                fd = shm_open(SHM_ANON, O_RDWR, 0600);
+#else
+                fd = memfd_create("citron-guest-chunk", MFD_CLOEXEC);
+#endif
+                if (fd < 0 || ftruncate(fd, chunk_size) != 0 ||
+                    mmap(backing_base + index * chunk_size, chunk_size, PROT_READ | PROT_WRITE,
+                         MAP_SHARED | MAP_FIXED, fd, 0) == MAP_FAILED) {
+                    throw std::bad_alloc{};
+                }
+            }
+            std::optional<GuestChunkExportInfo> published_info;
+            if (exported) {
+                try {
+                    published_info = exporter->DescribeChunk(fd);
+                } catch (...) {
+                    // Optional import metadata must not fail a CPU-ready Phase 2 chunk.
+                }
+            }
+            fds[index] = fd;
+            exported_slots[index] = exported;
+            export_info[index] = published_info;
+            published = true;
+            (exported ? chunks_exported : cpu_only_fallback_chunks)
+                .fetch_add(1, std::memory_order_relaxed);
+            chunks_created.fetch_add(1, std::memory_order_relaxed);
+            // Publish immutable file identity with the fd before any reader sees
+            // ready. The merger remains disabled for lazy backing; this metadata
+            // must not be used to infer safety of remapping a borrowed pointer.
+            if (exported) {
+                RecordBackingFile(index, fd);
+            }
+            ready[index].store(true, std::memory_order_release);
+            // Physical-only kernel access may never reach the virtual-map sampler.
+            const u64 current = CountProcessVmas();
+            u64 peak = peak_vma_count.load(std::memory_order_relaxed);
+            while (current > peak && !peak_vma_count.compare_exchange_weak(
+                                        peak, current, std::memory_order_relaxed)) {
+            }
+        }
+    }
+
+    BackingStats GetBackingStats() const {
+        const u64 created = chunks_created.load(std::memory_order_relaxed);
+        return {created, chunk_cache_hits.load(std::memory_order_relaxed), created, created,
+                peak_vma_count.load(std::memory_order_relaxed),
+                chunks_exported.load(std::memory_order_relaxed),
+                export_failures.load(std::memory_order_relaxed),
+                cpu_only_fallback_chunks.load(std::memory_order_relaxed),
+                export_duration_ns.load(std::memory_order_relaxed),
+                peak_export_duration_ns.load(std::memory_order_relaxed)};
+    }
+
+    GuestChunkLease FindPublishedChunk(std::optional<u64> offset,
+                                      std::shared_ptr<const void> owner,
+                                      std::shared_ptr<const GuestBackingEpoch> epoch) const {
+        if (!lazy_backing || (offset && *offset >= backing_size) || !epoch->alive.load()) {
+            return {};
+        }
+        std::scoped_lock lock{backing_mutex};
+        const size_t begin = offset ? *offset / chunk_size : 0;
+        const size_t end = offset ? begin + 1 : fds.size();
+        for (size_t i = begin; i < end; ++i) {
+            if (ready[i].load(std::memory_order_acquire) && (offset || export_info[i])) {
+                return std::make_shared<const PublishedGuestChunk>(PublishedGuestChunk{
+                    std::move(owner), std::move(epoch), i, i * chunk_size, chunk_size,
+                    fds[i], exported_slots[i], export_info[i]});
+            }
+        }
+        return {};
+    }
+
     ~Impl() {
+        backing_stats_thread.request_stop();
+        if (backing_stats_thread.joinable()) {
+            backing_stats_thread.join();
+        }
         vma_sampler_thread.request_stop();
         if (vma_sampler_thread.joinable()) {
             vma_sampler_thread.join();
@@ -615,6 +787,9 @@ public:
                      current, peak, vma_budget, max_map_count,
                      map_count.load(std::memory_order_relaxed),
                      unmap_count.load(std::memory_order_relaxed));
+        }
+        if (lazy_backing) {
+            LogBackingStats();
         }
         Release();
     }
@@ -752,7 +927,11 @@ public:
             layout_lock.lock();
             ret = mprotect(virtual_base + virtual_offset, length, flags);
         }
-        assert(ret == 0 && "mprotect failed: {}" && (void(errno), true));
+        if (ret != 0) {
+            // The outer mapping transaction must not publish successful permissions
+            // when protection failed, including builds with assertions disabled.
+            throw std::runtime_error("HostMemory mprotect failed");
+        }
         layout_lock.unlock();
         RequestVmaSample();
     }
@@ -797,6 +976,22 @@ private:
             ++count;
         }
         return count;
+    }
+
+    void LogBackingStats() const {
+        const auto stats = GetBackingStats();
+        LOG_INFO(HW_Memory,
+                 "Lazy backing runtime: types={} chunks_created={} chunk_cache_hits={} "
+                 "chunks_exported={} export_failures={} cpu_only_fallback_chunks={} "
+                 "active_chunks={} peak_fd_count={} peak_vma_count={} export_duration_ns={} "
+                 "peak_export_duration_ns={}",
+                 stats.chunks_exported == 0 ? "CPU-only memfd"
+                     : stats.cpu_only_fallback_chunks == 0 ? "GPU-driver-exported dma-buf"
+                                                         : "dma-buf + CPU-only memfd",
+                 stats.chunks_created, stats.chunk_cache_hits, stats.chunks_exported,
+                 stats.export_failures, stats.cpu_only_fallback_chunks, stats.active_chunks,
+                 stats.peak_fd_count, stats.peak_vma_count, stats.export_duration_ns,
+                 stats.peak_export_duration_ns);
     }
 
     /// Asks the sampler thread to count mappings once every VmaSampleInterval layout changes
@@ -890,11 +1085,25 @@ private:
         return prot;
     }
 
-    /// The backing chunk `mapping` maps, if it maps one.
+    // Called during construction or under backing_mutex, before ready publication.
+    bool RecordBackingFile(size_t chunk, int fd) {
+        struct stat st {};
+        if (fstat(fd, &st) != 0) {
+            return false;
+        }
+        backing_files[chunk] = BackingFile{
+            (static_cast<u64>(major(st.st_dev)) << 32) | minor(st.st_dev),
+            static_cast<u64>(st.st_ino)};
+        return true;
+    }
+
+    /// File identity lookup accepts sparse lazy slots and mixed backing types.
+    /// Lock order is layout_mutex -> backing_mutex; publication never takes layout_mutex.
     std::optional<size_t> BackingChunkOf(const HostMapping& mapping) const {
-        for (size_t chunk = 0; chunk < MaxBackingChunks && fds[chunk] != -1; ++chunk) {
-            if (backing_files[chunk].device == mapping.device &&
-                backing_files[chunk].inode == mapping.inode) {
+        std::scoped_lock lock{backing_mutex};
+        for (size_t chunk = 0; chunk < backing_files.size(); ++chunk) {
+            const auto& file = backing_files[chunk];
+            if (file && file->device == mapping.device && file->inode == mapping.inode) {
                 return chunk;
             }
         }
@@ -909,6 +1118,9 @@ private:
     /// with a Turnip dma_buf (tools/thor/uma-probe/vma_merge_probe.cpp, 2026-10-12): 60000
     /// one-page mappings read in 37 ms and merged in 44 ms, contents intact.
     void MergeMappings(const char* reason) {
+        if (!merge_by_hand) {
+            return;
+        }
         std::unique_lock layout_lock{layout_mutex};
         const auto begin = std::chrono::steady_clock::now();
         const u64 low = reinterpret_cast<uintptr_t>(virtual_map_base);
@@ -985,10 +1197,15 @@ private:
             assert(ret == 0 && "munmap failed: {}" && (void(errno), true));
         }
 
-        for (const int fd : fds) {
+        for (size_t index = 0; index < fds.size(); ++index) {
+            const int fd = fds[index];
             if (fd != -1) {
-                [[maybe_unused]] int ret = close(fd);
-                assert(ret == 0 && "close failed: {}" && (void(errno), true));
+                if (lazy_backing && exported_slots[index]) {
+                    exporter->ReleaseChunk(fd);
+                } else {
+                    [[maybe_unused]] int ret = close(fd);
+                    assert(ret == 0 && "close failed: {}" && (void(errno), true));
+                }
             }
         }
     }
@@ -1014,14 +1231,28 @@ private:
         }
     }
 
-    /// Backing file descriptors in order: one memfd, or the chunks the caller passed. -1 unused.
-    std::array<int, MaxBackingChunks> fds;
+    /// Backing fds in physical order: eager memfd/provided fds, or lazy slots. -1 means unused.
+    std::vector<int> fds;
+    bool lazy_backing{};
+    std::shared_ptr<GuestBackingExporter> exporter;
+    std::vector<bool> exported_slots; // only accessed under backing_mutex or after worker shutdown
+    std::vector<std::optional<GuestChunkExportInfo>> export_info;
+    std::unique_ptr<std::atomic<bool>[]> ready;
+    mutable std::mutex backing_mutex;
+    std::atomic<u64> chunks_created{};
+    std::atomic<u64> chunk_cache_hits{};
+    std::atomic<u64> chunks_exported{};
+    std::atomic<u64> export_failures{};
+    std::atomic<u64> cpu_only_fallback_chunks{};
+    std::atomic<u64> export_duration_ns{};
+    std::atomic<u64> peak_export_duration_ns{};
+    std::jthread backing_stats_thread;
     struct BackingFile {
         u64 device; ///< As /proc/self/maps shows it: (major << 32) | minor
         u64 inode;
     };
     /// Which file each backing file descriptor is, for MergeMappings.
-    std::array<BackingFile, MaxBackingChunks> backing_files{};
+    std::vector<std::optional<BackingFile>> backing_files;
     /// The backing is dma_bufs, whose mappings the kernel never merges: MergeMappings has work.
     bool merge_by_hand{};
     /// Map, Unmap and Protect hold it shared, MergeMappings exclusively.
@@ -1068,15 +1299,40 @@ private:
 #endif // ^^^ Generic ^^^
 
 HostMemory::HostMemory(size_t backing_size_, size_t virtual_size_,
-                       std::span<const int> backing_fds, size_t chunk_size)
+                       std::span<const int> backing_fds, size_t chunk_size, bool direct_importable,
+                       bool lazy_backing, std::shared_ptr<GuestBackingExporter> exporter,
+                       bool managed_mapping_entries)
     : backing_size(backing_size_)
+    , mapping_domain{managed_mapping_entries}
+    , driver_fds(backing_fds.begin(), backing_fds.end())
+    , driver_chunk_size(chunk_size)
+    , driver_direct_importable(direct_importable)
+    , lazy_backing_enabled(lazy_backing)
     , virtual_size(virtual_size_)
 {
+    // Only ordinary, internally owned Linux mappings have this first census.
+    // Exported/external backing and other platforms refuse rather than guessing.
+#if defined(__linux__)
+    mapping_domain.Initialize(backing_size, backing_fds.empty() && !direct_importable &&
+                                              !exporter && sysconf(_SC_PAGESIZE) == static_cast<long>(PageAlignment));
+#else
+    mapping_domain.Initialize(backing_size, false);
+#endif
     // Try to allocate a fastmem arena.
     // The implementation will fail with std::bad_alloc on errors.
-    impl = std::make_unique<HostMemory::Impl>(AlignUp(backing_size, PageAlignment),
-                                              AlignUp(virtual_size, PageAlignment) + HugePageSize,
-                                              backing_fds, chunk_size);
+    if (lazy_backing) {
+#if defined(__linux__) || defined(__FreeBSD__)
+        impl = std::make_unique<HostMemory::Impl>(AlignUp(backing_size, PageAlignment),
+                                                AlignUp(virtual_size, PageAlignment) + HugePageSize,
+                                                backing_fds, chunk_size, true, std::move(exporter));
+#else
+        throw std::invalid_argument("Lazy physical backing is unavailable on this host");
+#endif
+    } else {
+        impl = std::make_unique<HostMemory::Impl>(AlignUp(backing_size, PageAlignment),
+                                                AlignUp(virtual_size, PageAlignment) + HugePageSize,
+                                                backing_fds, chunk_size);
+    }
     backing_base = impl->backing_base;
     virtual_base = impl->virtual_base;
     if (virtual_base) {
@@ -1088,8 +1344,27 @@ HostMemory::HostMemory(size_t backing_size_, size_t virtual_size_,
 
 HostMemory::~HostMemory() {
     // We leave this empty.
-    // The "impl" unique_ptr handles the cleanup automatically and correctly.
+    // Impl ownership handles cleanup; diagnostic leases may pin the arena until
+    // their cache is released, but backing_lifetime invalidates queries immediately.
     // Manually calling munmap here causes a "double-free" crash.
+}
+
+GuestChunkLease HostMemory::GetPublishedChunk([[maybe_unused]] u64 physical_offset) const {
+    mapping_domain.ObserveEscape(HostMappingDomain::ChunkLease);
+#if defined(__linux__) || defined(__FreeBSD__)
+    return impl ? impl->FindPublishedChunk(physical_offset, impl, backing_lifetime.Get()) : nullptr;
+#else
+    return {};
+#endif
+}
+
+GuestChunkLease HostMemory::FirstPublishedExportedChunk() const {
+    mapping_domain.ObserveEscape(HostMappingDomain::ChunkLease);
+#if defined(__linux__) || defined(__FreeBSD__)
+    return impl ? impl->FindPublishedChunk(std::nullopt, impl, backing_lifetime.Get()) : nullptr;
+#else
+    return {};
+#endif
 }
 
 HostMemory::HostMemory(HostMemory&&) noexcept = default;
@@ -1098,6 +1373,7 @@ HostMemory& HostMemory::operator=(HostMemory&&) noexcept = default;
 
 void HostMemory::Map(size_t virtual_offset, size_t host_offset, size_t length,
                      MemoryPermission perms, bool separate_heap) {
+    auto mutation = mapping_domain.BeginMutation();
     if (virtual_offset % PageAlignment != 0) [[unlikely]] {
         CrashHostMemoryInvariant("Map", "virtual_offset is not page aligned", virtual_offset,
                                  host_offset, length, virtual_size, backing_size, perms, virtual_base,
@@ -1126,12 +1402,19 @@ void HostMemory::Map(size_t virtual_offset, size_t host_offset, size_t length,
                                  virtual_base_offset);
     }
     if (length == 0 || !virtual_base || !impl) {
+        mutation.Finish();
         return;
     }
+#if defined(__linux__) || defined(__FreeBSD__)
+    impl->EnsureBackingRange(host_offset, length);
+#endif
     impl->Map(virtual_offset + virtual_base_offset, host_offset, length, perms);
+    mutation.Map(virtual_offset, host_offset, length, static_cast<u32>(perms));
+    mutation.Finish();
 }
 
 void HostMemory::Unmap(size_t virtual_offset, size_t length, bool separate_heap) {
+    auto mutation = mapping_domain.BeginMutation();
     if (virtual_offset % PageAlignment != 0) [[unlikely]] {
         CrashHostMemoryInvariant("Unmap", "virtual_offset is not page aligned", virtual_offset, 0,
                                  length, virtual_size, backing_size, {}, virtual_base,
@@ -1148,12 +1431,16 @@ void HostMemory::Unmap(size_t virtual_offset, size_t length, bool separate_heap)
                                  virtual_base_offset);
     }
     if (length == 0 || !virtual_base || !impl) {
+        mutation.Finish();
         return;
     }
     impl->Unmap(virtual_offset + virtual_base_offset, length);
+    mutation.Unmap(virtual_offset, length);
+    mutation.Finish();
 }
 
 void HostMemory::Protect(size_t virtual_offset, size_t length, MemoryPermission perm) {
+    auto mutation = mapping_domain.BeginMutation();
     if (virtual_offset % PageAlignment != 0) [[unlikely]] {
         CrashHostMemoryInvariant("Protect", "virtual_offset is not page aligned", virtual_offset,
                                  0, length, virtual_size, backing_size, perm, virtual_base,
@@ -1171,23 +1458,102 @@ void HostMemory::Protect(size_t virtual_offset, size_t length, MemoryPermission 
                                  virtual_base_offset);
     }
     if (length == 0 || !virtual_base || !impl) {
+        mutation.Finish();
         return;
     }
     const bool read = True(perm & MemoryPermission::Read);
     const bool write = True(perm & MemoryPermission::Write);
     const bool execute = True(perm & MemoryPermission::Execute);
     impl->Protect(virtual_offset + virtual_base_offset, length, read, write, execute);
+    mutation.Protect(virtual_offset, length, static_cast<u32>(perm));
+    mutation.Finish();
 }
 
 void HostMemory::ClearBackingRegion(size_t physical_offset, size_t length, u32 fill_value) {
+    auto mutation = mapping_domain.BeginMutation();
+    if (physical_offset > backing_size || length > backing_size - physical_offset)
+        throw std::out_of_range("Physical backing access exceeds arena");
+#if defined(__linux__) || defined(__FreeBSD__)
+    impl->EnsureBackingRange(physical_offset, length);
+#endif
     std::memset(backing_base + physical_offset, fill_value, length);
+    mutation.Finish();
+}
+
+void HostMemory::EnsureBackingRange(size_t offset, size_t length) const {
+    if (offset > backing_size || length > backing_size - offset) {
+        throw std::out_of_range("Physical backing access exceeds arena");
+    }
+#if defined(__linux__) || defined(__FreeBSD__)
+    // Preserve the existing hot ready-chunk path: no new global mutex/shared_ptr
+    // operation for every DeviceMemory pointer lookup. Only cold publication joins
+    // the mutation domain. Ready chunks cannot be replaced while this owner lives.
+    if (!mapping_domain.IsManaged() || impl->BackingRangeReady(offset, length)) {
+        impl->EnsureBackingRange(offset, length);
+        return;
+    }
+    auto mutation = mapping_domain.BeginMutation();
+    impl->EnsureBackingRange(offset, length);
+    mutation.Finish();
+#endif
+}
+
+std::optional<RetainedBackingStorage> HostMemory::RetainBackingStorage() const {
+    if (!impl) return std::nullopt;
+    auto epoch = backing_lifetime.Get();
+    if (!epoch || !epoch->alive.load(std::memory_order_acquire)) return std::nullopt;
+    auto owner = impl;
+    return RetainedBackingStorage{std::move(owner), std::move(epoch), backing_size};
+}
+
+std::optional<PinnedPhysicalMemory> HostMemory::PinPhysicalRange(size_t offset, size_t length) const {
+    // Preserve the moved-from query contract before touching the transferred gate.
+    if (!impl) return std::nullopt;
+    auto mutation = mapping_domain.BeginMutation();
+    mapping_domain.ObserveEscape(HostMappingDomain::PhysicalPin);
+    if (!impl || length == 0 || offset >= backing_size || length > backing_size - offset) {
+        mutation.Finish();
+        return std::nullopt;
+    }
+    const auto epoch = backing_lifetime.Get();
+    if (!epoch || !epoch->alive.load(std::memory_order_acquire)) {
+        mutation.Finish();
+        return std::nullopt;
+    }
+    const auto owner = impl;
+#if defined(__linux__) || defined(__FreeBSD__)
+    owner->EnsureBackingRange(offset, length);
+#endif
+    mutation.Finish();
+    return PinnedPhysicalMemory{owner, epoch, {owner->backing_base + offset, length}, offset};
+}
+
+std::optional<PreparedPhysicalCpuPage> HostMemory::PreparePhysicalCpuPage(
+    size_t physical_page_offset) const {
+    if (physical_page_offset % PhysicalPageGates::PageSize) return std::nullopt;
+    auto pin = PinPhysicalRange(physical_page_offset, PhysicalPageGates::PageSize);
+    if (!pin) return std::nullopt;
+    auto gate = pin->Epoch()->pages->Prepare(physical_page_offset);
+    if (!gate || !pin->OwnerAlive()) return std::nullopt;
+    return PreparedPhysicalCpuPage{std::move(*pin), std::move(gate)};
+}
+
+BackingStats HostMemory::GetBackingStats() const {
+#if defined(__linux__) || defined(__FreeBSD__)
+    return impl->GetBackingStats();
+#else
+    return {};
+#endif
 }
 
 void HostMemory::EnableDirectMappedAddress() {
+    auto mutation = mapping_domain.BeginMutation();
+    mutation.Unsupported();
     if (impl) {
         impl->EnableDirectMappedAddress();
         virtual_size += reinterpret_cast<uintptr_t>(virtual_base);
     }
+    mutation.Finish();
 }
 
 } // namespace Common

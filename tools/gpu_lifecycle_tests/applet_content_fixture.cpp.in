@@ -1,0 +1,260 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <semaphore>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <type_traits>
+#include <utility>
+#include <vector>
+#include <vulkan/vulkan.h>
+#include "common/terminal_fail_stop.h"
+#include "common/scope_exit.h"
+using u8=unsigned char;using u64=unsigned long long;using u32=unsigned;
+static std::string mode,fault;
+static bool native_gate{},idle_gate{},in_shutdown{},recording_joined{},present_joined{},scheduler_joined{},idle_checked{};
+static std::atomic_bool returned{};
+static std::binary_semaphore entered{0},release_gate{0};
+static int draws{},downloads{},submits{},creates{},invalidates{},destructions{};
+static std::function<void()> draw_observer,closed_observer;
+static void event(const char*s){std::fprintf(stderr,"EVENT %s\n",s);std::fflush(stderr);}
+static void check(bool b,const char*s){if(!b){std::fprintf(stderr,"FAIL %s\n",s);std::fflush(stderr);std::_Exit(91);}}
+struct Root{bool live=true;int refs{};std::array<u8,16> pixels{};};
+static std::shared_ptr<Root> image_root;
+namespace Vulkan {
+namespace vk{
+struct Exception:std::exception{VkResult GetResult()const{return VK_ERROR_DEVICE_LOST;}};
+template<class T,int Kind>struct Resource{
+    std::shared_ptr<Root> root;
+    Resource()=default;explicit Resource(std::shared_ptr<Root> r):root{std::move(r)}{}
+    Resource(Resource&&r)noexcept:root{std::move(r.root)}{}
+    Resource&operator=(Resource&&r)noexcept{Reset();root=std::move(r.root);return *this;}
+    Resource(const Resource&)=delete;Resource&operator=(const Resource&)=delete;
+    ~Resource(){Reset();}
+    void Reset()noexcept{if(root){check(!root->refs,"frame destroyed before users retired");if constexpr(Kind==0)root->live=false;++destructions;event(Kind==0?"image.destroy":Kind==1?"view.destroy":"framebuffer.destroy");root.reset();}}
+    explicit operator bool()const{return bool(root);}
+    T operator*()const{return root?reinterpret_cast<T>(static_cast<uintptr_t>(Kind+1)):nullptr;}
+};
+using Image=Resource<VkImage,0>;using ImageView=Resource<VkImageView,1>;using Framebuffer=Resource<VkFramebuffer,2>;
+struct Semaphore{};struct Fence{};struct CommandBuffer{};
+struct Buffer{
+    mutable std::array<u8,16> bytes{};mutable bool checked{};
+    VkBuffer operator*()const{return reinterpret_cast<VkBuffer>(reinterpret_cast<uintptr_t>(this));}
+    void Invalidate()const{++invalidates;check(checked,"invalidate before checked completion");if(mode=="read-invalidate-fail")throw std::bad_alloc();}
+    std::span<u8> Mapped()const{return bytes;}
+    ~Buffer(){event("buffer.destroy");}
+};
+}
+@FRAME@
+struct Scheduler{
+    struct Job{u64 tick;bool submitted;std::shared_ptr<Root> root;std::function<void()> action;};
+    std::vector<std::function<void()>> host;
+    std::vector<Job> jobs;u64 tick=1,done{};bool open=true;
+    std::shared_ptr<std::atomic_bool> submission_owner=std::make_shared<std::atomic_bool>(true);
+    std::mutex submit_mutex;
+    struct Master{Scheduler*s;VkResult PollNativeResourceLifetime(u64 value){
+        if(mode=="read-query-fail")return VK_ERROR_DEVICE_LOST;
+        if(mode=="read-pending")return VK_NOT_READY;
+        if(s->done<value)return VK_NOT_READY;
+        for(auto&b:buffers)b->checked=true;
+        return VK_SUCCESS;
+    }u64 CurrentTick()const{return s->tick;}void Wait(u64 t){s->WaitNative(t);}void Shutdown(){event("completion.join");}static inline std::vector<vk::Buffer*>buffers;};
+    std::unique_ptr<Master> master_semaphore=std::make_unique<Master>(this);
+    bool native_resources_retired{};
+    struct Worker{bool joinable()const{return !scheduler_joined;}}worker_thread;
+    struct Retainer{Scheduler*self;bool RetireAfterIdle(){return self->CancelUnsubmitted();}}presentation_sources{this};
+    void WaitForResourceRelease(u64);
+    void RequireNativeBorrowAdmission()const;void FinishNativeBorrow();void Finish(VkSemaphore=nullptr,VkSemaphore=nullptr);
+    u64 CurrentTick()const{return tick;}
+    template<class F>void Record(F f){host.emplace_back([f]{f(vk::CommandBuffer{});});}
+    void RequestOutsideRenderPassOperationContext(){}
+    void Native(const std::shared_ptr<Root>&root,std::function<void()> action){++root->refs;jobs.push_back({tick,false,root,std::move(action)});}
+    void Draw(bool full){
+        auto root=image_root;++root->refs;
+        host.emplace_back([this,root,full]{check(root->live,"recording used retired frame");--root->refs;Native(root,[root,full]{if(full)root->pixels.fill(0x5a);else root->pixels[0]=0xe1;});});
+    }
+    void WaitWorker(){
+        if(mode=="shutdown-worker-fail"&&in_shutdown)throw std::runtime_error("worker");
+        auto work=std::move(host);host.clear();for(auto&f:work)f();recording_joined=true;event("recording.drain");
+    }
+    u64 SubmitExecution(VkSemaphore,VkSemaphore){
+        if(mode=="read-submit-fail")throw vk::Exception{};
+        WaitWorker();for(auto&j:jobs)if(j.tick<=tick)j.submitted=true;++submits;return tick++;
+    }
+    void Execute(u64 until,bool submitted_only){
+        for(auto&j:jobs)if(j.root&&j.tick<=until&&(!submitted_only||j.submitted)){
+            check(j.root->live,"native used retired frame");j.action();--j.root->refs;j.root.reset();
+        }
+        done=std::max(done,until);
+    }
+    void Wait(u64);
+    u64 Flush(){check(open,"resource release submitted after closure");return SubmitExecution(nullptr,nullptr);}
+    void WaitNative(u64 until){
+        if(mode=="read-wait-fail")throw vk::Exception{};
+        if(mode=="read-host-fail")throw std::bad_alloc();
+        if(native_gate){native_gate=false;event("native.wait.enter");entered.release();release_gate.acquire();}
+        Execute(until,true);
+    }
+    void AllocateNewContext(){}
+    void FlushPrefix(){SubmitExecution(nullptr,nullptr);}
+    void Shutdown(){open=false;submission_owner->store(false);WaitWorker();scheduler_joined=true;event("scheduler.join");}
+    void RegisterOnSubmit(std::function<void()>){event("submit.detach");}
+    bool RetirePresentationSourcesAfterDeviceIdle();
+    bool CancelUnsubmitted(){
+        check(scheduler_joined&&idle_checked,"cancel before joined checked idle");
+        for(auto&j:jobs)if(j.root){check(!j.submitted,"submitted work not completed at idle");--j.root->refs;j.root.reset();}
+        return true;
+    }
+    Master&GetMasterSemaphore(){return *master_semaphore;}
+};
+@SCHEDULER@
+struct Device{
+    Scheduler*s{};
+    Device&GetLogical(){return *this;}
+    VkResult WaitIdle(){
+        check(recording_joined&&present_joined&&scheduler_joined,"idle before worker closure");
+        if(closed_observer)closed_observer();
+        if(idle_gate){idle_gate=false;event("idle.enter");entered.release();release_gate.acquire();}
+        if(mode=="shutdown-idle-fail")return VK_ERROR_DEVICE_LOST;
+        s->Execute(s->tick,true);idle_checked=true;event("checked.idle");return VK_SUCCESS;
+    }
+};
+struct MemoryAllocator{};enum class MemoryUsage{Download};
+static vk::Image CreateWrappedImage(MemoryAllocator&,VkExtent2D,VkFormat){++creates;if(fault=="create")throw std::bad_alloc();image_root=std::make_shared<Root>();return vk::Image(image_root);}
+static vk::ImageView CreateWrappedImageView(const Device&,vk::Image&image,VkFormat){return vk::ImageView(image.root);}
+static vk::Buffer CreateWrappedBuffer(MemoryAllocator&,size_t,MemoryUsage){if(mode=="read-buffer-fail")throw std::bad_alloc();return {};}
+static Scheduler*current_scheduler;
+static void DownloadColorImage(vk::CommandBuffer&,VkImage,VkBuffer buffer,VkExtent3D){
+    if(mode=="read-callback-fail")throw vk::Exception{};
+    auto dst=reinterpret_cast<vk::Buffer*>(reinterpret_cast<uintptr_t>(buffer));++downloads;
+    Scheduler::Master::buffers.push_back(dst);
+    auto root=image_root;current_scheduler->Native(root,[root,dst]{dst->bytes=root->pixels;});
+}
+}
+namespace Tegra{struct FramebufferConfig{u64 owner_aruid=1;bool is_applet=true;int z_index=1;};}
+namespace Layout{struct FramebufferLayout{unsigned width=2,height=2;};}
+namespace VideoCore::Capture{constexpr unsigned LinearWidth=2,LinearHeight=2,BytesPerPixel=4;const Layout::FramebufferLayout Layout{};}
+namespace Vulkan{
+constexpr VkExtent2D CaptureImageSize{2,2};constexpr VkExtent3D CaptureImageExtent{2,2,1};constexpr VkFormat CaptureFormat=VK_FORMAT_R8G8B8A8_UNORM;
+struct Layer {
+    Scheduler& scheduler;std::vector<u64> resource_ticks{0};
+    std::vector<int> raw_image_views,raw_images;std::unique_ptr<int> buffer;
+    explicit Layer(Scheduler&s):scheduler{s}{}
+    ~Layer();void ReleaseRawImages();void ClearRawImages();
+};
+@LAYER@
+struct Blit{
+    Scheduler*s{};std::unique_ptr<Layer> layer;
+    vk::Framebuffer CreateFramebuffer(const Layout::FramebufferLayout&,VkImageView,VkFormat){return vk::Framebuffer(image_root);}
+    template<class R>void DrawToFrame(R&,Frame*,std::span<const Tegra::FramebufferConfig>,const Layout::FramebufferLayout&,int,VkFormat){
+        ++draws;
+        if(!layer)layer=std::make_unique<Layer>(*s);
+        SCOPE_EXIT { layer->resource_ticks[0]=s->CurrentTick(); };
+        if(draw_observer)draw_observer();
+        if(fault=="before")throw std::bad_alloc();
+        s->Draw(false);
+        if(fault=="record")throw std::bad_alloc();
+        if(fault=="submit"){s->FlushPrefix();throw std::bad_alloc();}
+        if(fault=="split"){s->Finish();s->Draw(false);throw std::bad_alloc();}
+        s->Draw(true);
+        if(fault=="full")throw std::bad_alloc();
+    }
+};
+struct Rasterizer{void Shutdown(){if(closed_observer)closed_observer();event("rasterizer.close");}bool RetireControlledTransfersAfterDeviceIdle(){return true;}};
+struct Present{void Shutdown(){present_joined=true;event("presentation.join");}};
+struct Turbo{void reset(){event("turbo.close");}};
+struct RendererVulkan{
+    Device device;MemoryAllocator memory_allocator;Scheduler scheduler;Blit blit_applet;int rasterizer_draw{};Frame applet_frame{};
+    @STATE@
+    // The extracted draw function names rasterizer; this facade also supplies shutdown.
+    Rasterizer rasterizer;Present present_manager;Turbo turbo_mode;bool is_shut_down{},terminal_shutdown_started{};
+    RendererVulkan(){device.s=&scheduler;blit_applet.s=&scheduler;current_scheduler=&scheduler;}
+    ~RendererVulkan(){Shutdown();}
+    u64 GetMainApplicationAruid()const{return 42;}
+    void RenderAppletCaptureLayer(std::span<const Tegra::FramebufferConfig>);
+    std::vector<u8> GetAppletCaptureBuffer();void Shutdown();
+};
+@RENDERER@
+}
+int main(int argc,char**argv){
+    if(argc!=2)return 2;const std::string scenario=argv[1];mode=scenario;
+    std::atexit([]{event("atexit");});
+    const std::array<Tegra::FramebufferConfig,1> input{};
+    {
+        Vulkan::RendererVulkan r;
+        auto attempt=[&]{try{r.RenderAppletCaptureLayer(input);return false;}catch(const std::bad_alloc&){return true;}};
+        auto refuse=[&]{
+            const int previous_draws=draws,previous_downloads=downloads,previous_submits=submits;
+            auto out=r.GetAppletCaptureBuffer();check(out.empty(),"failed Draw exposed readback");
+            check(downloads==previous_downloads&&submits==previous_submits,"refused readback emitted work");
+            fault.clear();r.RenderAppletCaptureLayer(input);check(draws==previous_draws,"failed Draw replayed on retry");
+            check(image_root&&image_root->live&&r.applet_frame.image,"failed owner was released");
+        };
+        closed_observer=[&]{
+            in_shutdown=true;
+            @CHECK_CLOSED@
+            const int olddraws=draws,olddownloads=downloads,oldcreates=creates;
+            check(r.GetAppletCaptureBuffer().empty(),"shutdown exported capture");
+            r.RenderAppletCaptureLayer(input);
+            check(draws==olddraws&&downloads==olddownloads&&creates==oldcreates,"shutdown reopened capture");
+            if(image_root)check(image_root->live&&destructions==0,"shutdown retired frame too early");
+        };
+        if(scenario=="empty"){
+            auto out=r.GetAppletCaptureBuffer();check(out.size()==16&&std::ranges::all_of(out,[](u8 b){return b==0;})&&!submits,"empty behavior changed");
+        }else if(scenario=="creation-retry"){
+            fault="create";check(attempt(),"missing creation failure");fault.clear();
+            check(r.GetAppletCaptureBuffer().size()==16&&!submits,"creation failure emitted readback");
+            r.RenderAppletCaptureLayer(input);auto out=r.GetAppletCaptureBuffer();check(out.size()==16&&out[0]==0x5a,"creation retry not readable");
+        }else if(scenario=="recording-observer"){
+            draw_observer=[&]{check(r.GetAppletCaptureBuffer().empty(),"recording image exposed readback");};
+            r.RenderAppletCaptureLayer(input);draw_observer={};auto out=r.GetAppletCaptureBuffer();check(out.size()==16&&out[0]==0x5a,"observer changed normal draw");
+        }else if(scenario.starts_with("failed-")||scenario=="good-then-fail"||scenario=="retry"||scenario=="completed-prefix-retry"){
+            if(scenario=="good-then-fail"){r.RenderAppletCaptureLayer(input);auto good=r.GetAppletCaptureBuffer();check(good.size()==16&&good[0]==0x5a,"initial good capture missing");Vulkan::Scheduler::Master::buffers.clear();}
+            fault=scenario.starts_with("failed-")?scenario.substr(7):"submit";check(attempt(),"missing Draw failure");
+            if(scenario=="retry"){
+                const int old=draws;fault.clear();r.RenderAppletCaptureLayer(input);check(draws==old,"failed Draw replayed on retry");
+            }
+            if(scenario=="completed-prefix-retry"){fault.clear();r.scheduler.FinishNativeBorrow();}
+            refuse();
+        }else if(scenario=="release-after-shutdown"||scenario=="release-before-idle"){
+            fault="record";check(attempt(),"missing release prefix failure");fault.clear();closed_observer={};
+            if(scenario=="release-before-idle"){r.scheduler.Shutdown();r.blit_applet.layer.reset();check(false,"unconfirmed release returned");}
+            r.Shutdown();
+        }else if(scenario.starts_with("shutdown-")){
+            fault=scenario=="shutdown-record"?"record":scenario=="shutdown-split"?"split":"submit";check(attempt(),"missing failed prefix");fault.clear();
+            if(scenario=="shutdown-idle-gate"){
+                idle_gate=true;std::jthread owner([&]{r.Shutdown();});entered.acquire();
+                check(image_root->live&&destructions==0,"owner lost during idle");release_gate.release();owner.join();
+            }else r.Shutdown();
+            check(r.is_shut_down,"shutdown did not finish");
+        }else{
+            r.RenderAppletCaptureLayer(input);check(!submits&&downloads==0,"Draw became synchronous");
+            if(scenario=="native-gate"){
+                native_gate=true;std::vector<u8> out;
+                std::jthread owner([&]{out=r.GetAppletCaptureBuffer();returned.store(true);});entered.acquire();
+                check(!returned.load()&&image_root->live&&image_root->refs>0,"readback returned before native completion");
+                release_gate.release();owner.join();check(out.size()==16&&out[0]==0x5a,"native gate output");
+            }else if(scenario=="read-buffer-fail"||scenario=="read-invalidate-fail"){
+                try{r.GetAppletCaptureBuffer();check(false,"missing recoverable read error");}catch(const std::bad_alloc&){}
+                mode="normal";Vulkan::Scheduler::Master::buffers.clear();auto out=r.GetAppletCaptureBuffer();check(out.size()==16&&out[0]==0x5a,"read error retry changed content");
+            }else{
+                auto out=r.GetAppletCaptureBuffer();check(out.size()==16&&std::ranges::all_of(out,[](u8 b){return b==0x5a;}),"normal capture bytes not completed");
+                if(scenario=="repeat"){Vulkan::Scheduler::Master::buffers.clear();r.RenderAppletCaptureLayer(input);out=r.GetAppletCaptureBuffer();check(out.size()==16&&out[0]==0x5a,"repeat capture");}
+            }
+        }
+        Vulkan::Scheduler::Master::buffers.clear();
+        if(!r.is_shut_down)r.Shutdown();
+        check(!image_root||image_root->live,"frame lost before Renderer destruction");closed_observer={};
+    }
+    check(!image_root||!image_root->live,"frame leaked after checked shutdown");
+    std::fprintf(stderr,"PASS %s\n",argv[1]);
+}

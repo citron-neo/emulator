@@ -12,10 +12,14 @@
 #include <mutex>
 #include <numeric>
 #include <span>
+#include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "common/common_types.h"
+#include "common/physical_registration_bundle.h"
+#include "core/controlled_cpu_page.h"
 #include "common/div_ceil.h"
 #include "common/literals.h"
 #include "common/lru_cache.h"
@@ -25,7 +29,11 @@
 #include "common/settings.h"
 #include "common/slot_vector.h"
 #include "video_core/buffer_cache/buffer_base.h"
+#include "video_core/buffer_cache/controlled_transfer.h"
+#include "video_core/buffer_cache/physical_alias_copy.h"
 #include "video_core/buffer_cache/uma.h"
+#include "video_core/buffer_cache/direct_guest_mapping.h"
+#include "video_core/buffer_cache/gather_alias.h"
 #include "video_core/cache_memory_pressure.h"
 #include "video_core/control/channel_state_cache.h"
 #include "video_core/delayed_destruction_ring.h"
@@ -34,6 +42,8 @@
 #include "video_core/engines/kepler_compute.h"
 #include "video_core/engines/maxwell_3d.h"
 #include "video_core/memory_manager.h"
+#include "video_core/physical_shadow.h"
+#include "video_core/host1x/gpu_device_memory_manager.h"
 #include "video_core/surface.h"
 #include "video_core/texture_cache/types.h"
 
@@ -82,6 +92,11 @@ struct Binding {
     DAddr device_addr{};
     u32 size{};
     BufferId buffer_id;
+    // Base, extent and binding offset of a shared scratch allocation for split/overlapping views.
+    GPUVAddr gather_gpu_addr{};
+    GPUVAddr gpu_addr{}; ///< original GPU address, preserved when overlapping views share scratch
+    u32 gather_size{};
+    u32 gather_offset{};
 };
 
 struct TextureBufferBinding : Binding {
@@ -162,6 +177,7 @@ public:
 
 template <class P>
 class BufferCache : public VideoCommon::ChannelSetupCaches<BufferCacheChannelInfo> {
+    friend struct Core::SchedulerTestAccess;
     // Page size for caching purposes.
     // This is unrelated to the CPU page size and it can be changed as it seems optimal.
     static constexpr u32 CACHING_PAGEBITS = 16;
@@ -209,10 +225,105 @@ class BufferCache : public VideoCommon::ChannelSetupCaches<BufferCacheChannelInf
 public:
     explicit BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, Runtime& runtime_);
 
+    class ControlledRegistration {
+        friend class BufferCache;
+
+    public:
+        enum class Phase { Waiting, Admitted, Submitted, Ready, Writing, Unknown, Cancelled };
+        [[nodiscard]] Phase State() const { return phase; }
+        [[nodiscard]] std::optional<Common::PhysicalRegistrationBundle::CachedWrite>
+        BeginCachedWrite() const {
+            return phase == Phase::Ready ? admission->BeginCachedWrite() : std::nullopt;
+        }
+
+    private:
+        ControlledRegistration(Tegra::PhysicalAccessPlan plan_,
+                               std::span<const Core::Memory::PreparedCpuPage> views_)
+            : plan{std::move(plan_)}, views{views_.begin(), views_.end()} {}
+        Tegra::PhysicalAccessPlan plan;
+        std::vector<Core::Memory::PreparedCpuPage> views;
+        std::optional<Common::PhysicalRegistrationBundle> admission;
+        std::optional<Common::PhysicalRegistrationBundle::CachedWrite> refresh;
+        std::shared_ptr<ControlledBufferTransfer> transfer;
+        BufferId id{}, previous{};
+        const void* previous_identity{};
+        DAddr address{};
+        Phase phase{Phase::Waiting};
+    };
+    using ControlledRegistrationPtr = std::shared_ptr<ControlledRegistration>;
+
+    /// GPU-owner continuation, with no cache/PTE lock across polling. Admission and physical/
+    /// native owners survive caller drop or uncertain effects. Not an ordinary CPU dispatcher.
+    class ControlledCpuWrite {
+        friend class BufferCache;
+    public:
+        enum class Phase { Waiting, Submitted, Preserved, Committed, Cancelled, Unknown };
+        [[nodiscard]] Phase State() const { return phase; }
+        [[nodiscard]] const Core::Memory::ControlledCpuWriteRequestPtr& Request() const {
+            return request;
+        }
+        ~ControlledCpuWrite() {
+            if (phase != Phase::Committed && phase != Phase::Cancelled) {
+                (void)write.MarkUnknown();
+                operation->phase = ControlledRegistration::Phase::Unknown;
+                if (request) request->Publish(Core::Memory::ControlledCpuWriteRequest::Phase::Unknown);
+            }
+        }
+    private:
+        ControlledCpuWrite(ControlledRegistrationPtr operation_,
+                           const Core::Memory::PreparedCpuPage& view_, u64 address_, u64 size_,
+                           std::shared_ptr<ControlledBufferTransfer> preservation_,
+                           Common::PhysicalRegistrationBundle::CachedWrite write_)
+            : operation{std::move(operation_)}, view{view_}, address{address_}, size{size_},
+              preservation{std::move(preservation_)}, write{std::move(write_)} {}
+        ControlledRegistrationPtr operation;
+        Core::Memory::PreparedCpuPage view;
+        u64 address, size;
+        std::shared_ptr<ControlledBufferTransfer> preservation;
+        Common::PhysicalRegistrationBundle::CachedWrite write;
+        Phase phase{Phase::Waiting};
+        Core::Memory::ControlledCpuWriteRequestPtr request;
+        bool executing_request{};
+    };
+    using ControlledCpuWritePtr = std::shared_ptr<ControlledCpuWrite>;
+
+    [[nodiscard]] ControlledCpuWritePtr BeginControlledCpuWrite(
+        const ControlledRegistrationPtr&, const Core::Memory::PreparedCpuPage&, u64 address,
+        u64 size, std::shared_ptr<const void> extra_owner = {});
+    [[nodiscard]] ControlledCpuWritePtr BeginControlledCpuWriteRequest(
+        const ControlledRegistrationPtr&, const Core::Memory::ControlledCpuWriteRequestPtr&);
+    template <typename Execute>
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult CommitControlledCpuWriteRequest(
+        const ControlledCpuWritePtr&, Execute&& execute);
+    void AbandonControlledCpuWrite(const ControlledCpuWritePtr& transaction);
+    [[nodiscard]] typename ControlledCpuWrite::Phase PollControlledCpuWrite(
+        const ControlledCpuWritePtr&);
+    template <typename Store>
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult CommitControlledCpuTransaction(
+        const ControlledCpuWritePtr&, u64 size, Store&& store);
+
+    /// GPU/cache owner only, without a cache/PTE lock across retries. Explicit controlled
+    /// endpoint, not ordinary game routing. Overlaps, unsupported backends and unqualified
+    /// CPU views refuse before registration/marking/upload; no legacy fallback is permitted.
+    [[nodiscard]] ControlledRegistrationPtr BeginControlledFirstRegistration(
+        DAddr address, u32 size, std::span<const Core::Memory::PreparedCpuPage> views);
+    [[nodiscard]] typename ControlledRegistration::Phase PollControlledRegistration(
+        const ControlledRegistrationPtr& operation);
+    [[nodiscard]] bool BeginControlledRefresh(const ControlledRegistrationPtr& operation);
+    [[nodiscard]] BufferId ControlledReadyBuffer(const ControlledRegistrationPtr& operation);
+
+    template <typename Store>
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult CommitControlledCachedWrite(
+        const ControlledRegistrationPtr& operation, const Core::Memory::PreparedCpuPage& view,
+        Common::PhysicalRegistrationBundle::CachedWrite& write, u64 address, u64 size,
+        Store&& store);
+
     ~BufferCache();
 
     void TickFrame(u64 cache_usage, u64 cache_target, std::span<const HeapMemoryBudget> heaps);
 
+    bool HasDirectGuestBuffers() const { return has_direct_guest_buffers; }
+    bool CpuWriteNeedsGpuThread(DAddr address, u64 size) const;
     void WriteMemory(DAddr device_addr, u64 size);
 
     void CachedWriteMemory(DAddr device_addr, u64 size);
@@ -233,11 +344,19 @@ public:
 
     void UpdateComputeBuffers();
 
+    // Read-only visitor of already prepared bindings; never resolves/scatters buffers.
+    void ObservePhysicalBindings(PhysicalShadow& shadow, bool compute);
+
     void BindHostGeometryBuffers(bool is_indexed);
 
     void BindHostStageBuffers(size_t stage);
 
     void BindHostComputeBuffers();
+
+    /// Records that written gathered storage buffers hold new data. The copy back to their
+    /// (non-contiguous) device chunks is deferred until something else touches those chunks.
+    /// Must be called after the draw/dispatch that used them has been recorded.
+    void FlushGatherWrites();
 
     void SetUniformBuffersState(const std::array<u32, NUM_STAGES>& mask,
                                 const UniformBufferSizes* sizes);
@@ -263,6 +382,21 @@ public:
 
     void BindComputeTextureBuffer(size_t tbo_index, GPUVAddr gpu_addr, u32 size, PixelFormat format,
                                   bool is_written, bool is_image);
+
+    /// Pure existing-cache lookup plus current physical correspondence. Caller holds mutex on
+    /// the GPU/cache thread and retains device/backing/renderer owners. No creation, sync, dirty
+    /// publication or execution permission. Unsupported Buffer backends expose no pin method.
+    template <typename B = Buffer>
+    [[nodiscard]] auto PinExistingDmaRepresentation(
+        DAddr device_addr, const Tegra::PhysicalAccessPlan& physical)
+        -> decltype(std::declval<const B&>().PinStagedRepresentation(u64{}, u64{}));
+
+    /// Explicit isolated alias adapter only; caller holds mutex on the GPU owner.
+    /// Snapshots dirty subranges and resource write intent, without consuming uploads.
+    [[nodiscard]] std::optional<AliasWriteSnapshot> SnapshotAliasWrites(
+        DAddr address, u64 size);
+    [[nodiscard]] bool HasUniqueAliasSource(DAddr source, const Tegra::PhysicalAccessPlan& plan,
+                                          std::span<const AliasCopyRange> copies);
 
     [[nodiscard]] std::pair<Buffer*, u32> ObtainBuffer(GPUVAddr gpu_addr, u32 size,
                                                        ObtainBufferSynchronize sync_info,
@@ -293,6 +427,10 @@ public:
 
     bool DMAClear(GPUVAddr src_address, u64 amount, u32 value);
 
+    /// DMACopy/DMAClear for ranges that are not contiguous in device memory.
+    bool DMACopySplit(GPUVAddr src_address, GPUVAddr dest_address, u64 amount);
+    bool DMAClearSplit(GPUVAddr dst_address, u64 amount, u32 value);
+
     /// Return true when a CPU region is modified from the GPU
     [[nodiscard]] bool IsRegionGpuModified(DAddr addr, size_t size);
 
@@ -322,7 +460,22 @@ public:
     mutable std::recursive_mutex mutex;
     Runtime& runtime;
 
+    /// Controlled cache-owner entry only. Caller cold-qualifies the COMPLETE immutable device
+    /// alias list, keeps mappings/representations stable for this bounded execution, and binds
+    /// store to the real prepared Memory cached Write with this SAME admission. No waits,
+    /// preservation callbacks, normal-game activation or automatic legacy fallback are allowed.
+    /// GPU-dirty/pending scatter remains ineligible until its preservation adapter is proved.
+    template <typename Store>
+    [[nodiscard]] Core::Memory::PreparedCpuWriteResult
+    CommitControlledCpuWrite(Common::PhysicalRegistrationBundle::CachedWrite& write,
+                             std::span<const DAddr> device_aliases, u64 size, Store&& store);
+
 private:
+    BufferId ControlledBufferId(const ControlledRegistrationPtr& operation, bool require_clean,
+                                bool nonblocking_mapping = false);
+    void CheckControlledSynchronization(DAddr address, u64 size);
+    // One producer-family exclusion, not a certificate for ordinary-game F2 activation.
+    bool ControlledReadbacksIdle(const ControlledRegistrationPtr& operation);
     template <typename Func>
     static void ForEachEnabledBit(u32 enabled_mask, Func&& func) {
         for (u32 index = 0; enabled_mask != 0; ++index, enabled_mask >>= 1) {
@@ -473,6 +626,8 @@ public:
 
     [[nodiscard]] OverlapResult ResolveOverlaps(DAddr device_addr, u32 wanted_size);
 
+    bool CanJoinDirectGuest(BufferId overlap_id);
+    bool DMACopyImpl(GPUVAddr src_address, GPUVAddr dest_address, u64 amount);
     void JoinOverlap(BufferId new_buffer_id, BufferId overlap_id, bool accumulate_stream_score);
 
     [[nodiscard]] BufferId CreateBuffer(DAddr device_addr, u32 wanted_size);
@@ -509,7 +664,8 @@ public:
 
     void DownloadBufferMemory(Buffer& buffer_id);
 
-    void DownloadBufferMemory(Buffer& buffer_id, DAddr device_addr, u64 size);
+    void DownloadBufferMemory(Buffer& buffer_id, DAddr device_addr, u64 size,
+                              bool preserve_on_unmap = false);
 
     /// Writes downloaded buffer data back to guest memory, skipping device pages nothing backs
     void WriteBackDownload(DAddr device_addr, const u8* data, u64 size);
@@ -518,6 +674,33 @@ public:
 
     [[nodiscard]] Binding StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index,
                                                bool is_written) const;
+
+    /// Resolves (creates/joins) the cache buffers backing each contiguous chunk of a gathered
+    /// range.
+    void ResolveGatherChunks(GPUVAddr gpu_addr, u32 size);
+    void ResetGatherBindings(bool compute);
+    void PrepareGatherBindings(bool compute);
+    boost::container::small_vector<Binding*, 32> GatherBindings(bool compute);
+
+    /// Whether [gpu_addr, +size) maps to one contiguous device range (cached per page table
+    /// generation).
+    bool IsGpuRangeContiguous(GPUVAddr gpu_addr, u32 size) const;
+    struct ContiguityKey {
+        GPUVAddr gpu_addr;
+        u32 size;
+        bool operator==(const ContiguityKey&) const = default;
+    };
+    struct ContiguityKeyHash {
+        size_t operator()(const ContiguityKey& key) const noexcept {
+            return std::hash<u64>{}(key.gpu_addr ^ (static_cast<u64>(key.size) << 40));
+        }
+    };
+    mutable std::unordered_map<ContiguityKey, bool, ContiguityKeyHash> contiguity_cache;
+    mutable u64 contiguity_cache_generation = ~0ULL;
+    mutable size_t contiguity_cache_address_space = ~size_t{};
+
+    /// Copies every contiguous chunk of a non-contiguous GPU range into a scratch buffer.
+    Buffer& GatherBuffer(GPUVAddr gpu_addr, u32 size, bool is_written = true);
 
     [[nodiscard]] TextureBufferBinding GetTextureBufferBinding(GPUVAddr gpu_addr, u32 size,
                                                                PixelFormat format);
@@ -536,6 +719,90 @@ public:
     Tegra::MaxwellDeviceMemoryManager& device_memory;
 
     Common::SlotVector<Buffer> slot_buffers;
+    std::vector<ControlledRegistrationPtr> controlled_registrations;
+    struct GatherChunk {
+        DAddr device_addr;
+        u32 size;
+        u32 offset; ///< offset inside the gathered range
+        u8 dirty;   ///< number of upcoming gathers that must re-copy this chunk
+    };
+    static bool IsDirectGuest(const Buffer& buffer) {
+        if constexpr (requires { buffer.IsDirectGuest(); }) {
+            return buffer.IsDirectGuest();
+        }
+        return false;
+    }
+    std::optional<bool> TryDirectDMACopy(GPUVAddr src, GPUVAddr dst, u64 size);
+    bool TryDirectGuest(Buffer& buffer, DAddr address, u64 size) {
+        if constexpr (requires { runtime.TryDirectGuestBuffer(buffer, Common::GuestBackingRange{}); }) {
+            const auto backing = device_memory.GetDriverBackingRange(address, size);
+            const bool direct = backing && runtime.TryDirectGuestBuffer(buffer, *backing);
+            has_direct_guest_buffers |= direct;
+            return direct;
+        }
+        return false;
+    }
+    bool NeedsGuestCpuAccess(const Buffer& buffer) const {
+        if constexpr (requires { runtime.NeedsGuestCpuAccess(buffer); }) {
+            return runtime.NeedsGuestCpuAccess(buffer);
+        }
+        return IsDirectGuest(buffer);
+    }
+    void BeginGuestCpuAccess(Buffer& buffer) {
+        if constexpr (requires { runtime.BeginGuestCpuAccess(buffer); }) {
+            runtime.BeginGuestCpuAccess(buffer);
+        }
+    }
+    void EndGuestCpuAccess(Buffer& buffer) {
+        if constexpr (requires { runtime.EndGuestCpuAccess(buffer); }) {
+            runtime.EndGuestCpuAccess(buffer);
+        }
+    }
+    void ResolveCachedBinding(Binding& binding);
+    void WaitGuestBacking(DAddr address, u64 size);
+    void GuestMemoryBarrier(bool to_cpu) {
+        if constexpr (requires { runtime.GuestMemoryBarrier(to_cpu); }) {
+            runtime.GuestMemoryBarrier(to_cpu);
+        }
+    }
+    struct GatherEntry {
+        std::unique_ptr<Buffer> buffer;
+        std::vector<GatherChunk> chunks;
+        u64 last_used{};
+        u32 prepared_size{};
+        GuestMappingIdentity identity;
+        u64 device_generation{};
+        bool scatter_pending{}; ///< scratch holds GPU writes not yet copied back to the chunks
+        bool aliases_checked{}; ///< complete scratch range was validated for GPU writes
+    };
+    void ValidateGatherAliases(std::span<const GatherAliasRange> ranges);
+    std::vector<GatherAliasRange> checked_alias_ranges;
+    GuestMappingIdentity checked_alias_identity;
+    u64 checked_alias_device_generation{~u64{0}};
+    std::unordered_map<GPUVAddr, GatherEntry> gather_buffers;
+    u64 gather_used_memory{};
+    bool has_direct_guest_buffers{};
+    void TrimGatherBuffers(bool aggressive);
+    void InvalidateGatherMemory(DAddr device_addr, u64 size);
+
+    /// Marks gathered chunks overlapping [device_addr, +size) as needing a re-copy.
+    /// Chunks of the gather entry at `skip` are left alone.
+    void NotifyGatherWrite(DAddr device_addr, u64 size, u8 level = 1, GPUVAddr skip = 0);
+
+    /// Gathered storage buffers bound as written since the last FlushGatherWrites.
+    std::vector<GPUVAddr> pending_gather_writes;
+
+    /// Gathered storage buffers whose write-back to the device chunks is deferred.
+    std::vector<GPUVAddr> scatter_pending;
+    bool scatter_busy = false; ///< inside a write-back (its FindBuffer calls must not recurse)
+    u64 unmap_readback_count{}, unmap_readback_bytes{}, unmap_readback_time_ns{};
+    u64 cpu_write_preserve_count{}, cpu_write_preserve_time_ns{};
+    GPUVAddr scatter_skip = 0; ///< entry being gathered right now; its own chunks don't flush it
+
+    /// Copies a deferred gather entry back to its device chunks.
+    void ScatterGatherEntry(GPUVAddr gpu_addr, GatherEntry& entry);
+    /// Writes back deferred entries with a chunk overlapping [device_addr, +size); size 0 = all.
+    void ResolveScatter(DAddr device_addr, u64 size);
     static constexpr u64 TICKS_TO_DESTROY = 8;
     DelayedDestructionRing<Buffer, TICKS_TO_DESTROY> delayed_destruction_ring;
 
@@ -551,7 +818,13 @@ public:
     // Async Buffers
     Common::OverlapRangeSet<DAddr> async_downloads;
     std::deque<std::optional<Async_Buffer>> async_buffers;
-    std::deque<boost::container::small_vector<BufferCopy, 4>> pending_downloads;
+    struct PendingDownload {
+        boost::container::small_vector<BufferCopy, 4> copies;
+        // A later write cancels only the affected bytes of this snapshot. Global address
+        // counts alone cannot distinguish a cancelled copy from a newly queued one.
+        Common::RangeSet<DAddr> valid_ranges;
+    };
+    std::deque<PendingDownload> pending_downloads;
     std::optional<Async_Buffer> current_buffer;
 
     std::deque<Async_Buffer> async_buffers_death_ring;
