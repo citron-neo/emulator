@@ -29,6 +29,9 @@ public:
     }
 
     void Track(u64 offset, u64 size) noexcept {
+        if (size == 0) {
+            return;
+        }
         // Usage only ever grows until the next reset, so tracking the same range again is a no-op
         if (offset == last_offset && size == last_size) {
             return;
@@ -53,6 +56,9 @@ public:
     }
 
     [[nodiscard]] bool IsUsed(u64 offset, u64 size) const noexcept {
+        if (size == 0) {
+            return false;
+        }
         const size_t page = offset >> PAGE_SHIFT;
         const size_t page_end = (offset + size) >> PAGE_SHIFT;
         if (page_end < page || page_end >= pages.size()) {
@@ -60,6 +66,9 @@ public:
         }
         if (IsPageUsed(page, offset, size)) {
             return true;
+        }
+        if (page == page_end) {
+            return false;
         }
         for (size_t i = page + 1; i < page_end; i++) {
             if (pages[i] != 0) {
@@ -72,21 +81,24 @@ public:
     }
 
 private:
-    void TrackPage(u64 page, u64 offset, u64 size) noexcept {
+    static u64 PageMask(u64 offset, u64 size) noexcept {
         const size_t offset_in_page = offset % PAGE_BYTES;
+        const size_t bytes = std::min<u64>(size, PAGE_BYTES - offset_in_page);
+        if (bytes == 0) {
+            return 0;
+        }
         const size_t first_bit = offset_in_page >> BYTES_PER_BIT_SHIFT;
-        const size_t num_bits = std::min<size_t>(size, PAGE_BYTES) >> BYTES_PER_BIT_SHIFT;
-        const size_t mask = ~u64{0} >> (64 - num_bits);
-        pages[page] |= (~u64{0} & mask) << first_bit;
+        const size_t last_bit = (offset_in_page + bytes - 1) >> BYTES_PER_BIT_SHIFT;
+        // Include both partial boundary granules, without ever shifting by 64.
+        return (~u64{0} << first_bit) & (~u64{0} >> (63 - last_bit));
+    }
+
+    void TrackPage(u64 page, u64 offset, u64 size) noexcept {
+        pages[page] |= PageMask(offset, size);
     }
 
     bool IsPageUsed(u64 page, u64 offset, u64 size) const noexcept {
-        const size_t offset_in_page = offset % PAGE_BYTES;
-        const size_t first_bit = offset_in_page >> BYTES_PER_BIT_SHIFT;
-        const size_t num_bits = std::min<size_t>(size, PAGE_BYTES) >> BYTES_PER_BIT_SHIFT;
-        const size_t mask = ~u64{0} >> (64 - num_bits);
-        const size_t mask2 = (~u64{0} & mask) << first_bit;
-        return (pages[page] & mask2) != 0;
+        return (pages[page] & PageMask(offset, size)) != 0;
     }
 
 private:

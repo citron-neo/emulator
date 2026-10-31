@@ -7,7 +7,6 @@
 #include "video_core/dma_pusher.h"
 #include "video_core/engines/maxwell_3d.h"
 #include "video_core/gpu.h"
-#include "video_core/guest_memory.h"
 #include "video_core/memory_manager.h"
 
 namespace Tegra {
@@ -92,18 +91,18 @@ bool DmaPusher::Step() {
             }
         }
         const auto safe_process = [&] {
-            Tegra::Memory::GpuGuestMemory<Tegra::CommandHeader,
-                                          Tegra::Memory::GuestMemoryFlags::SafeRead>
-                headers(memory_manager, dma_state.dma_get, command_list_header.size,
-                        &command_headers);
-            ProcessCommands(headers);
+            // Decoding can release a fence or write guest memory. Own this segment's
+            // bytes before those effects can change a not-yet-decoded command.
+            command_headers.resize_destructive(command_list_header.size);
+            memory_manager.ReadBlock(dma_state.dma_get, command_headers.data(),
+                                     command_headers.size() * sizeof(CommandHeader));
+            ProcessCommands(command_headers);
         };
         const auto unsafe_process = [&] {
-            Tegra::Memory::GpuGuestMemory<Tegra::CommandHeader,
-                                          Tegra::Memory::GuestMemoryFlags::UnsafeRead>
-                headers(memory_manager, dma_state.dma_get, command_list_header.size,
-                        &command_headers);
-            ProcessCommands(headers);
+            command_headers.resize_destructive(command_list_header.size);
+            memory_manager.ReadBlockUnsafe(dma_state.dma_get, command_headers.data(),
+                                           command_headers.size() * sizeof(CommandHeader));
+            ProcessCommands(command_headers);
         };
         if (Settings::IsGPULevelNormal()) {
             // Normal/High/Extreme: Use safe reads for most operations

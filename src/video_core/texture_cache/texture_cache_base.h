@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <deque>
+#include <functional>
 #include <limits>
 #include <mutex>
 #include <span>
@@ -16,11 +17,11 @@
 #include <boost/container/small_vector.hpp>
 #include <queue>
 
+#include <ranges>
 #include "common/common_types.h"
 #include "common/hash.h"
 #include "common/literals.h"
 #include "common/lru_cache.h"
-#include <ranges>
 #include "common/scratch_buffer.h"
 #include "common/slot_vector.h"
 #include "common/thread_worker.h"
@@ -233,7 +234,8 @@ public:
 
     [[nodiscard]] std::pair<Image*, BufferImageCopy> DmaBufferImageCopy(
         const Tegra::DMA::ImageCopy& copy_info, const Tegra::DMA::BufferOperand& buffer_operand,
-        const Tegra::DMA::ImageOperand& image_operand, ImageId image_id, bool modifies_image);
+        const Tegra::DMA::ImageOperand& image_operand, ImageId image_id, bool modifies_image,
+        bool prepare = true);
 
     void DownloadImageIntoBuffer(Image* image, BufferType buffer, size_t buffer_offset,
                                  std::span<const VideoCommon::BufferImageCopy> copies,
@@ -323,6 +325,10 @@ public:
     /// Upload data from guest to an image
     template <typename StagingBuffer>
     void UploadImageContents(Image& image, StagingBuffer& staging_buffer);
+
+    template <typename StagingBuffer>
+    std::function<void()> DownloadImageMemorySynchronous(Image& image, StagingBuffer& staging,
+                                                         std::span<const BufferImageCopy> copies);
 
     /// Find or create an image view from a guest descriptor
     [[nodiscard]] ImageViewId FindImageView(const TICEntry& config);
@@ -484,6 +490,16 @@ public:
         bool is_swizzle;
         size_t async_buffer_id;
         Common::SlotId object_id;
+        // Immutable queue-time identity: never resolve a reused slot at completion.
+        std::optional<ImageInfo> image_info;
+        GPUVAddr image_address{};
+        size_t image_bytes{};
+        bool canceled{};
+        bool recorded{};
+        u64 recorded_cpu_epoch{};
+        // DeleteImage transfers ownership here until the corresponding fence is consumed.
+        std::shared_ptr<Image> retired_image;
+        std::function<void()> complete;
     };
 
     Common::SlotVector<Image> slot_images;

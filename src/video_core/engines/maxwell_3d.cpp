@@ -544,7 +544,7 @@ void Maxwell3D::CallMultiMethod(u32 method, const u32* base_start, u32 amount,
         ProcessCBMultiData(base_start, amount);
         break;
     case MAXWELL3D_REG_INDEX(inline_data): {
-        assert(methods_pending == amount);
+        // The upload accumulator also accepts packets split across command lists.
         upload_state.ProcessData(base_start, amount);
         return;
     }

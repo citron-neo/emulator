@@ -412,6 +412,8 @@ public:
         };
     }
 
+    void ResolveCachedBinding(Binding& binding);
+
     void BindHostIndexBuffer();
 
     void BindHostVertexBuffers();
@@ -551,7 +553,13 @@ public:
     // Async Buffers
     Common::OverlapRangeSet<DAddr> async_downloads;
     std::deque<std::optional<Async_Buffer>> async_buffers;
-    std::deque<boost::container::small_vector<BufferCopy, 4>> pending_downloads;
+    struct PendingDownload {
+        boost::container::small_vector<BufferCopy, 4> copies;
+        // A later write cancels only the affected bytes of this snapshot. Global address
+        // counts alone cannot distinguish a cancelled copy from a newly queued one.
+        Common::RangeSet<DAddr> valid_ranges;
+    };
+    std::deque<PendingDownload> pending_downloads;
     std::optional<Async_Buffer> current_buffer;
 
     std::deque<Async_Buffer> async_buffers_death_ring;

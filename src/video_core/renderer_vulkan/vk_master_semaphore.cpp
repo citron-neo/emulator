@@ -199,7 +199,8 @@ void MasterSemaphore::WaitThread(std::stop_token token) {
             wait_queue.pop();
         }
 
-        fence.Wait();
+        // A failed wait is not completion: never recycle the fence or publish its tick.
+        vk::Check(fence.Wait());
         fence.Reset();
 
         {

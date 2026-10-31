@@ -205,6 +205,29 @@ void TranslatorVisitor::ATOM(u64 insn) {
     GlobalAtomic(*this, atom.dest_reg, atom.operand_reg, offset, atom.size, atom.op, true);
 }
 
+void TranslatorVisitor::ATOM_cas(u64 insn) {
+    union {
+        u64 raw;
+        BitField<0, 8, IR::Reg> dest_reg;
+        BitField<20, 8, IR::Reg> operand_reg;
+        BitField<49, 1, u64> size64;
+    } const atom{insn};
+    const IR::U64 address{AtomOffset(*this, insn)};
+    // CAS encodes one source register: compare followed by replacement (two pairs for B64).
+    // Read both before writing Rd, which may overlap any of the input registers.
+    if (atom.size64 != 0) {
+        const IR::U64 compare{L(atom.operand_reg)};
+        const IR::U64 value{L(atom.operand_reg + 2)};
+        const IR::U64 old{ir.GlobalAtomicCompareExchange(address, compare, value)};
+        L(atom.dest_reg, old);
+    } else {
+        const IR::U32 compare{X(atom.operand_reg)};
+        const IR::U32 value{X(atom.operand_reg + 1)};
+        const IR::U32 old{ir.GlobalAtomicCompareExchange(address, compare, value)};
+        X(atom.dest_reg, old);
+    }
+}
+
 void TranslatorVisitor::RED(u64 insn) {
     union {
         u64 raw;

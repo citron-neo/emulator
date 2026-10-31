@@ -16,6 +16,7 @@
 #include "video_core/dma_pusher.h"
 #include "video_core/gpu.h"
 #include "video_core/gpu_thread.h"
+#include "video_core/invalid_gpu_address.h"
 #include "video_core/renderer_base.h"
 #include "video_core/texture_cache/image_size.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
@@ -82,6 +83,8 @@ static void RunThread(std::stop_token stop_token, Core::System& system, VideoCor
                     // No flush here: that would add a host fence after every command.
                     scheduler.RetrySuspended(false);
                 }
+            } catch (const VideoCommon::InvalidGpuAddress& exception) {
+                request_failure_shutdown(exception.what());
             } catch (const VideoCommon::InvalidImageSize& exception) {
                 request_failure_shutdown(exception.what());
             } catch (const Vulkan::vk::Exception& exception) {
@@ -91,6 +94,10 @@ static void RunThread(std::stop_token stop_token, Core::System& system, VideoCor
                 }
                 request_failure_shutdown(exception.what());
             } catch (const std::bad_alloc& exception) {
+                const auto* submit = std::get_if<SubmitListCommand>(&next.data);
+                LOG_ERROR(HW_GPU,
+                          "GPU command allocation failed: command_type={}, fence={}, channel={}",
+                          next.data.index(), next.fence, submit ? submit->channel : -1);
                 request_failure_shutdown(exception.what());
             }
         }

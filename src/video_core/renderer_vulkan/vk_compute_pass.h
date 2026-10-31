@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <optional>
 #include <span>
 #include <utility>
@@ -47,6 +48,19 @@ protected:
 
 private:
     vk::ShaderModule module;
+};
+
+// Both descriptors refer to dedicated, zero-offset device-local staging buffers.
+class DepthStencilDmaPass final : public ComputePass {
+public:
+    DepthStencilDmaPass(const Device& device, Scheduler& scheduler, DescriptorPool& pool,
+                        ComputePassDescriptorQueue& queue);
+    void Run(VkBuffer packed, u32 packed_size, VkBuffer planes, u32 planes_size,
+             std::array<u32, 13> parameters);
+
+  private:
+    Scheduler& scheduler;
+    ComputePassDescriptorQueue& queue;
 };
 
 class Uint8Pass final : public ComputePass {

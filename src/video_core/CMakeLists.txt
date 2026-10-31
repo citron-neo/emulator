@@ -47,6 +47,7 @@ add_library(video_core STATIC
     engines/engine_interface.h
     engines/engine_upload.cpp
     engines/engine_upload.h
+    engines/inline_upload.h
     engines/fermi_2d.cpp
     engines/fermi_2d.h
     engines/kepler_compute.cpp
@@ -97,6 +98,7 @@ add_library(video_core STATIC
     gpu_thread.cpp
     gpu_thread.h
     guest_memory.h
+    invalid_gpu_address.h
     invalidation_accumulator.h
     memory_manager.cpp
     memory_manager.h
@@ -186,6 +188,7 @@ add_library(video_core STATIC
     renderer_vulkan/vk_state_tracker.h
     renderer_vulkan/vk_swapchain.cpp
     renderer_vulkan/vk_swapchain.h
+    renderer_vulkan/vk_depth_stencil.h
     renderer_vulkan/vk_texture_cache.cpp
     renderer_vulkan/vk_texture_cache.h
     renderer_vulkan/vk_texture_cache_base.cpp
@@ -227,6 +230,8 @@ add_library(video_core STATIC
     texture_cache/texture_cache.h
     texture_cache/texture_cache_base.h
     texture_cache/types.h
+    texture_cache/depth_stencil.cpp
+    texture_cache/depth_stencil.h
     texture_cache/util.cpp
     texture_cache/util.h
     textures/astc.h

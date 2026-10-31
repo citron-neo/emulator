@@ -449,17 +449,17 @@ endif()
 
 # ── sirit (yuzu-mirror fork) ──────────────────────────────────────────────────
 # sirit needs SPIRV-Headers. CPM already populated it above.
-if (NOT TARGET sirit)
-    if(CITRON_CLANGCL)
-        set(SIRIT_USE_SYSTEM_SPIRV_HEADERS OFF)
-    else()
-        set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
+if (NOT TARGET sirit::sirit AND NOT TARGET sirit)
+    if (NOT TARGET SPIRV-Headers AND NOT TARGET SPIRV-Headers::SPIRV-Headers)
+        message(FATAL_ERROR "Sirit requires the project SPIRV-Headers target; no provider supplied it")
     endif()
-    CPMAddPackage(
-        NAME sirit
-        GITHUB_REPOSITORY yuzu-mirror/sirit
-        GIT_TAG ab75463999f4f3291976b079d42d52ee91eebf3f
-    )
+    include(${CMAKE_SOURCE_DIR}/CMakeModules/SiritProvider.cmake)
+    citron_prepare_sirit_headers()
+    set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
+    # The shader backend uses APIs added to the in-tree Sirit sources upstream.
+    # Do not fetch the older standalone pin when the CPM provider is selected.
+    set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+    add_subdirectory("${CMAKE_SOURCE_DIR}/externals/sirit" "${CMAKE_BINARY_DIR}/sirit")
     if (CITRON_CLANGCL AND TARGET sirit)
         get_target_property(_sirit_compile_options sirit COMPILE_OPTIONS)
         if (_sirit_compile_options)

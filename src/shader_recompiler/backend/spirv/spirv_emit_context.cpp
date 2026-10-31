@@ -543,6 +543,7 @@ EmitContext::EmitContext(const Profile& profile_, const RuntimeInfo& runtime_inf
     DefineConstantBuffers(program.info, uniform_binding);
     DefineConstantBufferIndirectFunctions(program.info);
     DefineStorageBuffers(program.info, storage_binding);
+    DefineStorageAtomicCompareExchangeFunctions(program.info);
     DefineTextureBuffers(program.info, texture_binding);
     DefineImageBuffers(program.info, image_binding);
     DefineTextures(program.info, texture_binding, bindings.texture_scaling_index);
@@ -1003,6 +1004,57 @@ void EmitContext::DefineWriteStorageCasLoopFunction(const Info& info) {
     write_storage_cas_loop_func = func;
 }
 
+void EmitContext::DefineStorageAtomicCompareExchangeFunctions(const Info& info) {
+    if (info.uses_storage_atomic_compare_exchange64 &&
+        (!profile.support_int64 || !profile.support_int64_atomics ||
+         !profile.support_descriptor_aliasing)) {
+        throw NotImplementedException(
+            "64-bit atomic compare exchange requires native Int64 atomics and descriptor aliasing");
+    }
+    const auto define{[&](Id buffer, const StorageTypeDefinition& type_def, Id type, u32 size) {
+        LOG_DEBUG(Shader_SPIRV,
+                  "Storage {}-bit CAS rejects unaligned byte offsets: returns zero without "
+                  "accessing memory", size * 8);
+        const Id function_type{TypeFunction(type, U32[1], type, type)};
+        const Id function{OpFunction(type, spv::FunctionControlMask::MaskNone, function_type)};
+        const Id offset{OpFunctionParameter(U32[1])};
+        const Id compare{OpFunctionParameter(type)};
+        const Id value{OpFunctionParameter(type)};
+        AddLabel();
+        const Id aligned{OpIEqual(U1, OpBitwiseAnd(U32[1], offset, Const(size - 1)),
+                                   u32_zero_value)};
+        const Id valid{OpLabel()};
+        const Id rejected{OpLabel()};
+        OpSelectionMerge(rejected, spv::SelectionControlMask::MaskNone);
+        OpBranchConditional(aligned, valid, rejected);
+        AddLabel(valid);
+        const Id index{OpShiftRightLogical(U32[1], offset,
+                                          Const(static_cast<u32>(std::countr_zero(size))))};
+        const Id pointer{OpAccessChain(type_def.element, buffer, u32_zero_value, index)};
+        const Id old{OpAtomicCompareExchange(type, pointer,
+                                             Const(static_cast<u32>(spv::Scope::Device)),
+                                             u32_zero_value, u32_zero_value, value, compare)};
+        OpReturnValue(old);
+        AddLabel(rejected);
+        OpReturnValue(ConstantNull(type));
+        OpFunctionEnd();
+        return function;
+    }};
+    size_t binding{};
+    for (const auto& descriptor : info.storage_buffers_descriptors) {
+        for (u32 element = 0; element < descriptor.count; ++element, ++binding) {
+            if (info.uses_storage_atomic_compare_exchange32) {
+                storage_atomic_compare_exchange32[binding] =
+                    define(ssbos[binding].U32, storage_types.U32, U32[1], sizeof(u32));
+            }
+            if (info.uses_storage_atomic_compare_exchange64) {
+                storage_atomic_compare_exchange64[binding] =
+                    define(ssbos[binding].U64, storage_types.U64, U64, sizeof(u64));
+            }
+        }
+    }
+}
+
 void EmitContext::DefineGlobalMemoryFunctions(const Info& info) {
     if (!info.uses_global_memory || !profile.support_int64) {
         return;
@@ -1010,7 +1062,7 @@ void EmitContext::DefineGlobalMemoryFunctions(const Info& info) {
     using DefPtr = Id StorageDefinitions::*;
     const Id zero{u32_zero_value};
     const auto define_body{[&](DefPtr ssbo_member, Id addr, Id element_pointer, u32 shift,
-                               auto&& callback) {
+                               auto&& callback, u32 access_size = 1) {
         AddLabel();
         // Every storage buffer of the shader is searched, not only the NVN slots it reads: a
         // pointer the shader loads from memory can point into a buffer that was tracked from
@@ -1039,8 +1091,23 @@ void EmitContext::DefineGlobalMemoryFunctions(const Info& info) {
             const Id ssbo_addr{OpBitwiseAnd(U64, unaligned_addr, Constant(U64, ssbo_align_mask))};
             const Id ssbo_size{OpUConvert(U64, OpLoad(U32[1], ssbo_size_pointer))};
             const Id ssbo_end{OpIAdd(U64, ssbo_addr, ssbo_size)};
-            const Id cond{OpLogicalAnd(U1, OpUGreaterThanEqual(U1, addr, ssbo_addr),
-                                       OpULessThan(U1, addr, ssbo_end))};
+            Id cond{OpLogicalAnd(U1, OpUGreaterThanEqual(U1, addr, ssbo_addr),
+                                  OpULessThan(U1, addr, ssbo_end))};
+            if (access_size > 1) {
+                // CAS must fit entirely in the buffer; also reject a wrapping address range.
+                const Id last{OpIAdd(U64, addr, Constant(U64, u64{access_size - 1}))};
+                const Id fits{OpLogicalAnd(U1, OpUGreaterThanEqual(U1, last, addr),
+                                           OpULessThan(U1, last, ssbo_end))};
+                const Id alignment_mask{Constant(U64, u64{access_size - 1})};
+                const Id aligned{OpIEqual(U1, OpBitwiseAnd(U64, addr, alignment_mask),
+                                           ConstantNull(U64))};
+                // A typed SSBO array also needs an aligned base: otherwise converting the
+                // byte offset to an element index would silently select an earlier address.
+                const Id aligned_base{OpIEqual(U1, OpBitwiseAnd(U64, ssbo_addr, alignment_mask),
+                                                ConstantNull(U64))};
+                const Id aligned_access{OpLogicalAnd(U1, aligned, aligned_base)};
+                cond = OpLogicalAnd(U1, cond, OpLogicalAnd(U1, fits, aligned_access));
+            }
             const Id then_label{OpLabel()};
             const Id else_label{OpLabel()};
             OpSelectionMerge(else_label, spv::SelectionControlMask::MaskNone);
@@ -1116,6 +1183,38 @@ void EmitContext::DefineGlobalMemoryFunctions(const Info& info) {
         OpReturnValue(zero);
         OpFunctionEnd();
         global_atomic_func_u32[op] = func_id;
+    }
+    const auto define_cas{[&](DefPtr member, const StorageTypeDefinition& type_def, Id type,
+                              u32 size) {
+        LOG_DEBUG(Shader_SPIRV,
+                  "Global {}-bit CAS rejects unaligned or out-of-range addresses: returns zero "
+                  "without accessing memory", size * 8);
+        const Id cas_type{TypeFunction(type, U64, type, type)};
+        const Id function{OpFunction(type, spv::FunctionControlMask::MaskNone, cas_type)};
+        const Id address{OpFunctionParameter(U64)};
+        const Id compare{OpFunctionParameter(type)};
+        const Id value{OpFunctionParameter(type)};
+        define_body(member, address, type_def.element, static_cast<u32>(std::countr_zero(size)),
+                    [&](Id pointer) {
+                        OpReturnValue(OpAtomicCompareExchange(type, pointer, scope, zero, zero,
+                                                              value, compare));
+                    }, size);
+        // Match global loads when no bound buffer covers the entire atomic word.
+        OpReturnValue(ConstantNull(type));
+        OpFunctionEnd();
+        return function;
+    }};
+    if (info.uses_global_atomic_compare_exchange32) {
+        global_atomic_compare_exchange32 =
+            define_cas(&StorageDefinitions::U32, storage_types.U32, U32[1], sizeof(u32));
+    }
+    if (info.uses_global_atomic_compare_exchange64) {
+        if (!profile.support_int64_atomics || !profile.support_descriptor_aliasing) {
+            throw NotImplementedException(
+                "64-bit atomic compare exchange requires native Int64 atomics and descriptor aliasing");
+        }
+        global_atomic_compare_exchange64 =
+            define_cas(&StorageDefinitions::U64, storage_types.U64, U64, sizeof(u64));
     }
 }
 

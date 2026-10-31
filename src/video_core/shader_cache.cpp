@@ -84,7 +84,13 @@ const ShaderInfo* ShaderCache::ComputeShader() {
     const GPUVAddr shader_addr{program_base + qmd.program_start};
     const std::optional<VAddr> cpu_shader_addr{gpu_memory->GpuToCpuAddress(shader_addr)};
     if (!cpu_shader_addr) {
-        LOG_ERROR(HW_GPU, "Invalid GPU address for shader 0x{:016x}", shader_addr);
+        LOG_ERROR(HW_GPU,
+                  "Invalid GPU address for compute shader 0x{:016x}: program_base=0x{:016x}, "
+                  "qmd_address=0x{:016x}, program_start=0x{:08x}, grid={}x{}x{}, block={}x{}x{}",
+                  shader_addr, program_base, kepler_compute->regs.launch_desc_loc.Address(),
+                  qmd.program_start, qmd.grid_dim_x.Value(), qmd.grid_dim_y.Value(),
+                  qmd.grid_dim_z.Value(), qmd.block_dim_x.Value(), qmd.block_dim_y.Value(),
+                  qmd.block_dim_z.Value());
         return nullptr;
     }
     if (const ShaderInfo* const shader = TryGet(*cpu_shader_addr)) {

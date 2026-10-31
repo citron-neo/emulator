@@ -64,8 +64,6 @@ private:
         // The status of the current NVEvent
         std::atomic<EventState> status{};
 
-        // Tells the NVEvent that it has failed.
-        u32 fails{};
         // When an NVEvent is waiting on GPU interrupt, this is the sync_point
         // associated with it.
         u32 assigned_syncpt{};

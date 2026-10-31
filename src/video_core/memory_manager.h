@@ -145,8 +145,8 @@ public:
 
     size_t MaxContinuousRange(GPUVAddr gpu_addr, size_t size) const;
 
-    bool IsWithinGPUAddressRange(GPUVAddr gpu_addr) const {
-        return gpu_addr < address_space_size;
+    bool IsWithinGPUAddressRange(GPUVAddr gpu_addr, u64 size = 1) const {
+        return gpu_addr < address_space_size && size <= address_space_size - gpu_addr;
     }
 
     PTEKind GetPageKind(GPUVAddr gpu_addr) const;

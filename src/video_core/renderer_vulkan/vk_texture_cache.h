@@ -4,6 +4,7 @@
 #pragma once
 
 #include <deque>
+#include <functional>
 #include <memory>
 #include <span>
 #include <vector>
@@ -50,6 +51,20 @@ public:
                                  DescriptorPool& descriptor_pool,
                                  ComputePassDescriptorQueue& compute_pass_descriptor_queue);
     ~TextureCacheRuntime();
+
+    std::shared_ptr<StagingBufferRef> ReservePendingReadbackBuffer(size_t size);
+    void CollectPendingReadbackBuffers();
+    // Only the recording thread edits this list/pool. Async consumers only drop
+    // shared references, so no allocator cache is modified on the fence thread.
+    std::deque<std::shared_ptr<StagingBufferRef>> pending_readback_buffers;
+    std::shared_ptr<Image> ReservePendingReadbackImage();
+    void RetirePendingReadbackImage(const std::shared_ptr<Image>& owner);
+    struct PendingReadbackImage {
+        std::shared_ptr<Image> owner;
+        u64 tick{}, frame{};
+        bool retired{};
+    };
+    std::deque<PendingReadbackImage> pending_readback_images;
 
     void Finish();
 
@@ -142,6 +157,7 @@ public:
     RenderPassCache& render_pass_cache;
     std::optional<ASTCDecoderPass> astc_decoder_pass;
     std::unique_ptr<MSAACopyPass> msaa_copy_pass;
+    std::unique_ptr<DepthStencilDmaPass> depth_stencil_dma_pass;
     const Settings::ResolutionScalingInfo& resolution;
     std::array<std::vector<VkFormat>, VideoCore::Surface::MaxPixelFormat> view_formats;
     std::array<std::vector<VkFormat>, VideoCore::Surface::MaxPixelFormat> narrow_view_formats;
@@ -174,17 +190,38 @@ public:
     Image(Image&&) = default;
     Image& operator=(Image&&) = default;
 
+    bool CanDepthStencilDma(std::span<const VideoCommon::BufferImageCopy> copies,
+                            size_t size) const;
+    void UploadMemoryDma(VkBuffer buffer, size_t offset, size_t size,
+                         std::span<const VideoCommon::BufferImageCopy> copies);
+    void DownloadMemoryDma(std::span<VkBuffer> buffers, std::span<size_t> offsets, size_t size,
+                           std::span<const VideoCommon::BufferImageCopy> copies);
+
     void UploadMemory(VkBuffer buffer, VkDeviceSize offset,
                       std::span<const VideoCommon::BufferImageCopy> copies);
 
     void UploadMemory(const StagingBufferRef& map,
                       std::span<const VideoCommon::BufferImageCopy> copies);
 
+    // Consume cached CPU guest-layout bytes synchronously. Only the converted
+    // aspect planes are placed in upload memory and retained for GPU execution.
+    void UploadDepthStencil(std::span<const u8> packed,
+                           std::span<const VideoCommon::BufferImageCopy> copies);
+
     void DownloadMemory(VkBuffer buffer, size_t offset,
                         std::span<const VideoCommon::BufferImageCopy> copies);
 
     void DownloadMemory(std::span<VkBuffer> buffers, std::span<size_t> offsets,
                         std::span<const VideoCommon::BufferImageCopy> copies);
+
+    bool NeedsSynchronousDownloadBaseline() const;
+
+    // Keep the destination alive and wait with runtime.Finish() or the matching
+    // asynchronous fence, then invoke completion before consuming guest-layout bytes.
+    // Destroying the operation releases its deferred intermediate after the current tick.
+    [[nodiscard]] std::function<void()>
+    PrepareStagingReadback(const StagingBufferRef& map,
+                           std::span<const VideoCommon::BufferImageCopy> copies);
 
     void DownloadMemory(const StagingBufferRef& map,
                         std::span<const VideoCommon::BufferImageCopy> copies);
@@ -239,6 +276,7 @@ private:
     std::vector<vk::ImageView> storage_image_views;
     VkImageAspectFlags aspect_mask = 0;
     bool initialized = false;
+    VkFormat image_format = VK_FORMAT_UNDEFINED;
     /// Whether the image was made with the wide view format list
     bool wide_view_formats = false;
     vk::Image scaled_image{};
