@@ -1573,7 +1573,7 @@ KProcessAddress KPageTableBase::FindFreeArea(KProcessAddress region_start, size_
                 const KProcessAddress candidate =
                     Common::AlignDown(GetInteger(region_start + random_offset), alignment) + offset;
 
-                KMemoryInfo info;
+                KMemoryInfo info{};
                 Svc::PageInfo page_info;
                 R_ASSERT(this->QueryInfoImpl(std::addressof(info), std::addressof(page_info),
                                              candidate));
