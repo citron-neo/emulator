@@ -3447,6 +3447,15 @@ void RunWithAot(GameList* parent, const QString& path) {
     arguments << path;
     process.setArguments(arguments);
     process.setWorkingDirectory(work);
+    // ScarletNX's Windows runtime only tracks which guest pages were written when SNX_WW is set
+    // (scarletnx/ScarletNX#234 makes that the default). Without it, its GPU caches check textures
+    // and render targets by content each time. The game inherits this environment. SNX_NO_WW,
+    // ScarletNX's switch to turn tracking off, is respected.
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    if (!env.contains(QStringLiteral("SNX_NO_WW"))) {
+        env.insert(QStringLiteral("SNX_WW"), QStringLiteral("1"));
+    }
+    process.setProcessEnvironment(env);
     process.setStandardOutputFile(out_log);
     process.setStandardErrorFile(err_log);
     qint64 pid = 0;
@@ -3842,66 +3851,7 @@ void GameList::AddGamePopup(QMenu& context_menu, const QModelIndex& index, u64 p
     });
 #ifdef _WIN32
     if (run_aot) {
-        connect(run_aot, &QAction::triggered, [this, path]() {
-            // scarletnx.exe from ScarletNX's Windows zip extracts, recompiles and plays a dump. Run
-            // from its zip, it keeps work/ and games/ in its working directory and looks for
-            // prod.keys and title.keys there before %USERPROFILE%\.switch, so it runs in a folder
-            // of citron's own next to copies of citron's key files. It is a GUI program: its output
-            // goes to log files in that folder, which WatchScarletNX follows for the progress.
-            QString exe = QString::fromStdString(UISettings::values.scarletnx_path.GetValue());
-            if (!QFileInfo(exe).isFile()) {
-                exe = QFileDialog::getOpenFileName(this, tr("Select scarletnx.exe"), QString(),
-                                                   tr("ScarletNX (scarletnx.exe)"));
-                if (exe.isEmpty()) {
-                    return;
-                }
-                UISettings::values.scarletnx_path = exe.toStdString();
-            }
-            const auto work_dir =
-                Common::FS::GetCitronPath(Common::FS::CitronPath::CitronDir) / "scarletnx";
-            const auto keys_dir = Common::FS::GetCitronPath(Common::FS::CitronPath::KeysDir);
-            const QString work = QString::fromStdString(Common::FS::PathToUTF8String(work_dir));
-            std::error_code ec;
-            std::filesystem::create_directories(work_dir, ec);
-            for (const char* name : {"prod.keys", "title.keys"}) {
-                if (!ec && std::filesystem::is_regular_file(keys_dir / name)) {
-                    std::filesystem::copy_file(keys_dir / name, work_dir / name,
-                                               std::filesystem::copy_options::overwrite_existing,
-                                               ec);
-                }
-            }
-            if (ec) {
-                QMessageBox::warning(this, tr("Run with AOT"),
-                                     tr("Could not copy the key files to %1: %2")
-                                         .arg(work, QString::fromStdString(ec.message())));
-                return;
-            }
-            const QDir dir(work);
-            QProcess process;
-            process.setProgram(exe);
-            process.setArguments({path});
-            process.setWorkingDirectory(work);
-            // ScarletNX's Windows runtime only tracks which guest pages were written when SNX_WW
-            // is set (scarletnx/ScarletNX#234 makes that the default). Without it, its GPU caches
-            // check textures and render targets by content each time (Super Mario Odyssey: about
-            // 15 FPS without it, 34 with it). The game is started by scarletnx.exe and inherits
-            // this environment. SNX_NO_WW, ScarletNX's switch to turn tracking off, is respected.
-            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-            if (!env.contains(QStringLiteral("SNX_NO_WW"))) {
-                env.insert(QStringLiteral("SNX_WW"), QStringLiteral("1"));
-            }
-            process.setProcessEnvironment(env);
-            const QString out_log = dir.filePath(QStringLiteral("scarletnx.log"));
-            const QString err_log = dir.filePath(QStringLiteral("scarletnx-errors.log"));
-            process.setStandardOutputFile(out_log);
-            process.setStandardErrorFile(err_log);
-            qint64 pid = 0;
-            if (!process.startDetached(&pid)) {
-                QMessageBox::warning(this, tr("Run with AOT"), tr("Could not start %1.").arg(exe));
-                return;
-            }
-            WatchScarletNX(this, pid, QFileInfo(path).completeBaseName(), out_log, err_log);
-        });
+        connect(run_aot, &QAction::triggered, [this, path]() { RunWithAot(this, path); });
     }
 #endif
     connect(open_mod_location, &QAction::triggered, [this, program_id, path_str]() {
