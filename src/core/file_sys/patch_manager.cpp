@@ -153,7 +153,10 @@ void ApplyDisabledCheats(std::vector<Core::Memory::CheatEntry>& cheats,
         disabled_it = std::find_if(Settings::values.disabled_cheats.begin(),
                                    Settings::values.disabled_cheats.end(),
                                    [&normalized_build_id](const auto& entry) {
-                                       return NormalizeCheatBuildId(entry.first) ==
+                                       // The config stores the full 0x20-byte build ID, but cheat
+                                       // files are keyed by its first 8 bytes.
+                                       return NormalizeCheatBuildId(entry.first.substr(
+                                                  0, CHEAT_BUILD_ID_LENGTH)) ==
                                               normalized_build_id;
                                    });
     }
