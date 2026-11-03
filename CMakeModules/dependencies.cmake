@@ -322,7 +322,7 @@ endif()
 
 # ── SPIRV-Headers ─────────────────────────────────────────────────────────────
 # Must be declared before sirit.
-if (NOT CITRON_CLANGCL AND NOT TARGET SPIRV-Headers)
+if (NOT TARGET SPIRV-Headers)
     CPMAddPackage(
         NAME SPIRV-Headers
         GITHUB_REPOSITORY KhronosGroup/SPIRV-Headers
@@ -447,19 +447,30 @@ if (ARCHITECTURE_arm64 AND NOT TARGET merry::oaknut)
     )
 endif()
 
-# ── sirit (yuzu-mirror fork) ──────────────────────────────────────────────────
-# sirit needs SPIRV-Headers. CPM already populated it above.
+# ── sirit (in-tree: externals/sirit) ─────────────────────────────────────────
+# Requires SPIRV-Headers (populated above).
 if (NOT TARGET sirit)
-    if(CITRON_CLANGCL)
-        set(SIRIT_USE_SYSTEM_SPIRV_HEADERS OFF)
-    else()
-        set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
+    # In-tree sirit: the CPM pin lacks APIs shader_recompiler needs.
+    if (NOT TARGET SPIRV-Headers AND NOT TARGET SPIRV-Headers::SPIRV-Headers)
+        message(FATAL_ERROR "Sirit requires SPIRV-Headers; no provider supplied it")
     endif()
-    CPMAddPackage(
-        NAME sirit
-        GITHUB_REPOSITORY yuzu-mirror/sirit
-        GIT_TAG ab75463999f4f3291976b079d42d52ee91eebf3f
-    )
+    # Sirit calls find_package(SPIRV-Headers) even when the target already exists, so
+    # expose the project target under the imported name and give find_package a config.
+    if (NOT TARGET SPIRV-Headers::SPIRV-Headers)
+        add_library(SPIRV-Headers::SPIRV-Headers ALIAS SPIRV-Headers)
+    endif()
+    if (NOT EXISTS "${SPIRV-Headers_DIR}/SPIRV-HeadersConfig.cmake")
+        set(_sirit_hdr_cfg_dir "${CMAKE_BINARY_DIR}/providers/SPIRV-Headers")
+        file(MAKE_DIRECTORY "${_sirit_hdr_cfg_dir}")
+        file(WRITE "${_sirit_hdr_cfg_dir}/SPIRV-HeadersConfig.cmake"
+            "if(NOT TARGET SPIRV-Headers::SPIRV-Headers)\n"
+            "    message(FATAL_ERROR \"Parent SPIRV-Headers target is missing\")\n"
+            "endif()\n")
+        set(SPIRV-Headers_DIR "${_sirit_hdr_cfg_dir}")
+    endif()
+    set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
+    set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+    add_subdirectory("${CMAKE_SOURCE_DIR}/externals/sirit" "${CMAKE_BINARY_DIR}/sirit")
     if (CITRON_CLANGCL AND TARGET sirit)
         get_target_property(_sirit_compile_options sirit COMPILE_OPTIONS)
         if (_sirit_compile_options)
