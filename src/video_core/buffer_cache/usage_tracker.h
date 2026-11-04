@@ -72,21 +72,27 @@ public:
     }
 
 private:
-    void TrackPage(u64 page, u64 offset, u64 size) noexcept {
-        const size_t offset_in_page = offset % PAGE_BYTES;
-        const size_t first_bit = offset_in_page >> BYTES_PER_BIT_SHIFT;
-        const size_t num_bits = std::min<size_t>(size, PAGE_BYTES) >> BYTES_PER_BIT_SHIFT;
-        const size_t mask = ~u64{0} >> (64 - num_bits);
-        pages[page] |= (~u64{0} & mask) << first_bit;
+    /// The bits of one page for the part of [offset, offset + size) inside that page, rounded
+    /// out to whole 64-byte units. (This used to count size >> 6 bits from the first one, which
+    /// left out a partial last unit and, under 64 bytes, shifted a u64 by 64.)
+    [[nodiscard]] static u64 PageMask(u64 offset, u64 size) noexcept {
+        const u64 offset_in_page = offset % PAGE_BYTES;
+        const u64 end_in_page = std::min<u64>(offset_in_page + size, PAGE_BYTES);
+        if (size == 0 || end_in_page <= offset_in_page) {
+            return 0;
+        }
+        const u64 first_bit = offset_in_page >> BYTES_PER_BIT_SHIFT;
+        const u64 last_bit = (end_in_page - 1) >> BYTES_PER_BIT_SHIFT;
+        const u64 count = last_bit - first_bit + 1;
+        return (count == 64 ? ~u64{0} : (u64{1} << count) - 1) << first_bit;
     }
 
-    bool IsPageUsed(u64 page, u64 offset, u64 size) const noexcept {
-        const size_t offset_in_page = offset % PAGE_BYTES;
-        const size_t first_bit = offset_in_page >> BYTES_PER_BIT_SHIFT;
-        const size_t num_bits = std::min<size_t>(size, PAGE_BYTES) >> BYTES_PER_BIT_SHIFT;
-        const size_t mask = ~u64{0} >> (64 - num_bits);
-        const size_t mask2 = (~u64{0} & mask) << first_bit;
-        return (pages[page] & mask2) != 0;
+    void TrackPage(u64 page, u64 offset, u64 size) noexcept {
+        pages[page] |= PageMask(offset, size);
+    }
+
+    [[nodiscard]] bool IsPageUsed(u64 page, u64 offset, u64 size) const noexcept {
+        return (pages[page] & PageMask(offset, size)) != 0;
     }
 
 private:

@@ -26,6 +26,7 @@ add_executable(tests
     video_core/dma_remap.cpp
     video_core/syncpoint_manager.cpp
     video_core/uma.cpp
+    video_core/usage_tracker.cpp
     input_common/calibration_configuration_job.cpp
 )
 
