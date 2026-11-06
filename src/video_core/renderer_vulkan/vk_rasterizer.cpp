@@ -383,6 +383,7 @@ GraphicsPipeline* RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_fun
             query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64,
                                       maxwell3d->regs.zpass_pixel_count_enable);
             draw_func();
+            buffer_cache.FlushGatherWrites();
         }
     }
     if (configure_exception) {
@@ -818,12 +819,14 @@ void RasterizerVulkan::DispatchCompute() {
             cmdbuf.DispatchIndirect(indirect_buffer, indirect_offset);
         });
         RecordComputeWriteBarrier();
+        buffer_cache.FlushGatherWrites();
         return;
     }
     const std::array<u32, 3> dim{qmd.grid_dim_x, qmd.grid_dim_y, qmd.grid_dim_z};
     scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([dim](vk::CommandBuffer cmdbuf) { cmdbuf.Dispatch(dim[0], dim[1], dim[2]); });
     RecordComputeWriteBarrier();
+    buffer_cache.FlushGatherWrites();
 }
 
 void RasterizerVulkan::RecordComputeWriteBarrier() {
