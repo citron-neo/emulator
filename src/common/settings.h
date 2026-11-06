@@ -476,6 +476,13 @@ struct Values {
                                                                   AstcRecompression::Bc3,
                                                                   "astc_recompression",
                                                                   Category::RendererAdvanced};
+    SwitchableSetting<BindlessTextureLimit, true> bindless_texture_limit{
+        linkage,
+        BindlessTextureLimit::Default,
+        BindlessTextureLimit::Default,
+        BindlessTextureLimit::Limit8,
+        "bindless_texture_limit",
+        Category::RendererAdvanced};
 
     SwitchableSetting<bool> async_presentation{linkage,
 #ifdef ANDROID
@@ -775,6 +782,9 @@ void UpdateGPUAccuracy();
 bool IsGPULevelExtreme();
 bool IsGPULevelLow();
 bool IsGPULevelHigh();
+
+/// Maximum length of dynamically indexed bindless texture arrays in translated shaders.
+u32 BindlessTextureLimitValue();
 bool IsGPULevelNormal();
 
 bool IsFastmemEnabled();

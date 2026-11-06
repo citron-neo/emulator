@@ -14,6 +14,8 @@
 #include "video_core/engines/maxwell_dma.h"
 #include "video_core/engines/puller.h"
 #include "video_core/gpu.h"
+#include "video_core/host1x/host1x.h"
+#include "video_core/host1x/syncpoint_manager.h"
 #include "video_core/memory_manager.h"
 #include "video_core/rasterizer_interface.h"
 
@@ -62,8 +64,14 @@ void Puller::ProcessBindMethod(const MethodCall& method_call) {
 void Puller::ProcessFenceActionMethod() {
     switch (regs.fence_action.op) {
     case Puller::FenceOperation::Acquire:
-        // UNIMPLEMENTED_MSG("Channel Scheduling pending.");
-        // WaitFence(regs.fence_action.syncpoint_id, regs.fence_value);
+        // The command stream waits for a syncpoint to reach a value. Waiting for every pending
+        // fence drains the whole GPU queue; skip it when the host syncpoint already reached the
+        // value (the common case: MH Rise issues this once per frame for an already-signaled
+        // syncpoint, which cost up to a quarter of the frame time).
+        if (gpu.Host1x().GetSyncpointManager().IsReadyHost(regs.fence_action.syncpoint_id,
+                                                           regs.fence_value)) {
+            break;
+        }
         rasterizer->ReleaseFences();
         break;
     case Puller::FenceOperation::Increment:

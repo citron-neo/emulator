@@ -119,6 +119,8 @@ ENUM(AstcDecodeMode, Cpu, Gpu, CpuAsynchronous);
 
 ENUM(AstcRecompression, Uncompressed, Bc1, Bc3);
 
+ENUM(BindlessTextureLimit, Default, Limit256, Limit128, Limit64, Limit32, Limit16, Limit8);
+
 ENUM(VSyncMode, Immediate, Mailbox, Fifo, FifoRelaxed);
 
 ENUM(RendererBackend, Vulkan, Null);

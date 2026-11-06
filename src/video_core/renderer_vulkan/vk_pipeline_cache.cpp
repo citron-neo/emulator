@@ -520,6 +520,7 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
                 : device.GetMaxDescriptorSetStorageImages(),
         .support_geometry_shader_passthrough = device.IsNvGeometryShaderPassthroughSupported(),
         .support_conditional_barrier = device.SupportsConditionalBarriers(),
+        .max_bindless_array_length = Settings::BindlessTextureLimitValue(),
     };
 
     if (device.GetMaxVertexInputAttributes() <
