@@ -197,10 +197,11 @@ void Layer::RefreshResources(const Tegra::FramebufferConfig& framebuffer) {
 }
 
 void Layer::SetAntiAliasPass() {
-    // OPTIMIZED FOR LOW GPU ACCURACY - skip FXAA/SMAA/TAA for performance
-    const auto effective_aa = Settings::IsGPULevelLow()
-                                 ? Settings::AntiAliasing::None
-                                 : filters.get_anti_aliasing();
+    auto effective_aa = filters.get_anti_aliasing();
+    if (effective_aa == Settings::AntiAliasing::Taa &&
+        device.GetDriverID() == VK_DRIVER_ID_MOLTENVK) {
+        effective_aa = Settings::AntiAliasing::Smaa;
+    }
     if (anti_alias && anti_alias_setting == effective_aa) {
         return;
     }
