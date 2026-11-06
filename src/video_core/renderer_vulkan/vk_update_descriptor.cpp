@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2025 citron Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <variant>
 #include <boost/container/static_vector.hpp>
 
@@ -46,6 +47,8 @@ void UpdateDescriptorQueue::Acquire() {
 
     static constexpr size_t MIN_ENTRIES = 0x800;
 
+    // The previous upload has already been recorded; nothing is pending across an overflow here.
+    upload_start = nullptr;
     if (std::distance(payload_start, payload_cursor) + MIN_ENTRIES >= FRAME_PAYLOAD_SIZE) {
         HandleOverflow();
     }
@@ -66,7 +69,17 @@ void UpdateDescriptorQueue::HandleOverflow() {
                 overflow_count.load(std::memory_order_relaxed));
 
     scheduler.WaitWorker();
-    payload_cursor = payload_start;
+
+    // An overflow can happen in the middle of an upload (between Acquire() and the draw that
+    // consumes it). Move the entries written so far to the start of the frame slice, so that
+    // upload_start stays valid and GetUploadSize() cannot underflow.
+    size_t pending = 0;
+    if (upload_start && upload_start >= payload_start && upload_start <= payload_cursor) {
+        pending = static_cast<size_t>(payload_cursor - upload_start);
+        std::copy(upload_start, static_cast<const DescriptorUpdateEntry*>(payload_cursor), payload_start);
+        upload_start = payload_start;
+    }
+    payload_cursor = payload_start + pending;
 }
 
 void GuestDescriptorQueue::PreAllocateForFrame(size_t estimated_entries) {
