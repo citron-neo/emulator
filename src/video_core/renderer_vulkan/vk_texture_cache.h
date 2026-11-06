@@ -114,6 +114,12 @@ public:
     [[nodiscard]] VkBuffer GetTemporaryBuffer(size_t needed_size);
     void CleanupUnusedBuffers();
 
+    /// Uploads zeros to the given regions of an image from a device-local zero buffer.
+    /// size is the largest number of bytes any region reads. Returns false if that is more than
+    /// the zero buffer holds, in which case the caller has to upload the zeros itself.
+    bool ClearImageRegions(Image& image, std::span<const VideoCommon::BufferImageCopy> copies,
+                           size_t size);
+
     /// Formats an image of this format may be viewed as. The narrow list holds only the formats
     /// with the same components (A8B8G8R8 UNORM, SNORM, SINT, UINT and SRGB for example), so a
     /// driver can keep framebuffer compression on the image; the wide list holds every format a
@@ -158,6 +164,9 @@ public:
     u32 custom_border_samplers{};
     /// Whether running out of those slots has been logged.
     bool custom_border_budget_reported{};
+
+    /// Device-local buffer filled with zeros, used to clear unmapped regions of sparse images
+    vk::Buffer zero_buffer;
 };
 
 class Image : public VideoCommon::ImageBase {

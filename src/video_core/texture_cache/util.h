@@ -33,6 +33,10 @@ struct OverlapResult {
 
 [[nodiscard]] u32 CalculateConvertedSizeBytes(const ImageInfo& info);
 
+/// Like CalculateConvertedSizeBytes, but returns 0 when the converted size can't be represented.
+/// Images only use their converted size when they are actually converted on the host.
+[[nodiscard]] u32 TryCalculateConvertedSizeBytes(const ImageInfo& info);
+
 [[nodiscard]] u32 CalculateLayerStride(const ImageInfo& info);
 
 [[nodiscard]] u32 CalculateLayerSize(const ImageInfo& info);
@@ -65,6 +69,48 @@ struct OverlapResult {
 [[nodiscard]] boost::container::small_vector<BufferImageCopy, 16> UnswizzleImage(
     Tegra::MemoryManager& gpu_memory, GPUVAddr gpu_addr, const ImageInfo& info,
     std::span<const u8> input, std::span<u8> output);
+
+/// Guest layout of a single-level block-linear 3D image. The image is a sequence of slabs
+/// (block_depth slices each), every slab is a sequence of block rows, and every block row is a
+/// sequence of blocks of unit_bytes: one GOB column wide, 2^block_height GOBs tall and
+/// 2^block_depth slices deep. Each block is stored contiguously in guest memory.
+struct SlabLayout {
+    u64 slab_bytes;
+    u64 unit_bytes;
+    u32 num_slabs;
+    u32 rows_per_slab;
+    u32 gobs_in_x;
+    u32 block_height;
+    u32 block_depth;
+    u32 bpp_log2;
+    u32 width_tiles;
+    u32 height_tiles;
+    u32 depth_tiles;
+    u32 tile_width;
+    u32 tile_height;
+};
+
+/// Horizontal run of consecutive blocks within one block row.
+struct BlockRun {
+    u32 slab;
+    u32 row;
+    u32 first_block;
+    u32 num_blocks;
+};
+
+/// Returns the block layout of an image, or nullopt if it can't be updated per block.
+[[nodiscard]] std::optional<SlabLayout> CalculateSlabLayout(const ImageInfo& info);
+
+/// Size in bytes of a block run once unswizzled.
+[[nodiscard]] u64 BlockRunHostBytes(const SlabLayout& layout, const BlockRun& run);
+
+/// Buffer to image copy that uploads an unswizzled block run stored at buffer_offset.
+[[nodiscard]] BufferImageCopy MakeBlockRunCopy(const ImageInfo& info, const SlabLayout& layout,
+                                               const BlockRun& run, size_t buffer_offset);
+
+/// Unswizzles a block run. guest holds the run's blocks, which are contiguous in guest memory.
+void UnswizzleBlockRun(const SlabLayout& layout, const BlockRun& run, std::span<const u8> guest,
+                       std::span<u8> output);
 
 void ConvertImage(std::span<const u8> input, const ImageInfo& info, std::span<u8> output,
                   std::span<BufferImageCopy> copies);

@@ -61,7 +61,7 @@ namespace {
 ImageBase::ImageBase(const ImageInfo& info_, GPUVAddr gpu_addr_, VAddr cpu_addr_)
     : info{info_}, guest_size_bytes{CalculateGuestSizeInBytes(info)},
       unswizzled_size_bytes{CalculateUnswizzledSizeBytes(info)},
-      converted_size_bytes{CalculateConvertedSizeBytes(info)}, scale_rating{}, scale_tick{},
+      converted_size_bytes{TryCalculateConvertedSizeBytes(info)}, scale_rating{}, scale_tick{},
       has_scaled{}, gpu_addr{gpu_addr_}, cpu_addr{cpu_addr_},
       cpu_addr_end{ImageSize::Add(cpu_addr, guest_size_bytes)},
       mip_level_offsets{CalculateMipLevelOffsets(info)} {
