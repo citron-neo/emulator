@@ -87,6 +87,16 @@ public:
         unsynced_writes = true;
     }
 
+    bool IsRenderpassOpenFor(const Framebuffer* framebuffer) const;
+
+    bool HasForeignRenderpassRequests() const noexcept {
+        return renderpass_requests != draw_renderpass_requests;
+    }
+
+    void MarkDrawRenderpassRequest() noexcept {
+        draw_renderpass_requests = renderpass_requests;
+    }
+
     /// Update the pipeline to the current execution context.
     bool UpdateGraphicsPipeline(GraphicsPipeline* pipeline);
 
@@ -271,6 +281,9 @@ private:
 
     const Device& device;
     StateTracker& state_tracker;
+
+    u64 renderpass_requests{};
+    u64 draw_renderpass_requests{};
 
     std::unique_ptr<MasterSemaphore> master_semaphore;
     std::unique_ptr<CommandPool> command_pool;

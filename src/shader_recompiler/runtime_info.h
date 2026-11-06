@@ -118,6 +118,7 @@ struct RuntimeInfo {
     float alpha_test_reference{};
     bool alpha_to_coverage_enabled{};
     std::array<FragmentOutputType, 8> frag_color_types{};
+    std::array<u8, 16> texture_fetch_attachment{};
 
     /// Static Y negate value
     bool y_negate{};
