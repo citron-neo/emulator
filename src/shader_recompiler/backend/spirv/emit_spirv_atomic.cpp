@@ -465,6 +465,58 @@ Id EmitGlobalAtomicXor32(EmitContext& ctx, Id address, Id value) {
     return GlobalAtomicU32(ctx, GlobalAtomicOp::Xor, address, value);
 }
 
+Id EmitStorageAtomicCompareExchange32(EmitContext& ctx, const IR::Value& binding,
+                                     const IR::Value& offset, Id compare, Id value) {
+    if (!binding.IsImmediate()) {
+        throw NotImplementedException("Dynamic storage buffer indexing");
+    }
+    if (offset.IsImmediate() && (offset.U32() & 3U) != 0) {
+        throw InvalidArgument("Unaligned 32-bit storage CAS byte offset 0x{:08x}", offset.U32());
+    }
+    return ctx.OpFunctionCall(ctx.U32[1],
+                              ctx.storage_atomic_compare_exchange32[binding.U32()],
+                              ctx.Def(offset), compare, value);
+}
+
+Id EmitStorageAtomicCompareExchange64(EmitContext& ctx, const IR::Value& binding,
+                                     const IR::Value& offset, Id compare, Id value) {
+    if (!binding.IsImmediate()) {
+        throw NotImplementedException("Dynamic storage buffer indexing");
+    }
+    if (offset.IsImmediate() && (offset.U32() & 7U) != 0) {
+        throw InvalidArgument("Unaligned 64-bit storage CAS byte offset 0x{:08x}", offset.U32());
+    }
+    return ctx.OpFunctionCall(ctx.U64,
+                              ctx.storage_atomic_compare_exchange64[binding.U32()],
+                              ctx.Def(offset), compare, value);
+}
+
+Id EmitGlobalAtomicCompareExchange32(EmitContext& ctx, const IR::Value& address, Id compare,
+                                     Id value) {
+    if (address.IsImmediate() && (address.U64() & 3U) != 0) {
+        throw InvalidArgument("Unaligned 32-bit global CAS address 0x{:016x}", address.U64());
+    }
+    if (!ctx.profile.support_int64) {
+        throw NotImplementedException("Global atomic compare exchange requires 64-bit addressing");
+    }
+    return ctx.OpFunctionCall(ctx.U32[1], ctx.global_atomic_compare_exchange32, ctx.Def(address),
+                              compare, value);
+}
+
+Id EmitGlobalAtomicCompareExchange64(EmitContext& ctx, const IR::Value& address, Id compare,
+                                     Id value) {
+    if (address.IsImmediate() && (address.U64() & 7U) != 0) {
+        throw InvalidArgument("Unaligned 64-bit global CAS address 0x{:016x}", address.U64());
+    }
+    if (!ctx.profile.support_int64 || !ctx.profile.support_int64_atomics ||
+        !ctx.profile.support_descriptor_aliasing) {
+        throw NotImplementedException(
+            "64-bit atomic compare exchange requires native Int64 atomics and descriptor aliasing");
+    }
+    return ctx.OpFunctionCall(ctx.U64, ctx.global_atomic_compare_exchange64, ctx.Def(address),
+                              compare, value);
+}
+
 Id EmitGlobalAtomicExchange32(EmitContext& ctx, Id address, Id value) {
     return GlobalAtomicU32(ctx, GlobalAtomicOp::Exchange, address, value);
 }

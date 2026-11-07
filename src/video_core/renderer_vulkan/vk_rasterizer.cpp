@@ -1397,20 +1397,36 @@ bool AccelerateDMA::DmaBufferImageCopy(const Tegra::DMA::ImageCopy& copy_info,
     if (image_id == VideoCommon::NULL_IMAGE_ID) {
         return false;
     }
-    const u32 buffer_size = static_cast<u32>(buffer_operand.pitch * buffer_operand.height);
+    const u64 wide_size = u64(buffer_operand.pitch) * buffer_operand.height;
+    if (wide_size > std::numeric_limits<u32>::max()) {
+        return false;
+    }
+    const auto buffer_size = static_cast<u32>(wide_size);
+    auto [image, copy] = texture_cache.DmaBufferImageCopy(copy_info, buffer_operand, image_operand,
+                                                          image_id, IS_IMAGE_UPLOAD, false);
+    if (image->NeedsSynchronousDownloadBaseline()) {
+        const auto bpp = BytesPerBlock(image->info.format);
+        if (buffer_operand.address % 4 || buffer_operand.pitch % bpp ||
+            (u64(copy_info.length_x) * image_operand.bytes_per_pixel) % bpp ||
+            (u64(image_operand.params.origin.x.Value()) * image_operand.bytes_per_pixel) % bpp ||
+            !image->CanDepthStencilDma(std::span{&copy, 1}, buffer_size)) {
+            LOG_DEBUG(Render_Vulkan, "Depth/stencil DMA requires unsupported layout or device "
+                                     "buffer range; using guest DMA fallback");
+            return false;
+        }
+    }
     static constexpr auto sync_info = VideoCommon::ObtainBufferSynchronize::FullSynchronize;
     const auto post_op = IS_IMAGE_UPLOAD ? VideoCommon::ObtainBufferOperation::DoNothing
                                          : VideoCommon::ObtainBufferOperation::MarkAsWritten;
     const auto [buffer, offset] =
         buffer_cache.ObtainBuffer(buffer_operand.address, buffer_size, sync_info, post_op);
-
-    const auto [image, copy] = texture_cache.DmaBufferImageCopy(
+    std::tie(image, copy) = texture_cache.DmaBufferImageCopy(
         copy_info, buffer_operand, image_operand, image_id, IS_IMAGE_UPLOAD);
     const std::span copy_span{&copy, 1};
 
     if constexpr (IS_IMAGE_UPLOAD) {
         texture_cache.PrepareImage(image_id, true, false);
-        image->UploadMemory(buffer->Handle(), offset, copy_span);
+        image->UploadMemoryDma(buffer->Handle(), offset, buffer_size, copy_span);
     } else {
         if (offset % BytesPerBlock(image->info.format)) {
             return false;

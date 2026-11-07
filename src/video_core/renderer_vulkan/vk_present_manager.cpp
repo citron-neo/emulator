@@ -153,7 +153,8 @@ Frame* PresentManager::GetRenderFrame() {
     ++frames_in_flight;
 
     // Wait for the presentation to be finished so all frame resources are free
-    frame->present_done.Wait();
+    // Keep the frame's resources reserved if the GPU wait fails.
+    vk::Check(frame->present_done.Wait());
     frame->present_done.Reset();
 
     return frame;

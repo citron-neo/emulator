@@ -8,6 +8,7 @@
 #include "common/bit_field.h"
 #include "common/common_types.h"
 #include "common/scratch_buffer.h"
+#include "video_core/engines/inline_upload.h"
 
 namespace Tegra {
 class MemoryManager;
@@ -73,16 +74,14 @@ public:
         return regs.dest.Address();
     }
 
-    u32 GetUploadSize() const {
-        return copy_size;
+    size_t GetUploadSize() const {
+        return accumulator.Size();
     }
 
 private:
-    void ProcessData(std::span<const u8> read_buffer);
+    void CommitData(std::span<const u8> read_buffer);
 
-    u32 write_offset = 0;
-    u32 copy_size = 0;
-    Common::ScratchBuffer<u8> inner_buffer;
+    DataAccumulator accumulator;
     Common::ScratchBuffer<u8> tmp_buffer;
     bool is_linear = false;
     Registers& regs;

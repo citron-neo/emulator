@@ -5,6 +5,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <stdexcept>
 #include <utility>
 
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
@@ -20,6 +21,7 @@
 #include "video_core/host_shaders/queries_prefix_scan_sum_comp_spv.h"
 #include "video_core/host_shaders/queries_prefix_scan_sum_nosubgroups_comp_spv.h"
 #include "video_core/host_shaders/resolve_conditional_render_comp_spv.h"
+#include "video_core/host_shaders/vulkan_depth_stencil_dma_comp_spv.h"
 #include "video_core/host_shaders/vulkan_quad_indexed_comp_spv.h"
 #include "video_core/host_shaders/vulkan_uint8_comp_spv.h"
 #include "video_core/renderer_vulkan/vk_compute_pass.h"
@@ -302,6 +304,83 @@ ComputePass::ComputePass(const Device& device_, DescriptorPool& descriptor_pool,
 }
 
 ComputePass::~ComputePass() = default;
+
+DepthStencilDmaPass::DepthStencilDmaPass(const Device& device_, Scheduler& scheduler_,
+                                         DescriptorPool& pool, ComputePassDescriptorQueue& queue_)
+    : ComputePass(device_, pool, INPUT_OUTPUT_DESCRIPTOR_SET_BINDINGS,
+                  INPUT_OUTPUT_DESCRIPTOR_UPDATE_TEMPLATE, INPUT_OUTPUT_BANK_INFO,
+                  COMPUTE_PUSH_CONSTANT_RANGE<52>, VULKAN_DEPTH_STENCIL_DMA_COMP_SPV),
+      scheduler{scheduler_}, queue{queue_} {}
+
+void DepthStencilDmaPass::Run(VkBuffer packed, u32 packed_size, VkBuffer planes, u32 planes_size,
+                              std::array<u32, 13> parameters) {
+    if (!packed_size || !planes_size || (packed_size & 3u) || (planes_size & 3u) ||
+        packed_size > device.GetMaxStorageBufferRange() ||
+        planes_size > device.GetMaxStorageBufferRange() || (parameters[10] & 3) ||
+        (parameters[11] & 3) || parameters[10] >= parameters[11]) {
+        throw std::invalid_argument("Invalid depth/stencil DMA dispatch range");
+    }
+    const auto& p = parameters;
+    if (p[12] > 2)
+        throw std::invalid_argument("Unsupported DMA host depth format");
+    const u64 depth_bytes = p[12] == 2 ? 2 : 4;
+    const u64 area = u64(p[0]) * p[1];
+    if (!area || area > planes_size / depth_bytes || !p[2] ||
+        p[2] > (planes_size / depth_bytes) / area) {
+        throw std::invalid_argument("Invalid depth/stencil DMA pixel count");
+    }
+    const u64 count = area * p[2];
+    const u64 bpp = p[8] == 2 ? 8 : 4;
+    if (!p[0] || !p[1] || !p[2] || p[8] > 2 || p[9] > 1 || p[3] < u64(p[0]) * bpp ||
+        p[4] < u64(p[1] - 1) * p[3] + u64(p[0]) * bpp ||
+        u64(p[5]) + u64(p[2] - 1) * p[4] + u64(p[1] - 1) * p[3] + u64(p[0]) * bpp > packed_size ||
+        (p[6] & 3u) || (p[7] & 3u) || u64(p[7]) < u64(p[6]) + count * depth_bytes ||
+        u64(p[6]) + count * depth_bytes > planes_size || u64(p[7]) + count > planes_size ||
+        p[11] > (p[9] ? packed_size : planes_size) ||
+        (p[9] ? (p[10] != 0 || p[11] != packed_size)
+              : (p[10] != p[6] || u64(p[11]) < u64(p[7]) + count))) {
+        throw std::invalid_argument("Invalid depth/stencil DMA descriptor bounds");
+    }
+    queue.Acquire();
+    queue.AddBuffer(packed, 0, packed_size);
+    queue.AddBuffer(planes, 0, planes_size);
+    const auto* descriptors = queue.UpdateData();
+    scheduler.RequestOutsideRenderPassOperationContext();
+    // Scratch compute state must not be reused as guest pipeline/descriptor state.
+    scheduler.InvalidateState();
+    while (parameters[10] < parameters[11]) {
+        auto part = parameters;
+        constexpr u32 chunk = 65535u * 64u * 4u;
+        part[11] = parameters[10] + std::min(chunk, parameters[11] - parameters[10]);
+        scheduler.Record([this, descriptors, part, packed, packed_size, planes, planes_size](vk::CommandBuffer cmdbuf) {
+            const auto barrier=[](VkBuffer buffer,VkDeviceSize size,VkAccessFlags src,VkAccessFlags dst) {
+                return VkBufferMemoryBarrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,nullptr,src,dst,
+                    VK_QUEUE_FAMILY_IGNORED,VK_QUEUE_FAMILY_IGNORED,buffer,0,size};
+            };
+            const std::array before{
+                barrier(packed,packed_size,VK_ACCESS_TRANSFER_WRITE_BIT|VK_ACCESS_SHADER_WRITE_BIT,
+                    VK_ACCESS_SHADER_READ_BIT|VK_ACCESS_SHADER_WRITE_BIT),
+                barrier(planes,planes_size,VK_ACCESS_TRANSFER_WRITE_BIT|VK_ACCESS_SHADER_WRITE_BIT,
+                    VK_ACCESS_SHADER_READ_BIT|VK_ACCESS_SHADER_WRITE_BIT)};
+            const auto after=barrier(part[9]?packed:planes,part[9]?packed_size:planes_size,
+                VK_ACCESS_SHADER_WRITE_BIT,VK_ACCESS_TRANSFER_READ_BIT|VK_ACCESS_TRANSFER_WRITE_BIT|
+                    VK_ACCESS_SHADER_READ_BIT|VK_ACCESS_SHADER_WRITE_BIT);
+            cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT|VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,0,nullptr,before,nullptr);
+            const auto set = descriptor_allocator.Commit();
+            device.GetLogical().UpdateDescriptorSet(set, *descriptor_template, descriptors);
+            cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
+            cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_COMPUTE, *layout, 0, set, {});
+            cmdbuf.PushConstants(*layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(part),
+                                 part.data());
+            cmdbuf.Dispatch(Common::DivCeil((part[11] - part[10]) / 4u, 64u), 1, 1);
+            cmdbuf.PipelineBarrier(
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, nullptr, after, nullptr);
+        });
+        parameters[10] = part[11];
+    }
+}
 
 Uint8Pass::Uint8Pass(const Device& device_, Scheduler& scheduler_, DescriptorPool& descriptor_pool,
                      StagingBufferPool& staging_buffer_pool_,

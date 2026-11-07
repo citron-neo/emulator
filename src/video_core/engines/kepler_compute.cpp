@@ -7,6 +7,7 @@
 #include "core/core.h"
 #include "video_core/engines/kepler_compute.h"
 #include "video_core/engines/maxwell_3d.h"
+#include "video_core/invalid_gpu_address.h"
 #include "video_core/memory_manager.h"
 #include "video_core/rasterizer_interface.h"
 #include "video_core/textures/decoders.h"
@@ -35,7 +36,7 @@ void KeplerCompute::ConsumeSinkImpl() {
     method_sink.clear();
 }
 
-void KeplerCompute::CallMethod(u32 method, u32 method_argument, bool is_last_call) {
+void KeplerCompute::CallMethod(u32 method, u32 method_argument, [[maybe_unused]] bool is_last_call) {
     assert(method < Regs::NUM_REGS &&
            "Invalid KeplerCompute register, increase the size of the Regs structure");
 
@@ -43,26 +44,39 @@ void KeplerCompute::CallMethod(u32 method, u32 method_argument, bool is_last_cal
 
     switch (method) {
     case KEPLER_COMPUTE_REG_INDEX(exec_upload): {
-        UploadInfo info{.upload_address = upload_address,
-                        .exec_address = upload_state.ExecTargetAddress(),
-                        .copy_size = upload_state.GetUploadSize()};
-        uploads.push_back(info);
         upload_state.ProcessExec(regs.exec_upload.linear != 0);
+        const bool contiguous_destination =
+            regs.exec_upload.linear != 0 &&
+            (regs.upload.line_count == 1 || regs.upload.dest.pitch == regs.upload.line_length_in);
+        upload_source.Begin(upload_state.ExecTargetAddress(), upload_state.GetUploadSize(),
+                            contiguous_destination);
         break;
     }
     case KEPLER_COMPUTE_REG_INDEX(data_upload): {
-        upload_address = current_dma_segment;
-        upload_state.ProcessData(method_argument, is_last_call);
+        ProcessUpload(&method_argument, 1);
         break;
     }
     case KEPLER_COMPUTE_REG_INDEX(launch): {
         const GPUVAddr launch_desc_loc = regs.launch_desc_loc.Address();
+        constexpr size_t qmd_size = LaunchParams::NUM_LAUNCH_PARAMETERS * sizeof(u32);
+        if (!memory_manager.IsWithinGPUAddressRange(launch_desc_loc, qmd_size)) {
+            LOG_ERROR(HW_GPU, "QMD outside GPU address space: address=0x{:x}, bytes={}",
+                      launch_desc_loc, qmd_size);
+            throw VideoCommon::InvalidGpuAddress{};
+        }
 
-        for (auto& data : uploads) {
-            const GPUVAddr offset = data.exec_address - launch_desc_loc;
-            if (offset / sizeof(u32) == LAUNCH_REG_INDEX(grid_dim_x) &&
-                memory_manager.IsMemoryDirty(data.upload_address, data.copy_size)) {
-                indirect_compute = {data.upload_address};
+        constexpr size_t dispatch_size = 3 * sizeof(u32);
+        const GPUVAddr dispatch_address = launch_desc_loc + offsetof(LaunchParams, grid_dim_x);
+        for (const auto& data : uploads) {
+            // A later overwrite must not reuse an earlier upload's GPU source.
+            // Non-contiguous destinations cannot be represented by this range;
+            // conservatively fall back to the assembled descriptor for them.
+            if (!data.contiguous || data.Overlaps(dispatch_address, dispatch_size)) {
+                indirect_compute.reset();
+            }
+            const auto source = data.IndirectAddress(dispatch_address, dispatch_size);
+            if (source && memory_manager.IsMemoryDirty(*source, dispatch_size)) {
+                indirect_compute = source;
             }
         }
         uploads.clear();
@@ -79,14 +93,21 @@ void KeplerCompute::CallMultiMethod(u32 method, const u32* base_start, u32 amoun
                                     u32 methods_pending) {
     switch (method) {
     case KEPLER_COMPUTE_REG_INDEX(data_upload):
-        upload_address = current_dma_segment;
-        upload_state.ProcessData(base_start, amount);
+        ProcessUpload(base_start, amount);
         return;
     default:
         for (u32 i = 0; i < amount; i++) {
             CallMethod(method, base_start[i], methods_pending - i <= 1);
         }
         break;
+    }
+}
+
+void KeplerCompute::ProcessUpload(const u32* data, size_t count) {
+    const auto source = upload_source.Append(current_dma_segment, count * sizeof(u32));
+    upload_state.ProcessData(data, count);
+    if (source) {
+        uploads.push_back(*source);
     }
 }
 

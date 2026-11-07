@@ -198,6 +198,9 @@ void LowerI64ToI32(IR::Block& block, IR::Inst& inst) {
         return ShiftRightLogical64To32(block, inst);
     case IR::Opcode::ShiftRightArithmetic64:
         return ShiftRightArithmetic64To32(block, inst);
+    case IR::Opcode::GlobalAtomicCompareExchange64:
+    case IR::Opcode::StorageAtomicCompareExchange64:
+        throw NotImplementedException("64-bit atomic compare exchange requires native Int64 atomics");
     case IR::Opcode::SharedAtomicExchange64:
         return inst.ReplaceOpcode(IR::Opcode::SharedAtomicExchange32x2);
     case IR::Opcode::GlobalAtomicIAdd64:

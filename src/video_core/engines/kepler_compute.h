@@ -238,6 +238,8 @@ public:
 private:
     void ProcessLaunch();
 
+    void ProcessUpload(const u32* data, size_t count);
+
     void ReleaseQmdSemaphores();
 
     void ConsumeSinkImpl() override;
@@ -252,14 +254,8 @@ private:
     MemoryManager& memory_manager;
     VideoCore::RasterizerInterface* rasterizer = nullptr;
     Upload::State upload_state;
-    GPUVAddr upload_address;
-
-    struct UploadInfo {
-        GPUVAddr upload_address;
-        GPUVAddr exec_address;
-        u32 copy_size;
-    };
-    std::vector<UploadInfo> uploads;
+    Upload::SourceTracker upload_source;
+    std::vector<Upload::SourceRange> uploads;
     std::optional<GPUVAddr> indirect_compute{};
     /// The first QMD release with a reduction is logged; later ones are not.
     bool reduction_reported{};

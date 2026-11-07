@@ -9,7 +9,6 @@
 #include <fmt/format.h>
 #include "common/assert.h"
 #include "common/logging.h"
-#include "common/scope_exit.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_event.h"
 #include "core/hle/service/nvdrv/core/container.h"
@@ -90,14 +89,6 @@ NvResult nvhost_ctrl::IocCtrlEventWait(IocCtrlEventWaitParams& params, bool is_a
     LOG_DEBUG(Service_NVDRV, "syncpt_id={}, threshold={}, timeout={}, is_allocation={}",
               params.fence.id, params.fence.value, params.timeout, is_allocation);
 
-    bool must_unmark_fail = !is_allocation;
-    const u32 event_id = params.value.raw;
-    SCOPE_EXIT {
-        if (must_unmark_fail) {
-            events[event_id].fails = 0;
-        }
-    };
-
     const u32 fence_id = static_cast<u32>(params.fence.id);
 
     if (fence_id >= MaxSyncPoints) {
@@ -140,30 +131,11 @@ NvResult nvhost_ctrl::IocCtrlEventWait(IocCtrlEventWaitParams& params, bool is_a
         }
     }();
 
-    must_unmark_fail = false;
-
-    const auto check_failing = [&]() {
-        if (events[slot].fails > 2) {
-            {
-                auto lk = system.StallApplication();
-                host1x_syncpoint_manager.WaitHost(fence_id, target_value);
-                system.UnstallApplication();
-            }
-            params.value.raw = target_value;
-            return true;
-        }
-        return false;
-    };
-
     if (slot >= MaxNvEvents) {
         return NvResult::BadParameter;
     }
 
     if (params.timeout == 0) {
-        if (check_failing()) {
-            events[slot].fails = 0;
-            return NvResult::Success;
-        }
         return NvResult::Timeout;
     }
 
@@ -173,15 +145,20 @@ NvResult nvhost_ctrl::IocCtrlEventWait(IocCtrlEventWaitParams& params, bool is_a
         return NvResult::BadParameter;
     }
 
+    if (event.status.load(std::memory_order_acquire) == EventState::Signalling) {
+        // Signal can wake the guest before the callback publishes Signalled.
+        // Join that old callback before reusing its slot or replacing its handle.
+        host1x_syncpoint_manager.DeregisterHostAction(event.assigned_syncpt, event.wait_handle);
+        event.wait_handle = {};
+    }
+
     if (event.IsBeingUsed()) {
         return NvResult::BadParameter;
     }
 
-    if (check_failing()) {
-        event.fails = 0;
-        return NvResult::Success;
-    }
-
+    // A cancelled wait may be retried before the guest submits the work for this fence.
+    // Keep the wait asynchronous: stalling the application or blocking this nvservices
+    // handler would prevent those submissions and turn a timeout into a permanent hang.
     params.value.raw = 0;
 
     event.status.store(EventState::Waiting, std::memory_order_release);
@@ -280,14 +257,16 @@ NvResult nvhost_ctrl::IocCtrlClearEventWait(IocCtrlEventClearParams& params) {
     auto lock = NvEventsLock();
 
     auto& event = events[event_id];
-    if (event.status.exchange(EventState::Cancelling, std::memory_order_acq_rel) ==
-        EventState::Waiting) {
-        auto& host1x_syncpoint_manager = system.Host1x().GetSyncpointManager();
-        host1x_syncpoint_manager.DeregisterHostAction(event.assigned_syncpt, event.wait_handle);
+    const auto previous_status =
+        event.status.exchange(EventState::Cancelling, std::memory_order_acq_rel);
+    // Signalling is still an active callback. Join it before publishing Cancelled
+    // or clearing/reusing its KEvent; EventState alone is not completion.
+    auto& host1x_syncpoint_manager = system.Host1x().GetSyncpointManager();
+    host1x_syncpoint_manager.DeregisterHostAction(event.assigned_syncpt, event.wait_handle);
+    event.wait_handle = {};
+    if (previous_status == EventState::Waiting) {
         syncpoint_manager.UpdateMin(event.assigned_syncpt);
-        event.wait_handle = {};
     }
-    event.fails++;
     event.status.store(EventState::Cancelled, std::memory_order_release);
     event.kevent->Clear();
 
@@ -333,7 +312,6 @@ void nvhost_ctrl::CreateNvEvent(u32 event_id) {
     event.status = EventState::Available;
     event.registered = true;
     const u64 mask = 1ULL << event_id;
-    event.fails = 0;
     events_mask |= mask;
     event.assigned_syncpt = 0;
 }

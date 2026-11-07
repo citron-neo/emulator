@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstring>
+#include <new>
 
 #include "common/algorithm.h"
 #include "common/assert.h"
@@ -23,28 +24,33 @@ void State::BindRasterizer(VideoCore::RasterizerInterface* rasterizer_) {
 }
 
 void State::ProcessExec(const bool is_linear_) {
-    write_offset = 0;
-    copy_size = regs.line_length_in * regs.line_count;
-    inner_buffer.resize_destructive(copy_size);
+    const size_t upload_size = static_cast<size_t>(regs.line_length_in) * regs.line_count;
+    try {
+        accumulator.Begin(upload_size);
+    } catch (const std::bad_alloc&) {
+        LOG_ERROR(HW_GPU,
+                  "Inline upload allocation failed: bytes={}, line_length={}, line_count={}, "
+                  "destination=0x{:016x}, pitch={}, linear={}",
+                  upload_size, regs.line_length_in, regs.line_count, regs.dest.Address(),
+                  regs.dest.pitch, is_linear_);
+        throw;
+    }
     is_linear = is_linear_;
 }
 
-void State::ProcessData(const u32 data, const bool is_last_call) {
-    const u32 sub_copy_size = std::min(4U, copy_size - write_offset);
-    std::memcpy(&inner_buffer[write_offset], &data, sub_copy_size);
-    write_offset += sub_copy_size;
-    if (!is_last_call) {
-        return;
-    }
-    ProcessData(inner_buffer);
+void State::ProcessData(const u32 value, [[maybe_unused]] const bool is_last_call) {
+    // The last method in a packet does not necessarily finish the EXEC transfer.
+    ProcessData(&value, 1);
 }
 
 void State::ProcessData(const u32* data, size_t num_data) {
     std::span<const u8> read_buffer(reinterpret_cast<const u8*>(data), num_data * sizeof(u32));
-    ProcessData(read_buffer);
+    if (const auto complete = accumulator.Append(read_buffer)) {
+        CommitData(*complete);
+    }
 }
 
-void State::ProcessData(std::span<const u8> read_buffer) {
+void State::CommitData(std::span<const u8> read_buffer) {
     const GPUVAddr address{regs.dest.Address()};
     if (is_linear) {
         for (size_t line = 0; line < regs.line_count; ++line) {

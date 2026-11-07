@@ -5199,6 +5199,11 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
     KProcessAddress cur_address;
     size_t mapped_size;
 
+    // After pressure recovery, reserve only the guest's demand for the rest of this call.
+    // Keep this outside the mapping retry loop so a concurrent mapping change cannot re-enable
+    // speculative allocation or repeat the pressure recovery indefinitely.
+    bool retried_without_prefetch = false;
+
     // The entire mapping process can be retried.
     while (true) {
         size_t guest_free_extents = 0;
@@ -5290,7 +5295,7 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
             const bool continuous_retry_allowed =
                 map_call_id >= m_physical_map_continuous_retry_after_call;
             const bool will_attempt_new_window =
-                !can_consume_window && mapped_size == 0 &&
+                !retried_without_prefetch && !can_consume_window && mapped_size == 0 &&
                 requested_pages <= PhysicalMapWindowPages && continuous_retry_allowed;
             const size_t reservation_size =
                 can_consume_window
@@ -5299,7 +5304,21 @@ Result KPageTableBase::MapPhysicalMemory(KProcessAddress address, size_t size) {
                                                : size - mapped_size);
             KScopedResourceReservation memory_reservation(
                 m_resource_limit, Svc::LimitableResource::PhysicalMemoryMax, reservation_size);
-            R_UNLESS(memory_reservation.Succeeded(), ResultLimitReached);
+            if (!memory_reservation.Succeeded()) {
+                R_UNLESS(!retried_without_prefetch, ResultLimitReached);
+                // Unmapped window tails are optional, but are charged to the same guest limit.
+                // Release only those tails under m_map_physical_memory_lock before reporting
+                // failure. Restart selection because releasing the windows invalidates slots.
+                const u64 released_before = m_physical_map_released_tail_pages;
+                this->ReleaseAllPhysicalMapWindows();
+                LOG_WARNING(HW_Memory,
+                            "MapPhysicalMemory reservation retry: address={:#x} demand={} "
+                            "reservation={} released_tail_bytes={} prefetch_disabled=true",
+                            GetInteger(address), size - mapped_size, reservation_size,
+                            (m_physical_map_released_tail_pages - released_before) * PageSize);
+                retried_without_prefetch = true;
+                continue;
+            }
 
             // Allocate pages for the new memory.
             KPageGroup pg(m_kernel, m_block_info_manager);

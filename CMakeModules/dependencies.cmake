@@ -447,28 +447,17 @@ if (ARCHITECTURE_arm64 AND NOT TARGET merry::oaknut)
     )
 endif()
 
-# ── sirit (in-tree: externals/sirit) ─────────────────────────────────────────
-# Requires SPIRV-Headers (populated above).
-if (NOT TARGET sirit)
-    # In-tree sirit: the CPM pin lacks APIs shader_recompiler needs.
+# ── sirit (yuzu-mirror fork) ──────────────────────────────────────────────────
+# sirit needs SPIRV-Headers. CPM already populated it above.
+if (NOT TARGET sirit::sirit AND NOT TARGET sirit)
     if (NOT TARGET SPIRV-Headers AND NOT TARGET SPIRV-Headers::SPIRV-Headers)
-        message(FATAL_ERROR "Sirit requires SPIRV-Headers; no provider supplied it")
+        message(FATAL_ERROR "Sirit requires the project SPIRV-Headers target; no provider supplied it")
     endif()
-    # Sirit calls find_package(SPIRV-Headers) even when the target already exists, so
-    # expose the project target under the imported name and give find_package a config.
-    if (NOT TARGET SPIRV-Headers::SPIRV-Headers)
-        add_library(SPIRV-Headers::SPIRV-Headers ALIAS SPIRV-Headers)
-    endif()
-    if (NOT EXISTS "${SPIRV-Headers_DIR}/SPIRV-HeadersConfig.cmake")
-        set(_sirit_hdr_cfg_dir "${CMAKE_BINARY_DIR}/providers/SPIRV-Headers")
-        file(MAKE_DIRECTORY "${_sirit_hdr_cfg_dir}")
-        file(WRITE "${_sirit_hdr_cfg_dir}/SPIRV-HeadersConfig.cmake"
-            "if(NOT TARGET SPIRV-Headers::SPIRV-Headers)\n"
-            "    message(FATAL_ERROR \"Parent SPIRV-Headers target is missing\")\n"
-            "endif()\n")
-        set(SPIRV-Headers_DIR "${_sirit_hdr_cfg_dir}")
-    endif()
+    include(${CMAKE_SOURCE_DIR}/CMakeModules/SiritProvider.cmake)
+    citron_prepare_sirit_headers()
     set(SIRIT_USE_SYSTEM_SPIRV_HEADERS ON)
+    # The shader backend uses APIs added to the in-tree Sirit sources upstream.
+    # Do not fetch the older standalone pin when the CPM provider is selected.
     set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
     add_subdirectory("${CMAKE_SOURCE_DIR}/externals/sirit" "${CMAKE_BINARY_DIR}/sirit")
     if (CITRON_CLANGCL AND TARGET sirit)
