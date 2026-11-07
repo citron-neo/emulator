@@ -109,10 +109,13 @@ CMAKE_DEPENDENT_OPTION(CITRON_ROOM "Compile LDN room server" ON "NOT ANDROID" OF
 
 CMAKE_DEPENDENT_OPTION(CITRON_CRASH_DUMPS "Compile crash dump (Minidump) support" OFF "WIN32 OR LINUX" OFF)
 
-# CITRON_USE_CPM is the primary way to fetch dependencies on Linux and for Clangtron.
-# vcpkg is supported primarily for native MSVC and Android builds.
-option(CITRON_USE_BUNDLED_VCPKG "Use vcpkg for citron dependencies" "${MSVC}")
-option(CITRON_USE_CPM "Use CPM.cmake to fetch dependencies" OFF)
+# CPM is the default dependency provider on all platforms.
+# Bundled vcpkg remains available as an explicit compatibility provider.
+option(CITRON_USE_BUNDLED_VCPKG "Use vcpkg for citron dependencies" OFF)
+option(CITRON_USE_CPM "Use CPM.cmake to fetch dependencies" ON)
+if (CITRON_USE_CPM AND CITRON_USE_BUNDLED_VCPKG)
+    message(FATAL_ERROR "CITRON_USE_CPM and CITRON_USE_BUNDLED_VCPKG cannot both be enabled")
+endif()
 option(CITRON_BUNDLE_SCARLETNX "Bundle a prebuilt ScarletNX (the 'Run with AOT' backend, Windows x86_64 only) next to citron. Needs CITRON_USE_CPM; ~110 MB download, ~350 MB unpacked" OFF)
 option(CITRON_CLANGCL "Build natively on Windows with clang-cl and the MSVC ABI" OFF)
 option(CITRON_CLANGCL_FULL_LTO_LINE_TABLES "Use CodeView line tables for clang-cl full-LTO RelWithDebInfo" OFF)
@@ -198,9 +201,15 @@ if (CITRON_USE_BUNDLED_VCPKG)
     endif()
 
     include(${CMAKE_SOURCE_DIR}/externals/vcpkg/scripts/buildsystems/vcpkg.cmake)
-elseif(NOT "$ENV{VCPKG_TOOLCHAIN_FILE}" STREQUAL "")
+elseif(NOT CITRON_USE_CPM AND NOT "$ENV{VCPKG_TOOLCHAIN_FILE}" STREQUAL "")
     option(VCPKG_MANIFEST_MODE "")
     include("$ENV{VCPKG_TOOLCHAIN_FILE}")
+endif()
+
+if (ANDROID AND NOT CITRON_USE_CPM AND
+    DEFINED VCPKG_INSTALLED_DIR AND NOT "${VCPKG_INSTALLED_DIR}" STREQUAL "" AND
+    DEFINED VCPKG_TARGET_TRIPLET AND NOT "${VCPKG_TARGET_TRIPLET}" STREQUAL "")
+    include(${CMAKE_SOURCE_DIR}/CMakeModules/OboeVcpkg.cmake)
 endif()
 
 option(CITRON_USE_PRECOMPILED_HEADERS "Use Precompiled Headers" ON)
@@ -318,6 +327,8 @@ endif()
 
 # Configure C++ standard
 # ===========================
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # boost asio's concept usage doesn't play nicely with some compilers yet.
 add_definitions(-DBOOST_ASIO_DISABLE_CONCEPTS)
@@ -385,8 +396,6 @@ endif()
 # find_package() calls so CPM-created targets and Find modules are available.
 # Gated behind an option so MSVC/Linux/macOS/Android builds are unaffected.
 if (CITRON_USE_CPM)
-    # Disable vcpkg manifest auto-install — CPM provides all packages
-    set(VCPKG_MANIFEST_MODE OFF CACHE BOOL "" FORCE)
     set(CPM_SOURCE_CACHE "${CMAKE_BINARY_DIR}/_cpm_cache"
         CACHE PATH "CPM download cache — point to a shared directory on CI")
     option(CPM_USE_LOCAL_PACKAGES "Prefer system find_package over CPM fetch" OFF)
@@ -543,6 +552,7 @@ function(create_target_directory_groups target_name)
 endfunction()
 
 add_subdirectory(externals)
+include(DependencyTargets)
 # Apply a patch to stb_image.h to fix a string overflow warning with modern compilers
 message(STATUS "Applying custom patch to stb_image.h...")
 
@@ -699,12 +709,13 @@ set(FFmpeg_COMPONENTS
 
 if (UNIX AND NOT APPLE AND NOT ANDROID)
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIBVA libva)
+    pkg_check_modules(LIBVA IMPORTED_TARGET libva)
 endif()
 if (NOT CITRON_USE_BUNDLED_FFMPEG)
     # Use system installed FFmpeg
     find_package(FFmpeg 4.3 REQUIRED QUIET COMPONENTS ${FFmpeg_COMPONENTS})
 endif()
+citron_resolve_ffmpeg_target()
 
 if(ENABLE_QT)
     set_citron_qt_components()
@@ -714,7 +725,7 @@ if(ENABLE_QT)
     set_target_properties(Qt6::Platform PROPERTIES INTERFACE_COMPILE_FEATURES "")
 endif()
 
-if (WIN32 AND CITRON_CRASH_DUMPS)
+if (WIN32 AND CITRON_CRASH_DUMPS AND NOT TARGET libbreakpad_client)
     set(BREAKPAD_VER "breakpad-c89f9dd")
     download_bundled_external("breakpad/" ${BREAKPAD_VER} BREAKPAD_PREFIX)
 

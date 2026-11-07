@@ -161,7 +161,7 @@ private:
                                                    backbone_labs_vid, xbox_vid};
 
     /// Queue of vibration request to controllers
-    Common::SPSCQueue<VibrationRequest> vibration_queue;
+    Common::SPSCQueue<VibrationRequest, true> vibration_queue;
     std::jthread vibration_thread;
 };
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <catch2/catch_test_macros.hpp>
+#include <unordered_map>
 
 #include "common/common_types.h"
 #include "common/container_hash.h"
@@ -41,4 +42,15 @@ TEST_CASE("ContainerHash", "[common]") {
     REQUIRE(Common::HashValue(U16Values) == 9594135570564347135ULL);
     REQUIRE(Common::HashValue(U32Values) == 13123757214696618460ULL);
     REQUIRE(Common::HashValue(U64Values) == 7296500016546938380ULL);
+}
+
+TEST_CASE("TupleHash supports tuple and pair container keys", "[common]") {
+    const Common::TupleHash hash;
+    const auto tuple = std::tuple{true, std::size_t{4}, -1, 2};
+    std::unordered_map<decltype(std::tuple{true, std::size_t{4}, -1, 2}), int,
+                       Common::TupleHash> map;
+    map.emplace(tuple, 42);
+    REQUIRE(map.at(tuple) == 42);
+    REQUIRE(hash(std::pair{-1, 2}) == hash(std::tuple{-1, 2}));
+    REQUIRE(hash(std::tuple{}) == 0);
 }
