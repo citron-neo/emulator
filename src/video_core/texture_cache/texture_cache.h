@@ -65,11 +65,11 @@ bool TextureCache<P>::RunGarbageCollector(bool aggressive_mode) {
     const size_t max_scans = aggressive_mode ? 128 : 64;
     const size_t max_download_bytes = 32_MiB;
     size_t download_bytes = 0;
-    struct PendingDownload {
+    struct GcDownload {
         ImageId image_id;
         size_t offset;
     };
-    boost::container::small_vector<PendingDownload, 40> pending_downloads;
+    boost::container::small_vector<GcDownload, 40> pending_downloads;
     size_t num_evictions = 0;
 
     const auto Cleanup = [&](ImageId image_id) {
@@ -1965,7 +1965,10 @@ ImageId TextureCache<P>::FindPaddedRenderTarget(const ImageInfo& info, GPUVAddr 
         }
         const u32 width = std::max(1U, image.info.size.width >> base->level);
         const u32 height = std::max(1U, image.info.size.height >> base->level);
-        if (width > info.size.width || height > info.size.height ||
+        // Only an image at least as large as the requested target in both dimensions can
+        // stand in for it: rendering into a smaller one leaves the bottom and right rows of
+        // the target unwritten, and they come back as stale memory.
+        if (width < info.size.width || height < info.size.height ||
             (width == info.size.width && height == info.size.height)) {
             return;
         }

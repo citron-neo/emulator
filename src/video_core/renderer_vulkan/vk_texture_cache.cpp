@@ -2118,7 +2118,7 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
         .pNext = nullptr,
         .usage = ImageUsageFlags(format_info, format) & ImageUsageFlags(image_format_info, image.info.format),
     };
-    const VkImageViewCreateInfo create_info{
+    VkImageViewCreateInfo create_info{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = &image_view_usage,
         .flags = 0,
@@ -2128,6 +2128,23 @@ ImageView::ImageView(TextureCacheRuntime& runtime, const VideoCommon::ImageViewI
         .components = stored_components,
         .subresourceRange = MakeSubresourceRange(aspect_mask, info.range),
     };
+    {
+        auto& range = create_info.subresourceRange;
+        const u32 levels = PhysicalMipLevels(image.info);
+        range.baseMipLevel = std::min(range.baseMipLevel, levels - 1);
+        range.levelCount = std::min(range.levelCount, levels - range.baseMipLevel);
+    }
+    if (image.info.type != VideoCommon::ImageType::e3D) {
+        auto& range = create_info.subresourceRange;
+        const u32 layers = static_cast<u32>(image.info.resources.layers);
+        range.baseArrayLayer = std::min(range.baseArrayLayer, layers - 1);
+        range.layerCount = std::min(range.layerCount, layers - range.baseArrayLayer);
+        if ((info.type == VideoCommon::ImageViewType::Cube ||
+             info.type == VideoCommon::ImageViewType::CubeArray) &&
+            range.layerCount >= 6) {
+            range.layerCount -= range.layerCount % 6;
+        }
+    }
     const auto create = [&](TextureType tex_type, std::optional<u32> num_layers) {
         VkImageViewCreateInfo ci{create_info};
         ci.viewType = ToImageViewType(tex_type);
