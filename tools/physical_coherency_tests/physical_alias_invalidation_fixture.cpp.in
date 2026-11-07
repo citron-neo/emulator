@@ -1,0 +1,129 @@
+// Real Scheduler invalidation/recording bodies. GPU dispatch and mapping are simulated.
+struct FanoutMapping {
+    std::shared_ptr<Common::GuestBackingEpoch> backing;
+    std::shared_ptr<Common::MappingEpoch> epoch;
+    template<class F> bool ReadPhysicalMappingSnapshot(F f) const {
+        return f(epoch,u64{0},backing,u64{16384},[](u64 address)->std::optional<u64> {
+            const u64 slot=(address-A)/131072,page=((address-A)%131072)/4096;
+            const u64 physical_page=slot==0?page:(slot==1?1-page:0);
+            return physical_page*4096+address%4096;
+        });
+    }
+};
+void TestPhysicalAliasInvalidation() {
+    using S=Vulkan::Scheduler; using C=Vulkan::TransferContent;
+    for (unsigned mode=0;mode<14;++mode) {
+        auto s=std::make_unique<Scenario>(); Vulkan::StorageObserverHarness observation{s->scheduler,s->runtime};
+        std::array<std::unique_ptr<Vulkan::Buffer>,4> owners;
+        std::vector<S::TransferBuffer> targets; std::vector<C::Command> commands;
+        std::array<u64,4> offsets{4,12,20,0};
+        if (mode==0) offsets.fill(0);
+        const auto original_backing=s->runtime.test_mapping.backing;
+        const auto original_epoch=s->runtime.test_mapping.epoch;
+        for (u32 slot=0;slot<4;++slot) {
+            if(slot==3) {
+                s->runtime.test_mapping.backing=std::make_shared<Common::GuestBackingEpoch>();
+                s->runtime.test_mapping.epoch=std::make_shared<Common::MappingEpoch>();
+            }
+            const u64 displacement=mode==2 && slot>0 ? 128*slot:0;
+            owners[slot]=std::make_unique<Vulkan::Buffer>(s->runtime,A+slot*131072+displacement,4096);
+            targets.push_back({*owners[slot]->PinStagedRepresentation(offsets[slot],64),
+                s->runtime.PhysicalIdentityForBinding(*owners[slot],offsets[slot],64)});
+            commands.push_back({C::Kind::Fill,slot,0,0,0,64,u32(slot+1)*0x11111111u});
+        }
+        s->runtime.test_mapping.backing=original_backing;
+        s->runtime.test_mapping.epoch=original_epoch;
+        const auto anchor=s->scheduler.RecordTransferBatch(targets,commands); assert(anchor);
+        s->scheduler.RunWorker();s->gpu.Complete();
+        const auto history=anchor->PlannedContent();assert(history);
+        const auto old=std::array{reinterpret_cast<Allocation*>(targets[0].pin.Handle())->bytes,
+            reinterpret_cast<Allocation*>(targets[1].pin.Handle())->bytes,
+            reinterpret_cast<Allocation*>(targets[2].pin.Handle())->bytes,
+            reinterpret_cast<Allocation*>(targets[3].pin.Handle())->bytes};
+        const u64 begin=mode==3?48:16, size=16;
+        std::array<std::array<bool,64>,4> expected;
+        for(u32 slot=0;slot<4;++slot) for(u64 byte=0;byte<64;++byte) {
+            // Independent per-byte physical lookup, not the segment intersection algorithm.
+            const auto writer_base=(A%131072)+offsets[0];
+            const auto target_base=(A%131072)+offsets[slot]+(mode==2&&slot>0?128*slot:0);
+            const auto physical_byte=target_base+byte;
+            expected[slot][byte]=slot==3 || physical_byte<writer_base+begin || physical_byte>=writer_base+begin+size;
+        }
+        if(mode==4) {s->runtime.test_mapping.bias=4096;}
+        if(mode==5) {owners[0]->RevokeContentEligibility();}
+        if(mode==6) {s->runtime.test_mapping.generation+=2;s->runtime.test_mapping.epoch->generation.store(2);}
+        if(mode==7) {s->scheduler.current_content_uncertain.store(true);}
+        if(mode==8) {s->gpu.submit_result=VK_ERROR_DEVICE_LOST;}
+        if(mode==9) {s->gpu.submit_result=VK_ERROR_DEVICE_LOST;s->gpu.uncertain_submit_effects=true;}
+        if(mode==10) {s->runtime.test_mapping.epoch->generation.store(2);}
+        if(mode==11) {s->runtime.test_mapping.backing->alive.store(false);}
+        const auto count_before=s->scheduler.commands.size();
+        bool enqueued=false;
+        if(mode<4 || mode==8 || mode==9 || mode==13) driver->on_enqueue=[&] {
+            enqueued=true;
+            for(u32 slot=0;slot<4;++slot) for(u64 byte=0;byte<64;++byte)
+                assert(s->scheduler.FanoutRangeForTest(anchor,slot,byte,1)==expected[slot][byte]);
+        };
+        bool recorded=false;
+        S::Transfer effect;
+        if(mode==10 || mode==11) {
+            recorded=s->scheduler.InvalidatePhysicalWrite(*targets[0].physical,begin,size);
+        } else {
+            effect=s->scheduler.RecordControlledPhysicalFill(anchor,s->runtime.test_mapping,0,begin,mode==12?80:size,0xeeeeeeee);
+            recorded=bool(effect);
+        }
+        driver->on_enqueue={};
+        const bool good=mode<4 || mode==8 || mode==9 || mode==13;
+        assert(recorded==good);
+        assert(enqueued==good);
+        if(!good) {
+            assert(s->scheduler.commands.size()==count_before);
+            assert(!s->scheduler.FanoutDomainForTest(anchor));
+            for(u32 slot=0;slot<4;++slot) assert(reinterpret_cast<Allocation*>(targets[slot].pin.Handle())->bytes==old[slot]);
+            continue;
+        }
+        for(u32 slot=0;slot<4;++slot) for(u64 byte=0;byte<64;++byte)
+            assert(s->scheduler.FanoutRangeForTest(anchor,slot,byte,1)==expected[slot][byte]);
+        if(mode==13) {
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+            assert(effect->ResourcesRetained()); // Pending new Fill must retain its OWN resource lifetime.
+        }
+        bool lost=false;try{s->scheduler.RunWorker();}catch(const vk::Exception& e){lost=e.GetResult()==VK_ERROR_DEVICE_LOST;}
+        assert(lost==(mode==8||mode==9));s->gpu.Complete(); // Ordinary error propagation is preserved on checked adoption.
+        if(mode==8||mode==9) {
+            assert(s->scheduler.PollCheckedTransfer(effect)==S::WriteState::Unknown);
+            assert(s->gpu.counter==1); // No successful completion for the failed second submission.
+            assert(!s->scheduler.CurrentTransferContentRange(anchor,s->runtime.test_mapping,1,0,1));
+        } else assert(s->scheduler.PollCheckedTransfer(effect)==S::WriteState::Complete);
+        for(u32 slot=0;slot<4;++slot) {
+            const auto& bytes=reinterpret_cast<Allocation*>(targets[slot].pin.Handle())->bytes;
+            auto oracle=old[slot];
+            if(slot==0 && mode!=8) for(u64 byte=begin;byte<begin+size;++byte) oracle[offsets[0]+byte]=238;
+            assert(bytes==oracle); // B/C content never copied or changed by fan-out.
+            assert(history->HasRoot(slot,0,64,slot,0)); // Saved roots remain immutable, no new writer/root.
+        }
+    }
+    {
+        auto s=std::make_unique<Scenario>();Vulkan::StorageObserverHarness observation{s->scheduler,s->runtime};
+        FanoutMapping mapping{s->runtime.test_mapping.backing,s->runtime.test_mapping.epoch};
+        std::array<std::unique_ptr<Vulkan::Buffer>,3> owners;
+        std::vector<S::TransferBuffer> targets;std::vector<C::Command> commands;
+        for(u32 slot=0;slot<3;++slot) {
+            owners[slot]=std::make_unique<Vulkan::Buffer>(s->runtime,A+slot*131072,8192);
+            const auto pin=owners[slot]->PinStagedRepresentation(0,8192);assert(pin);
+            const auto physical=VideoCommon::PhysicalWriteIdentity::Capture(mapping,A+slot*131072,8192,pin->Identity());assert(physical);
+            targets.push_back({*pin,std::make_shared<const VideoCommon::PhysicalWriteIdentity>(*physical)});
+            commands.push_back({C::Kind::Fill,slot,0,0,0,8192,u32(slot+1)});
+        }
+        const auto anchor=s->scheduler.RecordTransferBatch(targets,commands);assert(anchor);
+        s->scheduler.RunWorker();s->gpu.Complete();
+        assert(s->scheduler.InvalidatePhysicalWrite(*targets[0].physical,16,16));
+        for(u32 slot=0;slot<3;++slot) for(u64 byte=0;byte<8192;++byte) {
+            const u64 page=byte/4096;
+            const u64 physical=(slot==0?page:(slot==1?1-page:0))*4096+byte%4096;
+            const bool expected=physical<16 || physical>=32;
+            assert(s->scheduler.FanoutRangeForTest(anchor,slot,byte,1)==expected);
+        }
+    }
+    std::cout<<"PASS 14 physical-alias fan-out modes plus 24576 reordered/duplicate-page byte checks, pre-enqueue invalidation; simulated dispatch, no exclusion provider\n";
+}

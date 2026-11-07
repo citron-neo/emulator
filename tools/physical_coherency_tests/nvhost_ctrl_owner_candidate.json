@@ -1,0 +1,16 @@
+{
+  "src/core/hle/service/nvdrv/devices/nvhost_ctrl.cpp": [
+    [
+      "#include \"common/scope_exit.h\"",
+      "#include \"common/scope_exit.h\"\n#include \"common/terminal_fail_stop.h\""
+    ],
+    [
+      "nvhost_ctrl::~nvhost_ctrl() {\n    for (auto& event : events) {\n        if (!event.registered) {\n            continue;\n        }\n        events_interface.FreeEvent(event.kevent);\n    }\n}",
+      "nvhost_ctrl::~nvhost_ctrl() {\n    try {\n        auto& host_syncpoints = system.Host1x().GetSyncpointManager();\n        // A queued action captures this. Deregistration removes it or waits for\n        // Increment's active callback under its guard. Do not hold events_mutex\n        // across that join, and do not infer completion from EventState.\n        for (auto& event : events) {\n            if (event.registered) {\n                host_syncpoints.DeregisterHostAction(event.assigned_syncpt, event.wait_handle);\n                event.wait_handle = {};\n            }\n        }\n        // Keep every KEvent/provider until all raw callbacks have drained.\n        for (auto& event : events) {\n            if (event.registered) {\n                events_interface.FreeEvent(event.kevent);\n            }\n        }\n    } catch (...) {\n        Common::TerminalFailStop(\"nvhost_ctrl.callback_join\", \"host_exception\");\n    }\n}"
+    ],
+    [
+      "    if (event.status.exchange(EventState::Cancelling, std::memory_order_acq_rel) ==\n        EventState::Waiting) {\n        auto& host1x_syncpoint_manager = system.Host1x().GetSyncpointManager();\n        host1x_syncpoint_manager.DeregisterHostAction(event.assigned_syncpt, event.wait_handle);\n        syncpoint_manager.UpdateMin(event.assigned_syncpt);\n        event.wait_handle = {};\n    }",
+      "    const auto previous_status =\n        event.status.exchange(EventState::Cancelling, std::memory_order_acq_rel);\n    // Signalling is still an active callback. Join it before publishing Cancelled\n    // or clearing/reusing its KEvent; EventState alone is not completion.\n    auto& host1x_syncpoint_manager = system.Host1x().GetSyncpointManager();\n    host1x_syncpoint_manager.DeregisterHostAction(event.assigned_syncpt, event.wait_handle);\n    event.wait_handle = {};\n    if (previous_status == EventState::Waiting) {\n        syncpoint_manager.UpdateMin(event.assigned_syncpt);\n    }"
+    ]
+  ]
+}

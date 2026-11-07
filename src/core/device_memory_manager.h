@@ -8,16 +8,23 @@
 #include <atomic>
 #include <bit>
 #include <deque>
+#include <cstring>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string_view>
 
 #include "common/common_types.h"
+#include "common/host_memory.h"
+#include "common/frame_mapping.h"
+#include "common/mapping_lifetime.h"
 #include "common/range_mutex.h"
 #include "common/scratch_buffer.h"
 #include "common/virtual_buffer.h"
 
 namespace Core {
+
+struct SchedulerTestAccess;
 
 constexpr size_t DEVICE_PAGEBITS = 12ULL;
 constexpr size_t DEVICE_PAGESIZE = 1ULL << DEVICE_PAGEBITS;
@@ -44,6 +51,7 @@ struct DeviceMemoryReadResult {
 
 template <typename Traits>
 class DeviceMemoryManager {
+    friend struct SchedulerTestAccess;
     using DeviceInterface = typename Traits::DeviceInterface;
     using DeviceMethods = typename Traits::DeviceMethods;
 
@@ -53,7 +61,126 @@ public:
 
     void BindInterface(DeviceInterface* device_inter);
 
+    // Independent of controlled coherency admission. Mutations close this source-use
+    // domain before cache callbacks, without carrying a mapping lock into GPU waits.
+    auto BeginFrameMappingMutation() { return frame_mapping.BeginMutation(); }
+    std::optional<Common::FrameMappingDomain::Stamp> CaptureFrameMapping(DAddr address, u64 size) {
+        if (!address || address >= device_as_size || size > device_as_size - address) return {};
+        return frame_mapping.Capture(address, size);
+    }
+    // Only short cache selection/native view creation, never recording, submission or waits.
+    template <typename Func>
+    bool WithFrameMapping(const Common::FrameMappingDomain::Stamp& stamp,
+                          DAddr address, u64 size, Func&& operation) {
+        return frame_mapping.WithUse(stamp, address, size, std::forward<Func>(operation));
+    }
+    bool CopyFrameMapping(const Common::FrameMappingDomain::Stamp& stamp,
+                          DAddr address, std::span<u8> output) {
+        return frame_mapping.WithUse(stamp, address, output.size(), [&] {
+            std::scoped_lock lock{mapping_guard};
+            // Validate every page before writing output. No returned raw pointer escapes.
+            for (size_t offset = 0; offset < output.size();) {
+                if (!GetPointer<u8>(address + offset)) return false;
+                offset += std::min<size_t>(output.size() - offset,
+                                          page_size - ((address + offset) & page_mask));
+            }
+            for (size_t offset = 0; offset < output.size();) {
+                const size_t count = std::min<size_t>(output.size() - offset,
+                                                     page_size - ((address + offset) & page_mask));
+                std::memcpy(output.data() + offset, GetPointer<u8>(address + offset), count);
+                offset += count;
+            }
+            return true;
+        });
+    }
+
+    // Resolve under the device page-table lock, checking every page rather than
+    // assuming DAddr continuity implies continuity in physical guest backing.
+    std::optional<Common::GuestBackingRange> GetDriverBackingRange(DAddr address, u64 size);
+    u64 MapGeneration() const { return mapping_generation.load(std::memory_order_acquire); }
+    // Allocation identity only; not an alias/dirty-tracking or direct-binding API.
+    Common::GuestChunkLease GetPublishedGuestChunk(DAddr address) {
+        std::scoped_lock lock{mapping_guard};
+        if (!guest_backing || address >= device_as_size || !GetPointer<u8>(address)) return {};
+        return guest_backing->GetPublishedChunk(GetPhysicalRawAddressFromDAddr(address));
+    }
+    Common::GuestChunkLease FirstPublishedGuestChunk() const {
+        return guest_backing ? guest_backing->FirstPublishedExportedChunk() : nullptr;
+    }
+    u64 GuestBackingGeneration() const {
+        return guest_backing ? guest_backing->BackingGeneration() : 0;
+    }
+
+    /// Caller retains this manager and its DeviceMemory/HostMemory owner during resolution.
+    /// Call outside mapping/cache locks: cold backing may be materialized. No DAddr translation,
+    /// data admission or GPU representation is implied by this physical allocation pin.
+    [[nodiscard]] std::optional<Common::PinnedPhysicalMemory> PinGuestPhysicalRange(
+        u64 offset, u64 size, const std::shared_ptr<const Common::GuestBackingEpoch>& epoch) const {
+        if (!guest_backing || epoch != backing_epoch || !epoch || !epoch->alive.load() ||
+            guest_backing->BackingEpoch() != epoch) {
+            return std::nullopt;
+        }
+        return guest_backing->PinPhysicalRange(offset, size);
+    }
+
     DAddr Allocate(size_t size);
+
+    /// Short initial tracker/protection publication for an already accepted immutable plan.
+    /// The callback may not record/submit transfers, wait, dispatch or retain this guard.
+    template <typename Func>
+    [[nodiscard]] bool WithControlledMapping(
+        const std::shared_ptr<const Common::MappingEpoch>& expected, u64 generation,
+        Func&& operation) {
+        std::unique_lock lock{mapping_guard, std::try_to_lock};
+        if (!lock.owns_lock() || !expected || expected != mapping_lifetime.Get() ||
+            !expected->alive.load() || MapGeneration() != generation || (generation & 1) ||
+            !backing_epoch || !backing_epoch->alive.load())
+            return false;
+        operation([this](PAddr physical, std::span<DAddr> output, size_t& count) {
+            return CollectControlledAliasesLocked(physical, output, count);
+        });
+        return true;
+    }
+
+    /// Current alias qualification for quarantine isolation, never permission to replay an
+    /// old physical plan. Remaps may change aliases; unrelated current ranges can still run.
+    template <typename Func>
+    [[nodiscard]] bool WithCurrentControlledAliases(Func&& operation) {
+        std::unique_lock lock{mapping_guard, std::try_to_lock};
+        if (!lock.owns_lock() || (MapGeneration() & 1) || !backing_epoch ||
+            !backing_epoch->alive.load()) return false;
+        operation(backing_epoch, [this](PAddr physical, std::span<DAddr> output, size_t& count) {
+            return CollectControlledAliasesLocked(physical, output, count);
+        });
+        return true;
+    }
+
+    /// Bounded store + post-store tracker publication only, on the GPU owner. No waits,
+    /// preservation/dispatch callbacks or cache/PTE guards may enclose this entry. The callback's
+    /// CPU context/PTE guards must be nonblocking and released before tracker/tag publication.
+    template <typename Func>
+    [[nodiscard]] bool WithControlledPhysicalAliases(
+        PAddr physical, const std::shared_ptr<const Common::MappingEpoch>& expected, u64 generation,
+        Func&& operation) {
+        std::unique_lock lock{mapping_guard, std::try_to_lock};
+        if (!lock.owns_lock() || expected != mapping_lifetime.Get() || !expected ||
+            !expected->alive.load() || MapGeneration() != generation || (generation & 1) ||
+            !backing_epoch || !backing_epoch->alive.load())
+            return false;
+        std::array<DAddr, 64> addresses{};
+        size_t count{};
+        if (!CollectControlledAliasesLocked(physical, addresses, count)) return false;
+        operation(std::span<const DAddr>{addresses.data(), count});
+        return true;
+    }
+
+    [[nodiscard]] std::optional<Common::PreparedPhysicalCpuPage> PrepareGuestPhysicalCpuPage(
+        u64 offset, const std::shared_ptr<const Common::GuestBackingEpoch>& epoch) const {
+        if (!guest_backing || epoch != backing_epoch || !epoch || !epoch->alive.load() ||
+            guest_backing->BackingEpoch() != epoch)
+            return std::nullopt;
+        return guest_backing->PreparePhysicalCpuPage(offset);
+    }
     void AllocateFixed(DAddr start, size_t size);
     void Free(DAddr start, size_t size);
 
@@ -104,6 +231,40 @@ public:
         return (static_cast<PAddr>(paddr - 1) << page_bits) + subbits;
     }
 
+    /// Query all alias pages from one stable snapshot. The callback must only
+    /// inspect mappings; it must not submit GPU work or invoke invalidation.
+    template <typename Func>
+    void ReadPhysicalAliases(Func&& query) {
+        std::scoped_lock lock{mapping_guard};
+        query(MapGeneration(), [this](DAddr address) -> std::optional<PAddr> {
+            if (address >= device_as_size || !GetPointer<u8>(address)) {
+                return std::nullopt;
+            }
+            return GetPhysicalRawAddressFromDAddr(address);
+        });
+    }
+
+    // Pure device page-table snapshot. Caller holds its GPU page-table lock first.
+    // Unlike pointer/backing queries, this does not materialize lazy physical pages.
+    // Do not retain the translation callback, allocate backing, submit work or wait
+    // for the GPU inside query. Retained results must contain values/tokens only.
+    template <typename Func>
+    auto ReadPhysicalMappingSnapshot(Func&& query, u64* lock_wait_ns = nullptr) const {
+        const auto lock = [&] {
+            Common::MappingTimer timer{lock_wait_ns};
+            return std::unique_lock{mapping_guard};
+        }();
+        return query(std::shared_ptr<const Common::MappingEpoch>{mapping_lifetime.Get()},
+                     MapGeneration(), backing_epoch, physical_backing_size,
+                     [this](DAddr address) -> std::optional<PAddr> {
+                         if (address >= device_as_size ||
+                             entries[address >> page_bits].compressed_physical_ptr == 0) {
+                             return std::nullopt;
+                         }
+                         return GetPhysicalRawAddressFromDAddr(address);
+                     });
+    }
+
     template <typename T>
     void Write(DAddr address, T value);
 
@@ -135,6 +296,8 @@ public:
     static constexpr size_t AS_BITS = Traits::device_virtual_bits;
 
 private:
+    bool CollectControlledAliasesLocked(PAddr physical, std::span<DAddr> output,
+                                        size_t& count) const;
     static constexpr size_t device_virtual_bits = Traits::device_virtual_bits;
     static constexpr size_t device_as_size = 1ULL << device_virtual_bits;
     static constexpr size_t physical_min_bits = 32;  // 4GB
@@ -239,7 +402,13 @@ private:
     using CachedPages = Common::VirtualBuffer<CounterEntry>;
     CachedPages cached_pages;
     Common::RangeMutex counter_guard;
-    std::mutex mapping_guard;
+    const Common::HostMemory* guest_backing{};
+    std::shared_ptr<const Common::GuestBackingEpoch> backing_epoch;
+    u64 physical_backing_size{};
+    Common::MappingLifetime mapping_lifetime;
+    Common::FrameMappingDomain frame_mapping;
+    std::atomic<u64>& mapping_generation{mapping_lifetime.Get()->generation};
+    std::mutex& mapping_guard{mapping_lifetime.Get()->mutex};
 };
 
 } // namespace Core

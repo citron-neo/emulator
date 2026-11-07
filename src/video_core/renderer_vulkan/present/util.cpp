@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/assert.h"
+#include "common/terminal_fail_stop.h"
 #include <ranges>
 #include "video_core/renderer_vulkan/present/util.h"
 
@@ -74,6 +75,7 @@ void TransitionImageLayout(vk::CommandBuffer& cmdbuf, VkImage image, VkImageLayo
 void UploadImage(const Device& device, MemoryAllocator& allocator, Scheduler& scheduler,
                  vk::Image& image, VkExtent2D dimensions, VkFormat format,
                  std::span<const u8> initial_contents) {
+    scheduler.RequireNativeBorrowAdmission();
     const VkBufferCreateInfo upload_ci = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
@@ -100,16 +102,24 @@ void UploadImage(const Device& device, MemoryAllocator& allocator, Scheduler& sc
         .imageExtent{.width = dimensions.width, .height = dimensions.height, .depth = 1},
     }}};
 
-    scheduler.RequestOutsideRenderPassOperationContext();
-    scheduler.Record([&](vk::CommandBuffer cmdbuf) {
-        TransitionImageLayout(cmdbuf, *image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                              VK_IMAGE_LAYOUT_UNDEFINED);
-        cmdbuf.CopyBufferToImage(*upload_buffer, *image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                 regions);
-        TransitionImageLayout(cmdbuf, *image, VK_IMAGE_LAYOUT_GENERAL,
-                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    });
-    scheduler.Finish();
+    // The queued command borrows upload_buffer, regions and the caller-owned image.
+    try {
+        scheduler.RequestOutsideRenderPassOperationContext();
+        scheduler.Record([&](vk::CommandBuffer cmdbuf) {
+            TransitionImageLayout(cmdbuf, *image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                  VK_IMAGE_LAYOUT_UNDEFINED);
+            cmdbuf.CopyBufferToImage(*upload_buffer, *image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                     regions);
+            TransitionImageLayout(cmdbuf, *image, VK_IMAGE_LAYOUT_GENERAL,
+                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        });
+        scheduler.FinishNativeBorrow();
+    } catch (const vk::Exception& error) {
+        Common::TerminalFailStop("helper.upload", "vulkan_exception",
+                                 static_cast<int>(error.GetResult()));
+    } catch (...) {
+        Common::TerminalFailStop("helper.upload", "host_exception");
+    }
 }
 
 void DownloadColorImage(vk::CommandBuffer& cmdbuf, VkImage image, VkBuffer buffer,

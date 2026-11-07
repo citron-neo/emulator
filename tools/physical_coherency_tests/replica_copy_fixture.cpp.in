@@ -1,0 +1,284 @@
+// Actual Scheduler/immutable ancestry; simulated dispatch, not native Vulkan acceptance.
+void TestReplicaChain() {
+    using Scheduler = Vulkan::Scheduler;
+    using Plan = Vulkan::TransferContent;
+    for (int mode = 0; mode < 44; ++mode) {
+    auto s = std::make_unique<Scenario>();
+    Vulkan::StorageObserverHarness observation{s->scheduler, s->runtime};
+    std::array<std::unique_ptr<Vulkan::Buffer>, 6> buffers;
+    std::vector<Scheduler::TransferBuffer> targets;
+    for (size_t i = 0; i < buffers.size(); ++i) {
+        buffers[i] = std::make_unique<Vulkan::Buffer>(s->runtime, A + i * 131072, 4096);
+        targets.push_back({*buffers[i]->PinStagedRepresentation(0, 64),
+            s->runtime.PhysicalIdentityForBinding(*buffers[i], 0, 64)});
+    }
+    std::vector<Plan::Command> initialize;
+    for (u32 i = 0; i < buffers.size(); ++i) initialize.push_back(
+        {Plan::Kind::Fill, i, 0, 0, 0, mode == 42 && i == 2 ? 16u : 64u, (i ? i * 10 : 99) * 0x01010101u});
+    const auto anchor = s->scheduler.RecordTransferBatch(targets, initialize);
+    s->scheduler.RunWorker();s->gpu.Complete();
+    const auto first = s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+        {anchor, 0, 1, 16, 16, 16, 0, 1, 16, 0});
+    assert(first);
+    if (mode == 6) driver->submit_result = VK_ERROR_DEVICE_LOST;
+    bool first_loss{};
+    try {s->scheduler.RunWorker();} catch (const vk::Exception&) {first_loss = true;}
+    assert(first_loss == (mode == 6));
+    if (mode != 28) s->gpu.Complete();
+    driver->submit_result = VK_SUCCESS;
+    const auto first_history = first->PlannedReplicaCopy();
+    const auto root_history = anchor->PlannedContent();
+    const auto remap = [&] {
+        s->runtime.test_mapping.generation += 2;
+        s->runtime.test_mapping.epoch->generation.store(s->runtime.test_mapping.generation);
+    };
+    Scheduler::ReplicaCopyRequest request{anchor, 1, 2, 20, 20, 8, 0, 2, 20, 0, first};
+    if (mode == 1) { request.source_offset = request.destination_offset = request.source_root_offset = 4; request.source_fill = 1; }
+    if (mode == 2 || mode == 3) s->scheduler.RecordBufferFill(targets[1].pin.Handle(), mode == 2 ? 20 : 0, 4, 0x4d4d4d4d);
+    if (mode == 4) s->scheduler.RecordBufferFill(targets[2].pin.Handle(), 0, 4, 0x4d4d4d4d);
+    if (mode == 5) s->scheduler.Record([](vk::CommandBuffer) {});
+    if (mode == 8) remap();
+    if (mode == 11) buffers[1]->RevokeContentEligibility();
+    if (mode == 17) { (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete(); }
+    if (mode == 19) s->scheduler.BreakReplicaSyncForTest(first, 0);
+    if (mode == 41) s->scheduler.BreakReplicaSyncForTest(first, 1);
+    if (mode == 24) request.source = 0;
+    if (mode == 25) request.source_receipt.reset();
+    if (mode == 26) request.source_fill = 1;
+    if (mode == 27) { request.source_offset = request.destination_offset = request.source_root_offset = 12; request.size = 16; }
+    if (mode == 31) s->scheduler.RecordBufferFill(targets[0].pin.Handle(), 20, 8, 0x4d4d4d4d);
+    if (mode == 32) (void)buffers[0]->Mapped();
+    if (mode == 39) (void)buffers[2]->Mapped();
+    const auto second = s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+        request);
+    const bool refused = mode == 2 || mode == 4 || mode == 5 || mode == 6 || mode == 8 || mode == 11 ||
+        mode == 19 || mode == 24 || mode == 25 || mode == 26 || mode == 27 || mode == 28 ||
+        mode == 32 || mode == 39 || mode == 41 || mode == 42;
+    assert(bool(second) == !refused);
+    if (refused) {
+        assert(anchor->PlannedContent() == root_history && first->PlannedReplicaCopy() == first_history);
+        (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();
+        s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+        continue;
+    }
+    assert(second->PlannedReplicaCopy()->Depth() == 2 && second->PlannedReplicaCopy()->SourceCopy() == first_history);
+    if (mode == 18) driver->queue_id = 2;
+    assert(!s->scheduler.CompletedReplicaCopyHasRoot(second, anchor, request.destination_offset, 8, request.source_fill, request.source_root_offset));
+    if (mode == 7) driver->submit_result = VK_ERROR_DEVICE_LOST;
+    if (mode == 9) remap();
+    if (mode == 12 || mode == 13) buffers[mode == 12 ? 1 : 2]->RevokeContentEligibility();
+    if (mode == 33) (void)buffers[1]->Mapped();
+    if (mode == 34) s->runtime.test_mapping.backing->alive.store(false);
+    if (mode == 36) buffers[0]->RevokeContentEligibility();
+    std::weak_ptr<const void> payload = targets[1].pin.RetainedOwner();
+    if (mode == 35) { targets.clear();for (auto& buffer : buffers) buffer.reset(); }
+    if (mode == 35 || mode == 37) {
+        if (mode == 37) s->scheduler.RunOneWorkerCommandForTest();
+        s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+        assert(second->ResourcesRetained() && first->ResourcesRetained() && !payload.expired());
+    }
+    bool second_loss{};
+    try {s->scheduler.RunWorker();} catch (const vk::Exception&) {second_loss = true;}
+    assert(second_loss == (mode == 7));
+    assert(!s->scheduler.CompletedReplicaCopyHasRoot(second, anchor, request.destination_offset, 8, request.source_fill, request.source_root_offset));
+    s->gpu.Complete();
+    if (mode == 10) remap();
+    if (mode >= 14 && mode <= 16) buffers[mode - 14]->RevokeContentEligibility();
+    if (mode == 20 || mode == 21) s->scheduler.BreakReplicaSyncForTest(first, mode == 20 ? 0 : 1);
+    if (mode == 22) s->scheduler.BreakReplicaQueueLinkForTest(first);
+    if (mode == 23) s->scheduler.BreakReplicaSyncForTest(second, 0);
+    if (mode == 40) (void)buffers[0]->Mapped();
+    const bool rejected = mode == 7 || mode == 9 || mode == 10 || mode == 12 || mode == 13 ||
+        (mode >= 14 && mode <= 18) || (mode >= 20 && mode <= 23) || mode == 33 || mode == 34 || mode == 36 || mode == 40;
+    const auto current = [&] { return s->scheduler.CurrentReplicaCopyHasRoot(second, s->runtime.test_mapping, anchor,
+        request.destination_offset, 8, request.source_fill, request.source_root_offset); };
+    assert(current() == !rejected);
+    if (!rejected) {
+        assert(s->scheduler.CurrentReplicaCopyHasRoot(second, s->runtime.test_mapping, anchor, 0, request.destination_offset, 2, 0));
+        assert(s->scheduler.CurrentReplicaCopyHasRoot(second, s->runtime.test_mapping, anchor, request.destination_offset + 8, 56 - request.destination_offset, 2, request.destination_offset + 8));
+        assert(!s->scheduler.CurrentReplicaCopyHasRoot(second, s->runtime.test_mapping, anchor, 0, 64, 0, 0));
+        assert(!s->scheduler.CurrentReplicaCopyHasRoot(second, s->runtime.test_mapping, first, request.destination_offset, 8, 0, request.source_root_offset));
+    }
+    const bool no_copy = mode == 7 || mode == 9 || mode == 12 || mode == 13 || mode == 17 || mode == 18 || mode == 33 || mode == 34;
+    if (!targets.empty()) {
+        const auto& bytes = reinterpret_cast<Allocation*>(buffers[2]->Handle())->bytes;
+        for (u64 i = 0; i < 64; ++i) assert(bytes[i] == (!no_copy && i >= request.destination_offset && i < request.destination_offset + 8 ? (mode == 1 ? 10 : 99) : 20));
+    }
+    if (mode == 29 || mode == 30 || mode == 43) {
+        if (mode == 43) s->scheduler.Record([](vk::CommandBuffer) {});
+        else s->scheduler.RecordBufferFill(targets[mode == 29 ? 1 : 2].pin.Handle(), 20, 4, 0x4d4d4d4d);
+        (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();
+        assert(current() == (mode == 29));
+        assert(s->scheduler.CompletedReplicaCopyHasRoot(second, anchor, 20, 8, 0, 20));
+        if (mode == 30) {
+            assert(s->scheduler.CurrentReplicaCopyHasRoot(second, s->runtime.test_mapping, anchor, 24, 4, 0, 24));
+            assert(s->scheduler.CurrentReplicaCopyHasRoot(second, s->runtime.test_mapping, anchor, 0, 20, 2, 0));
+        }
+    }
+    if (mode == 38) {
+        auto previous = second;
+        for (u32 destination = 3; destination <= 5; ++destination) {
+            auto next = s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+                {anchor, destination - 1, destination, 20, 20, 8, 0, destination, 20, 0, previous});
+            assert(bool(next) == (destination <= 4));
+            if (next) {
+                s->scheduler.RunWorker();s->gpu.Complete();
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(next, s->runtime.test_mapping, anchor, 20, 8, 0, 20));
+                assert(next->PlannedReplicaCopy()->Depth() == destination);
+                previous = next;
+            }
+        }
+    }
+    assert(anchor->PlannedContent() == root_history && first->PlannedReplicaCopy() == first_history);
+    assert(second->PlannedReplicaCopy()->HasRoot(request.destination_offset, 8, request.source_fill, request.source_root_offset));
+    s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+    assert(!second->ResourcesRetained() && !current());
+    if (mode == 35) assert(payload.expired());
+    }
+    std::cout << "PASS 44 bounded multi-hop replica cases: A-to-B-to-C roots/complements, source cancellation, "
+                 "all-edge barriers/queue identity, failure, remap, retirement, escaped mappings, four-hop limit; simulated Vulkan\n";
+}
+void TestReplicaCopy() {
+    using Scheduler = Vulkan::Scheduler;
+    using Plan = Vulkan::TransferContent;
+    for (int mode = 0; mode < 49; ++mode) {
+        auto s = std::make_unique<Scenario>();
+        Vulkan::StorageObserverHarness observation{s->scheduler, s->runtime};
+        std::array<std::unique_ptr<Vulkan::Buffer>, 3> buffers;
+        std::vector<Scheduler::TransferBuffer> targets;
+        for (size_t i = 0; i < buffers.size(); ++i) {
+            const auto address = mode == 18 && i == 1 ? A + 4096 : A + i * 131072;
+            buffers[i] = std::make_unique<Vulkan::Buffer>(s->runtime, address, 4096);
+            targets.push_back({*buffers[i]->PinStagedRepresentation(0, 64),
+                s->runtime.PhysicalIdentityForBinding(*buffers[i], 0, 64)});
+        }
+        std::array<Plan::Command, 3> initialize{{
+            {Plan::Kind::Fill, 0, 0, 0, 0, 64, 0x63636363},
+            {Plan::Kind::Fill, 1, 0, 0, 0, 64, 0x0a0a0a0a},
+            {Plan::Kind::Copy, 2, 0, 0, 0, 64}}};
+        if (mode == 20) initialize[1].size = 16;
+        if (mode == 24) initialize[0].destination = 2;
+        if (mode == 4) driver->submit_result = VK_ERROR_DEVICE_LOST;
+        if (mode == 42) (void)buffers[0]->Mapped();
+        const auto parent = s->scheduler.RecordTransferBatch(targets, initialize);
+        assert(parent);
+        bool parent_loss{};
+        try {s->scheduler.RunWorker();} catch (const vk::Exception&) {parent_loss = true;}
+        assert(parent_loss == (mode == 4));
+        if (mode != 28) s->gpu.Complete();
+        driver->submit_result = VK_SUCCESS;
+        const auto history = parent->PlannedContent();
+        const auto origin = parent->HistoricalOrigins()[0];
+        Scheduler::ReplicaCopyRequest request{parent, mode == 1 ? 2u : 0u, 1, 16, 16, 16, 0, 1, 16, 0};
+        const auto remap = [&] {
+            s->runtime.test_mapping.generation += 2;
+            s->runtime.test_mapping.epoch->generation.store(s->runtime.test_mapping.generation);
+        };
+        if (mode == 3 || mode == 31) s->scheduler.RecordBufferFill(targets[0].pin.Handle(), mode == 31 ? 0 : 16, 16, 0x4d4d4d4d);
+        if (mode == 46) s->scheduler.RecordBufferFill(targets[1].pin.Handle(), 32, 16, 0x4d4d4d4d);
+        if (mode == 39) (void)buffers[0]->Mapped();
+        if (mode == 43) (void)buffers[1]->Mapped();
+        if (mode == 5) remap();
+        if (mode == 9) buffers[1]->RevokeContentEligibility();
+        if (mode == 16) driver->queue_id = 2;
+        if (mode == 17) {
+            (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();
+        }
+        if (mode == 19) request.destination_offset = 60;
+        if (mode == 21) s->scheduler.Record([](vk::CommandBuffer) { ++driver->draws; });
+        if (mode == 25) request.destination = request.source;
+        if (mode == 29) request.size = 0;
+        if (mode == 30) request.source_fill = 1;
+        if (mode == 47 || mode == 48) {
+            assert(!s->scheduler.ForgeReplicaForTest(parent, mode == 47));
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+            continue;
+        }
+        const auto copy = s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping, request);
+        const bool refused = mode == 3 || mode == 4 || mode == 5 || mode == 9 || mode == 18 || mode == 19 ||
+            mode == 20 || mode == 21 || mode == 24 || mode == 25 || mode == 28 || mode == 29 || mode == 30 ||
+            mode == 39 || mode == 42 || mode == 43 || mode == 46;
+        assert(bool(copy) == !refused);
+        if (refused) {
+            assert(parent->PlannedContent() == history && parent->HistoricalOrigins()[0] == origin);
+            (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+            continue;
+        }
+        assert(copy->PlannedReplicaCopy() && copy->PlannedReplicaCopy()->ParentContent() == history);
+        assert(!s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, 16, 16, 0, 16));
+        if (mode == 6) driver->submit_result = VK_ERROR_DEVICE_LOST;
+        if (mode == 7) remap();
+        if (mode == 10) buffers[1]->RevokeContentEligibility();
+        if (mode == 23) {
+            targets.clear();for (auto& buffer : buffers) buffer.reset();
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+            assert(copy->ResourcesRetained() && parent->ResourcesRetained());
+        }
+        if (mode == 26) {
+            s->scheduler.RecordBufferFill(targets[0].pin.Handle(), 16, 16, 0x4d4d4d4d);
+            (void)s->scheduler.Flush();
+        }
+        if (mode == 32) buffers[0]->RevokeContentEligibility();
+        if (mode == 33) s->runtime.staged_pin_domain->Seal();
+        if (mode == 34) s->runtime.test_mapping.backing->alive.store(false);
+        if (mode == 40) (void)buffers[0]->Mapped();
+        if (mode == 45) {
+            s->scheduler.RunOneWorkerCommandForTest(); // Commands recorded; queue submit still pending.
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+            assert(copy->ResourcesRetained() && parent->ResourcesRetained());
+        }
+        bool loss{};
+        try {s->scheduler.RunWorker();} catch (const vk::Exception&) {loss = true;}
+        assert(loss == (mode == 6));
+        assert(!s->scheduler.CompletedReplicaCopyHasRoot(copy, parent, 16, 16, 0, 16)); // Submit acceptance is not completion.
+        s->gpu.Complete();
+        if (mode == 8) remap();
+        if (mode == 11) buffers[1]->RevokeContentEligibility();
+        if (mode == 15) s->scheduler.BreakReplicaQueueLinkForTest(copy);
+        if (mode == 44) s->scheduler.BreakReplicaQueueIdentityForTest(copy);
+        if (mode == 41) (void)buffers[0]->Mapped();
+        if (mode == 2) s->scheduler.BreakReplicaSyncForTest(copy, 0);
+        if (mode == 27) s->scheduler.BreakReplicaSyncForTest(copy, 1);
+        if (mode >= 35 && mode <= 38) s->scheduler.BreakReplicaSyncForTest(copy, mode - 33);
+        const bool known = s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, 16, 16, 0, 16);
+        const bool rejected = mode == 2 || mode == 6 || mode == 7 || mode == 8 || mode == 10 || mode == 11 ||
+            mode == 15 || mode == 16 || mode == 17 || mode == 27 || mode == 32 || mode == 33 || mode == 34 ||
+            (mode >= 35 && mode <= 38) || mode == 40 || mode == 41 || mode == 44;
+        assert(known == !rejected);
+        if (known) {
+            assert(s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, 0, 16, 1, 0));
+            assert(s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, 32, 32, 1, 32));
+            assert(!s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, 0, 64, 0, 0));
+            assert(!s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, copy, 16, 16, 0, 16));
+            assert(!s->scheduler.CurrentTransferHasRoot(copy, s->runtime.test_mapping, 1, 16, 16, 0, 16));
+            assert(!s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, 0, 0, 1, 0));
+            assert(!s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, ~u64{0}, 4, 1, 0));
+        }
+        if (mode == 0 || mode == 1) assert(driver->barriers == 7); // Producer 3+submit, copy entry/release+submit.
+        const bool no_copy = mode == 6 || mode == 7 || mode == 10 || mode == 16 || mode == 17 || mode == 32 || mode == 33 || mode == 34 || mode == 40;
+        if (!targets.empty() && mode != 33) {
+            const auto& bytes = reinterpret_cast<Allocation*>(buffers[1]->Handle())->bytes;
+            assert(bytes[0] == 10 && bytes[16] == (no_copy ? 10 : 99) && bytes[32] == 10);
+        }
+        if (mode == 12 || mode == 13 || mode == 14 || mode == 22) {
+            if (mode == 12) s->scheduler.RecordBufferFill(targets[0].pin.Handle(), 16, 16, 0x4d4d4d4d);
+            if (mode == 13) s->scheduler.RecordBufferFill(targets[1].pin.Handle(), 20, 4, 0x4d4d4d4d);
+            if (mode == 14) s->scheduler.Record([](vk::CommandBuffer) {});
+            if (mode == 22) buffers[0]->RevokeContentEligibility();
+            (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();
+            assert(s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, 16, 16, 0, 16) == (mode == 12));
+            if (mode == 13) {
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, 16, 4, 0, 16));
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, 24, 8, 0, 24));
+            }
+            assert(s->scheduler.CompletedReplicaCopyHasRoot(copy, parent, 16, 16, 0, 16));
+        }
+        assert(parent->PlannedContent() == history && parent->HistoricalOrigins()[0] == origin);
+        assert(copy->PlannedReplicaCopy()->HasRoot(16, 16, 0, 16));
+        s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+        assert(!copy->ResourcesRetained() && !s->scheduler.CurrentReplicaCopyHasRoot(copy, s->runtime.test_mapping, parent, 16, 16, 0, 16));
+    }
+    std::cout << "PASS 49 controlled same-queue replica cases: parent roots, actual queue adjacency, entry/release barriers, "
+                 "exact copy/complements, overwrite/Unknown/failure/remap/retirement; simulated Vulkan\n";
+}

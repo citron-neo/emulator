@@ -1,0 +1,251 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <atomic>
+#include <deque>
+#include <functional>
+#include <future>
+#include <stdexcept>
+#include <iostream>
+#include <mutex>
+#include <optional>
+#include <span>
+#include <string>
+#include <vector>
+#include "common/common_types.h"
+#include "common/scope_exit.h"
+#include "frame_mapping_observer.h"
+#if !@BASELINE@
+#include "frame_mapping_candidate.h"
+#endif
+void Check(bool ok, const char* message) {
+    if (!ok) { std::cerr << "FAIL " << message << '\n'; std::exit(91); }
+}
+std::function<void()> before_copy, before_unswizzle;
+void ObservedCopy(void* output,const void* input,size_t size) {
+    if(before_copy)before_copy();
+    std::memcpy(output,input,size);
+}
+namespace Core {
+struct Asid {size_t id;};
+namespace Memory {
+constexpr size_t CITRON_PAGEBITS=12, CITRON_PAGEMASK=4095, CITRON_PAGESIZE=4096;
+struct Memory {u8* pointer{};u8* GetPointerSilent(u64) {return pointer;}};
+}
+}
+namespace Common { using ProcessAddress=u64; template<class T> auto AlignUp(T size,T align) {return (size+align-1)&~(align-1);} }
+namespace Settings {[[maybe_unused]] struct {struct {bool GetValue(){return true;}}use_uma_zero_copy;
+    struct {u32 ScaleUp(u32 v)const{return v;}}resolution_info;}values;}
+template<class... T> void Log(T&&...) {}
+#define LOG_WARNING(...) Log(__VA_ARGS__)
+constexpr int HW_Memory=0;
+namespace Core {
+template<class Traits> class DeviceMemoryManager {
+public:
+    static constexpr u64 device_as_size=16384, page_size=4096, page_mask=4095;
+    struct Entry { u32 compressed_physical_ptr{}; u64 cpu_backing_address{}; };
+    std::array<Entry,4> entries{};
+    std::array<u8,16384> backing{};
+    std::mutex mapping_guard;
+#if !@BASELINE@
+    Common::FrameMappingDomain frame_mapping;
+    auto BeginFrameMappingMutation() {return frame_mapping.BeginMutation();}
+    @METHODS@
+    struct Interface {
+        std::function<void()> callback;
+        void UnmapMemory(DAddr,size_t){if(callback)callback();}
+        void InvalidateRegion(DAddr,size_t){if(callback)callback();}
+    } interface;
+    Interface* device_inter=&interface;
+    static constexpr u32 MULTI_FLAG_BITS=31,MULTI_MASK=0x7fffffff,MULTI_FLAG=0x80000000;
+    std::array<u32,4> compressed_device_addr{};
+    struct Impl {struct Multi {
+        u32 Register(u32){return 0;}void Register(u32,u32){}
+        std::pair<bool,u32> Unregister(u32,u32){return {};}
+        u32 ReleaseEntry(u32){return 0;}
+    }multi_dev_address;}implementation;
+    Impl* impl=&implementation;
+    std::atomic<u64> mapping_generation{};
+    std::array<Memory::Memory*,1> registered_processes{};
+    std::deque<size_t> id_pool;
+    void InsertCPUBacking(size_t,VAddr,Asid){}
+    void TrackContinuityImpl(DAddr,VAddr,size_t,Asid){}
+    template<class T> PAddr GetRawPhysicalAddr(T* p){return static_cast<PAddr>(p-backing.data());}
+    void Map(DAddr,VAddr,size_t,Asid,bool=false);
+    void Unmap(DAddr,size_t);
+    void UnregisterProcess(Asid);
+#endif
+    template<class T> const T* GetPointer(DAddr address) const;
+    template<class T> const T* GetPointerFromRaw(PAddr address) const {
+        return reinterpret_cast<const T*>(backing.data()+address);
+    }
+};
+template<class Traits> template<class T>
+@POINTER@
+@MUTATIONS@
+}
+namespace Tegra {
+struct FramebufferConfig {
+    DAddr address{4096}; u32 offset{}, width{2}, height{1}, stride{2};
+#if !@BASELINE@
+    std::optional<Common::FrameMappingDomain::Stamp> source_mapping;
+#endif
+};
+namespace Texture {
+u64 CalculateSize(bool, u32, u32, u32, u32, u32, u32) { return 16; }
+int reads{};
+void UnswizzleTexture(std::span<u8> dest, std::span<const u8> src, u32, u32, u32, u32, u32, u32) {
+    if(before_unswizzle)before_unswizzle();
+    ++reads; std::copy_n(src.begin(), dest.size(), dest.begin());
+}
+}
+}
+u32 GetBytesPerPixel(const Tegra::FramebufferConfig&) { return 4; }
+u64 GetSizeInBytes(const Tegra::FramebufferConfig&) { return 8; }
+struct Layer {
+    Core::DeviceMemoryManager<int>& device_memory;
+    enum class RawUploadState { Empty, Recording, Recorded, Failed };
+    struct Buffer {
+        std::array<u8,32> bytes{}; int flushes{};
+        std::span<u8> Mapped() { return bytes; }
+        void Flush() { ++flushes; }
+    } buffer{};
+    std::vector<RawUploadState>raw_upload_states=std::vector<RawUploadState>(3);
+    struct Scheduler{void RequireNativeBorrowAdmission(){}}scheduler{};
+    u64 GetRawImageOffset(const Tegra::FramebufferConfig&, size_t) { return 0; }
+#if @BASELINE@
+    void UpdateRawImage(const Tegra::FramebufferConfig&, size_t);
+#else
+    bool UpdateRawImage(const Tegra::FramebufferConfig&, size_t);
+#endif
+};
+@RAW@
+#if !@BASELINE@
+namespace Shader {enum class TextureType{Color2D};}
+struct NativePacketStub {bool Matches(int,int)const{return true;}};
+struct FramebufferTextureInfo {int image{},image_view{};u32 width{},height{},scaled_width{},scaled_height{};
+    std::shared_ptr<NativePacketStub> native_owner;};
+struct RasterizerVulkan {
+    Core::DeviceMemoryManager<int>& device_memory;
+    struct TextureCache {
+        std::mutex mutex;int selections{};
+        struct View {struct {u32 width=2,height=1;}size;
+            int ImageHandle(){return 1;}int Handle(Shader::TextureType){return 2;}
+            auto RetainPresentationSource(){return std::make_shared<NativePacketStub>();}}view;
+        auto TryFindFramebufferImageView(const Tegra::FramebufferConfig&,DAddr) {
+            ++selections;return std::pair(&view,false);
+        }
+    }texture_cache;
+    struct Query{int segments{};void NotifySegment(bool){++segments;}}query_cache;
+    std::optional<FramebufferTextureInfo> AccelerateDisplay(const Tegra::FramebufferConfig&,DAddr,u32);
+};
+@ACCELERATE@
+#endif
+int main(int argc, char** argv) {
+    const std::string mode=argc>1 ? argv[1] : "normal";
+    Core::DeviceMemoryManager<int> memory;
+    memory.entries[1].compressed_physical_ptr=1;
+    memory.backing.fill(0x31);
+    std::fill(memory.backing.begin()+4096,memory.backing.end(),0x72);
+    Tegra::FramebufferConfig frame;
+#if !@BASELINE@
+    frame.source_mapping=memory.CaptureFrameMapping(frame.address,4096);
+    Check(bool(frame.source_mapping),"capture failed");
+    if(mode.starts_with("accelerated-")) {
+        RasterizerVulkan raster{memory,{},{}};
+        const bool normal=mode=="accelerated-normal";
+        const auto check=[&] {
+            const auto selected=raster.AccelerateDisplay(frame,4096,2);
+            Check(bool(selected)==normal && raster.texture_cache.selections==int(normal) &&
+                  raster.query_cache.segments==int(normal),"retired mapping reached cache selection");
+        };
+        if(normal)check();
+        else if(mode=="accelerated-retired") {
+            {auto mutation=memory.frame_mapping.BeginMutation();mutation.Complete();}
+            check();
+        } else {auto mutation=memory.frame_mapping.BeginMutation();check();mutation.Complete();}
+        std::cout<<"PASS accelerated mapping "<<mode<<'\n';return 0;
+    }
+#endif
+    if (mode=="reuse" || mode=="session" || mode=="unmap") {
+#if !@BASELINE@
+        auto mutation=memory.frame_mapping.BeginMutation();
+#endif
+        memory.entries[1].compressed_physical_ptr=mode=="reuse" ? 2 : 0;
+#if !@BASELINE@
+        mutation.Complete();
+#endif
+    }
+    if (mode=="hole") memory.entries[1].compressed_physical_ptr=0;
+    if (mode=="bounds") frame.offset=4090;
+    if (mode=="noncontiguous") {
+        frame.offset=4090;
+#if !@BASELINE@
+        frame.source_mapping=memory.CaptureFrameMapping(frame.address,8192);
+#endif
+        memory.entries[2].compressed_physical_ptr=3;
+    }
+#if !@BASELINE@
+    if (mode=="actual-map" || mode=="actual-unmap" || mode=="callback-failure") {
+        memory.interface.callback=[&] {
+            int reads{};
+            Check(!memory.frame_mapping.WithUse(*frame.source_mapping,frame.address,1,[&]{++reads;return true;}) && !reads,
+                  "mapping callback admitted delayed source");
+            Check(!memory.CaptureFrameMapping(frame.address,4096),"mapping callback admitted new capture");
+            if(mode=="callback-failure")throw std::runtime_error("partial callback");
+        };
+        Core::Memory::Memory process{memory.backing.data()+4096};
+        memory.registered_processes[0]=&process;
+        try {
+            if(mode=="actual-map")memory.Map(4096,4096,4096,Core::Asid{0});
+            else memory.Unmap(4096,4096);
+        } catch(const std::runtime_error&) {Check(mode=="callback-failure","unexpected callback failure");}
+        if(mode=="callback-failure")Check(!memory.CaptureFrameMapping(4096,4096),"partial callback failure regained authority");
+    }
+    if(mode=="unregister")memory.UnregisterProcess(Core::Asid{0});
+    if(mode=="partial-hole") {
+        auto range=memory.CaptureFrameMapping(4096,8192);
+        std::array<u8,16> output; output.fill(0xaa);
+        Check(!memory.CopyFrameMapping(*range,8186,output),"partial hole admitted copy");
+        Check(std::ranges::all_of(output,[](u8 v){return v==0xaa;}),"partial hole changed output");
+        memory.entries[1].compressed_physical_ptr=0;
+    }
+#endif
+    if(mode=="active-unmap") {
+#if !@BASELINE@
+        Layer layer{memory,{}};
+        std::promise<void> entered,release,waiting;
+        auto release_wait=release.get_future();
+        before_copy=[&]{entered.set_value();release_wait.wait();};
+        auto reader=std::async(std::launch::async,[&]{return layer.UpdateRawImage(frame,0);});
+        entered.get_future().wait();
+        auto writer=std::async(std::launch::async,[&]{
+            on_wait=[&]{waiting.set_value();}; memory.Unmap(4096,4096);on_wait={};
+        });
+        waiting.get_future().wait();release.set_value();
+        Check(reader.get(),"active raw copy lost source ownership");writer.get();before_copy={};
+        Check(layer.buffer.bytes[0]==0x31 && memory.entries[1].compressed_physical_ptr==0,
+              "active unmap corrupted owned source copy");
+        std::cout<<"PASS active actual copy/unmap\n";return 0;
+#endif
+    }
+    if(mode=="after-copy-reuse") {
+#if !@BASELINE@
+        before_unswizzle=[&]{
+            auto mutation=memory.frame_mapping.BeginMutation();
+            memory.entries[1].compressed_physical_ptr=2;mutation.Complete();
+        };
+#endif
+    }
+    Layer layer{memory, {}};
+    layer.UpdateRawImage(frame,0);
+    const bool accepted=mode=="normal" || mode=="noncontiguous" || mode=="after-copy-reuse";
+    Check((Tegra::Texture::reads==1)==accepted,"retired mapping reached source read");
+    if (accepted) {
+        Check(layer.buffer.flushes==1,"normal copy failed publication");
+        Check(layer.buffer.bytes[0]==(mode=="normal" ? 0x31 : 0x31),"wrong physical source");
+        if(mode=="noncontiguous") Check(layer.buffer.bytes[6]==0x72,"copy assumed physical continuity");
+    } else Check(layer.buffer.flushes==0,"refused source flushed stale data");
+    std::cout<<"PASS raw mapping "<<mode<<'\n';
+}

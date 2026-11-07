@@ -15,6 +15,7 @@
 #include "core/hle/kernel/k_memory_block_manager.h"
 #include "core/hle/kernel/k_memory_layout.h"
 #include "core/hle/kernel/k_memory_manager.h"
+#include "core/hle/kernel/k_page_group.h"
 #include "core/hle/kernel/k_typed_address.h"
 #include "core/hle/kernel/kernel.h"
 #include "core/hle/result.h"
@@ -254,6 +255,19 @@ private:
     mutable KLightLock m_map_physical_memory_lock;
     KLightLock m_device_map_lock;
     std::unique_ptr<Common::PageTable> m_impl{};
+    struct IncompleteMapGroup {
+        KProcessAddress address;
+        size_t num_pages;
+        bool separate_heap;
+        KPageGroup pages;
+        std::unique_ptr<IncompleteMapGroup> next;
+        IncompleteMapGroup(KernelCore& kernel, KBlockInfoManager* manager,
+                           KProcessAddress address_, size_t num_pages_, bool separate_heap_)
+            : address{address_}, num_pages{num_pages_}, separate_heap{separate_heap_},
+              pages{kernel, manager} {}
+    };
+    std::unique_ptr<IncompleteMapGroup> m_incomplete_map_groups;
+    void FinalizeIncompleteMapGroups(const Core::Memory::Memory::MappingTeardown* teardown);
     Core::Memory::Memory* m_memory{};
     KMemoryBlockManager m_memory_block_manager{};
     u32 m_allocate_option{};
@@ -285,7 +299,7 @@ public:
                                 KProcessAddress aslr_space_start);
 
     Result FinalizeProcess();
-    void Finalize();
+    void Finalize(const Core::Memory::Memory::MappingTeardown* teardown = nullptr);
 
     bool IsKernel() const {
         return m_is_kernel;
@@ -355,6 +369,7 @@ public:
     Common::PageTable& GetImpl() {
         return *m_impl;
     }
+    bool HasImpl() const noexcept { return m_impl != nullptr; }
 
     Common::PageTable& GetImpl() const {
         return *m_impl;
@@ -370,7 +385,8 @@ protected:
     // class, and this avoids unnecessary virtual function calls.
     Result Operate(PageLinkedList* page_list, KProcessAddress virt_addr, size_t num_pages,
                    KPhysicalAddress phys_addr, bool is_pa_valid, const KPageProperties properties,
-                   OperationType operation, bool reuse_ll);
+                   OperationType operation, bool reuse_ll,
+                   const Core::Memory::Memory::MappingTeardown* teardown = nullptr);
     Result Operate(PageLinkedList* page_list, KProcessAddress virt_addr, size_t num_pages,
                    const KPageGroup& page_group, const KPageProperties properties,
                    OperationType operation, bool reuse_ll);
@@ -605,7 +621,8 @@ public:
 
     Result MapPages(KProcessAddress address, size_t num_pages, KMemoryState state,
                     KMemoryPermission perm);
-    Result UnmapPages(KProcessAddress address, size_t num_pages, KMemoryState state);
+    Result UnmapPages(KProcessAddress address, size_t num_pages, KMemoryState state,
+                      const Core::Memory::Memory::MappingTeardown* teardown = nullptr);
 
     Result MapPageGroup(KProcessAddress* out_addr, const KPageGroup& pg,
                         KProcessAddress region_start, size_t region_num_pages, KMemoryState state,
@@ -772,8 +789,9 @@ public:
 
 public:
     // Linear mapped
-    static u8* GetLinearMappedVirtualPointer(KernelCore& kernel, KPhysicalAddress addr) {
-        return kernel.System().DeviceMemory().GetPointer<u8>(addr);
+    static u8* GetLinearMappedVirtualPointer(KernelCore& kernel, KPhysicalAddress addr,
+                                           size_t size = PageSize) {
+        return kernel.System().DeviceMemory().GetPointer<u8>(addr, size);
     }
 
     static KPhysicalAddress GetLinearMappedPhysicalAddress(KernelCore& kernel,
@@ -787,8 +805,9 @@ public:
     }
 
     // Heap
-    static u8* GetHeapVirtualPointer(KernelCore& kernel, KPhysicalAddress addr) {
-        return kernel.System().DeviceMemory().GetPointer<u8>(addr);
+    static u8* GetHeapVirtualPointer(KernelCore& kernel, KPhysicalAddress addr,
+                                    size_t size = PageSize) {
+        return kernel.System().DeviceMemory().GetPointer<u8>(addr, size);
     }
 
     static KPhysicalAddress GetHeapPhysicalAddress(KernelCore& kernel, KVirtualAddress addr) {

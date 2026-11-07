@@ -16,7 +16,7 @@ namespace Service::VI {
 Conductor::Conductor(Core::System& system, Container& container, DisplayList& displays)
     : m_system(system), m_container(container) {
     displays.ForEachDisplay([&](Display& display) {
-        m_vsync_managers.insert({display.GetId(), VsyncManager{}});
+        m_vsync_managers.try_emplace(display.GetId());
     });
 
     if (system.IsMulticore()) {
@@ -44,11 +44,21 @@ Conductor::Conductor(Core::System& system, Container& container, DisplayList& di
 }
 
 Conductor::~Conductor() {
-    m_system.CoreTiming().UnscheduleEvent(m_event);
+    this->Stop();
+}
 
-    if (m_system.IsMulticore()) {
+void Conductor::Stop() {
+    if (m_event) {
+        // The default Wait mode also drains an already running timing callback.
+        m_system.CoreTiming().UnscheduleEvent(m_event);
+        m_event.reset();
+    }
+
+    if (m_thread.joinable()) {
         m_thread.request_stop();
         m_signal.Set();
+        // Join in the body, before cadence fields or borrowed events can retire.
+        m_thread.join();
     }
 }
 
@@ -77,7 +87,7 @@ void Conductor::VsyncThread(std::stop_token token) {
     while (!token.stop_requested()) {
         m_signal.Wait();
 
-        if (m_system.IsShuttingDown()) {
+        if (token.stop_requested() || m_system.IsShuttingDown()) {
             return;
         }
 

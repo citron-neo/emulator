@@ -1,0 +1,570 @@
+{
+  "date": "2026-10-23",
+  "branch": "codex/issue-372-fixes",
+  "baseline": "73a0461d43e153371cebe50ddbb66d694cbe9f81",
+  "main_unchanged": "b6a2ce9488d78efdbbeb0efe14c2ec5c0a263e76",
+  "verification": "Current suite SHA inputs and six AMD64 COFF hashes checked before cleanup; zero production diagnostics. GPU request suite also records extracted/instrumented method hashes.",
+  "audited_sha256": {
+    "src/video_core/gpu.cpp": "e0ac6ced278e3c3c7f9338066fe54786c86837f1ca5f7d08428822d6b4da23ee",
+    "src/video_core/renderer_vulkan/vk_scheduler.cpp": "02371fa62c3c20dc3d0622de3be6cb6b955946a7d4ddd2b176d93e24859d8d25",
+    "src/video_core/renderer_vulkan/vk_scheduler.h": "80f901648234c818fcb03ee15a34a13389b345f87ce8c03478cf154f7a9b0d56",
+    "src/core/hle/service/nvnflinger/ui/graphic_buffer.cpp": "02f6edff23efa213a4063c1accca2301b927617416800cf56f6f230922f80329",
+    "src/core/hle/service/nvnflinger/hardware_composer.cpp": "738048181e94e15966615d0dd3e8120b0fcb5ba31710091894b5661b2c92f625",
+    "tools/gpu_lifecycle_tests/run_tests.py": "95dbf8bd6babb45596a201a82e18383e78d78905589ef181ee65757ab7c65fc2"
+  },
+  "evidence": {
+    "baseline": {
+      "revision": "73a0461d43",
+      "witnesses": [
+        "late presentation after idle wait",
+        "ignored native idle result"
+      ]
+    },
+    "fixed": {
+      "sha256": {
+        "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+        "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+        "src/video_core/renderer_vulkan/vk_blit_screen.cpp": "4e90c45bbf4b6007eebb969299308ee3a72880351c28f483389e7710c616f621",
+        "src/video_core/renderer_vulkan/vk_present_manager.cpp": "6898d942ce1fcaa7c9291129f5a83b1c85429aea7e0c71a0b0c02d6ded3132cf",
+        "tools/gpu_lifecycle_tests/blit_idle_fixture.cpp.in": "0d1dbe532bebcbe612a2c09adf15dde48afb9147cd03eda5f07cfbeadbd9a613",
+        "tools/gpu_lifecycle_tests/run_blit_idle_tests.py": "26193b3272dba8f0ada06560416487ee3ada45702d0a9946596971b2d456f236"
+      },
+      "repetitions": 3,
+      "cases": [
+        "late",
+        "async-empty",
+        "sync",
+        "repeat"
+      ],
+      "failures": [
+        [
+          "result--4",
+          "blit.native_idle",
+          -4
+        ],
+        [
+          "result--1",
+          "blit.native_idle",
+          -1
+        ],
+        [
+          "result-2",
+          "blit.native_idle",
+          2
+        ],
+        [
+          "vk-finish",
+          "blit.finish",
+          -4
+        ],
+        [
+          "vk-recording_drain",
+          "blit.recording_drain",
+          -4
+        ],
+        [
+          "vk-presentation_drain",
+          "blit.presentation_drain",
+          -4
+        ],
+        [
+          "vk-native_idle",
+          "blit.native_idle",
+          -4
+        ],
+        [
+          "host-finish",
+          "blit.finish",
+          null
+        ],
+        [
+          "host-recording_drain",
+          "blit.recording_drain",
+          null
+        ],
+        [
+          "host-presentation_drain",
+          "blit.presentation_drain",
+          null
+        ],
+        [
+          "host-native_idle",
+          "blit.native_idle",
+          null
+        ]
+      ],
+      "controls": [
+        "omit-recording-drain",
+        "omit-presentation-drain",
+        "old-drain-order",
+        "ignore-native-result",
+        "lock-over-drains",
+        "omit-submit-lock"
+      ],
+      "actual": [
+        "BlitScreen WaitIdle",
+        "PresentManager Present/WaitPresent/PresentThread",
+        "TerminalFailStop implementation"
+      ],
+      "fixtures": [
+        "Scheduler recording/Finish/timeline, logical device and native result/exception",
+        "frame copy, release and resource-disposal markers; observation at WaitPresent entry"
+      ],
+      "boundary": "Controlled resource-recreation completion protocol, not actual Vulkan/native presentation or guest backing retirement."
+    },
+    "requests": {
+      "methods": {
+        "~Impl()": "edf2a1f2083aea2c8bc5aac7eaccc1e582bd9e9c62e40a55c631805cd556551b",
+        "template <typename Func>\nu64 RequestSyncOperation(Func&& action)": "44c8f98f6ca1ae2fe384b35df9bb66c1ab48a69f05feb250c3060123b1c96983",
+        "u64 CurrentSyncRequestFence() const": "4355be31bad22309577551f9a4eae7a976c6f37f179fc7e0195946620d3949cb",
+        "bool WaitForSyncOperation(const u64 fence)": "205ce695ed3b8ec68f5afbd7ce2b8c86cdd16919a7951dee8a556f2425be6942",
+        "void TickWork()": "d24eff8f22f34e149ad65bbbb037da059d6de1f6e32904c561aa73a86dc5554c",
+        "void NotifyShutdown()": "7a58d51416201fa84966845db0e4e63a0e9ccc02aa8613478fe8bd1e5f66548d",
+        "VideoCore::RasterizerDownloadArea OnCPURead(DAddr addr, u64 size)": "ac759bcfae1ca24866b35ee2003391110016f36ec0d3af6cd60660abbf88d4ce",
+        "void RequestComposite(std::vector<Tegra::FramebufferConfig>&& layers,\n                          std::vector<Service::Nvidia::NvFence>&& fences)": "08d1e575aede4af621ff9525d19b0a11792a42b4b97860653ed3ee38bef4c41d",
+        "std::vector<u8> GetAppletCaptureBuffer()": "ae76e7c0cbb0e596bcac64b22b833712ee1584606da4c9106904806cf84be869",
+        "void Shutdown()": "d56ce58a784578cbb14812c0fbb5b38a838cf1eab8bcc243ff9cab69172e9f44"
+      },
+      "fixtures": [
+        "Core/System",
+        "GPU worker and scheduler",
+        "renderer/Vulkan",
+        "guest syncpoints"
+      ],
+      "instrumentation": [
+        "signal before composite-state mutex acquisition",
+        "signal before sync wait and count after sync wait under its mutex"
+      ],
+      "no_gpu_execution": true
+    },
+    "terminal": {
+      "sha256": {
+        "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+        "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+        "src/core/core.cpp": "6b8fbeef5ae64cfcb3174a469f5dcc0f42132938173048ed2cc423e5c77b3a37",
+        "src/video_core/gpu.cpp": "e0ac6ced278e3c3c7f9338066fe54786c86837f1ca5f7d08428822d6b4da23ee",
+        "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "c8180a3817ba531f18e6bd0ef993bfbd0faf29625bbeecba9a7d8c0b2e3765c1",
+        "src/video_core/renderer_vulkan/vk_turbo_mode.cpp": "8e1e499a096f2fdb94bc6d279983324081b22423c465dc3fab3a4a18f117db38",
+        "tools/gpu_lifecycle_tests/run_terminal_disposal_tests.py": "7d916139e008e2db146b1189ba93a453caef8068004c08e854363072bcb151ee",
+        "tools/gpu_lifecycle_tests/terminal_disposal_fixture.cpp.in": "7d20f90048f6304f6d7bd2902599b8c4b8908973a660859f4a992ac8599a2086"
+      },
+      "repetitions": 3,
+      "success_paths": 5,
+      "failure_paths": 23,
+      "controls": [
+        "ignore-idle-failure",
+        "ignore-checked-refusal",
+        "dispose-services-first",
+        "omit-system-fallback",
+        "normal-exit-runs-handlers"
+      ],
+      "actual": [
+        "System owning shutdown and destructor",
+        "GPU terminal shutdown and destructor",
+        "Vulkan renderer shutdown and destructor",
+        "Turbo destructor",
+        "FailStop implementation"
+      ],
+      "fixtures": [
+        "worker/driver/component methods and protected-owner destructor markers",
+        "platform backing memory reset after successful teardown"
+      ],
+      "boundary": "All failures execute in subprocesses; exact exit 86, diagnostic stage/reason/result, no protected member destruction, service/Process disposal or exit handlers. Not an actual driver-loss injection, blocked-driver timeout or ordinary Guest admission proof."
+    },
+    "slots": {
+      "sha256": {
+        "src/common/owned_retirement.h": "bd1f8cbb8aa4f70d20ec0dbb9ac082b037285549fe76f61ec2195304c51f59ea",
+        "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+        "src/core/hle/service/nvdrv/nvdrv.cpp": "4fab3fd80c82a2bab9235c770af11ffd3490c6d27c05a1b827b2702a13f26916",
+        "src/core/hle/service/nvnflinger/buffer_queue_consumer.cpp": "ff03087a94dbc09cb746d5209e2252acfce01d519a57735e78a1d5f9a894bd4f",
+        "src/core/hle/service/nvnflinger/buffer_queue_core.cpp": "18901934d8c2c5d40b391ddba42c2d1c3cddd3adc11f8b2b99188bb0ac575373",
+        "src/core/hle/service/nvnflinger/buffer_queue_producer.cpp": "2edcadf0d308c0340c8fc2efce8f40ad3a1470f5f945e06a0303aba69b3ffaae",
+        "src/core/hle/service/nvnflinger/consumer_base.cpp": "8807fd23d9e9ec179ab1b0be227adf68f94337502652e4084046f3dfb0b359ab",
+        "src/core/hle/service/nvnflinger/display.h": "176f2938bc81a4452e01a99f89f3cf4f0ee544345e1c958104910e32a0403fc9",
+        "src/core/hle/service/nvnflinger/hardware_composer.cpp": "738048181e94e15966615d0dd3e8120b0fcb5ba31710091894b5661b2c92f625",
+        "src/core/hle/service/nvnflinger/surface_flinger.cpp": "20840ed443570c5465ed4a8a5ed7cb767db7358101de6f363e33c590a214de45",
+        "src/core/hle/service/nvnflinger/ui/graphic_buffer.cpp": "02f6edff23efa213a4063c1accca2301b927617416800cf56f6f230922f80329",
+        "src/core/hle/service/nvnflinger/ui/graphic_buffer.h": "eacd3c89310ed63ba9656adf26365d8ac62b1e741822a4c7ff64723f12e98ddb",
+        "tools/physical_coherency_tests/abandoned_slot_fixture.cpp.in": "f97ee97ea0592a780ca176bb87faab7ee5a58666d849abfc228a49f6adad30fa",
+        "tools/physical_coherency_tests/run_abandoned_slot_tests.py": "59f7c1a0606c38dade5374b659f493728b61c2d3b83d2e51a7efb8d5ceee5264"
+      },
+      "repetitions": 3,
+      "cases": [
+        "closed",
+        "late",
+        "deferred",
+        "pin-zero",
+        "pin-throw",
+        "free-failure",
+        "normal",
+        "bad-slot",
+        "global-close",
+        "cache",
+        "uncached",
+        "cached-late"
+      ],
+      "controls": [
+        "omit-both-gates",
+        "omit-late-gate",
+        "omit-preflight",
+        "success-on-refusal",
+        "hold-core-over-preparation",
+        "direct-retirement",
+        "ignore-free-failure",
+        "drop-cached-framebuffer",
+        "retire-under-core-lock",
+        "clear-before-final-check"
+      ],
+      "actual": [
+        "SetPreallocatedBuffer",
+        "ConsumerBase Abandon and slot clearing; BufferQueueConsumer Disconnect and core frees",
+        "SurfaceFlinger warm removal methods; Layer destructor",
+        "GraphicBuffer construction/retirement and Module prepared factory",
+        "HardwareComposer cache/acquire/remove methods; ProducerDrain/OwnedRetirementQueue"
+      ],
+      "fixtures": [
+        "Queue/provider/container layouts, binder registry, cache map type and acquisition",
+        "nvmap effects, Process/backing tokens, event signaling and native-drain marker"
+      ],
+      "boundary": "Local abandoned queue publication and CPU ownership only; no actual Memory/KProcess, native GPU completion or whole guest admission."
+    },
+    "production": {
+      "platform": "Windows-11-10.0.26300-SP0",
+      "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+      "compiler": "g++.exe (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+      "boost_root": "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+      "boost_version_header": "//  Boost version.hpp configuration header file  ------------------------------//\n\n//  (C) Copyright John maddock 1999. Distributed under the Boost\n//  Software License, Version 1.0. (See accompanying file\n//  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)\n\n//  See http://www.boost.org/libs/config for documentation\n\n#ifndef BOOST_VERSION_HPP\n#define BOOST_VERSION_HPP\n\n//\n//  Caution: this is the only Boost header that is guaranteed\n//  to change with every Boost release. Including this header\n//  will cause a recompile every time a new Boost version is\n//  used.\n//\n//  BOOST_VERSION % 100 is the patch level\n//  BOOST_VERSION / 100 % 1000 is the minor version\n//  BOOST_VERSION / 100000 is the major version\n\n#define BOOST_VERSION 108700\n\n//\n//  BOOST_LIB_VERSION must be defined to be the same as BOOST_VERSION\n//  but as a *string* in the form \"x_y[_z]\" where x is the major version\n//  number, y is the minor version number, and z is the patch level if not 0.\n//  This is used by <config/auto_link.hpp> to select which library version to link to.\n\n#define BOOST_LIB_VERSION \"1_87\"\n\n#endif\n",
+      "boost_official_archive_sha256": null,
+      "sha256": {
+        "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+        "src/core/hle/service/nvdrv/core/nvmap.cpp": "be297bbbc3029d85f5daf58e68b66f83ed5c35a596805c515146f22908e038ad",
+        "src/core/hle/service/nvdrv/core/nvmap.h": "624935701a9b4830e771093abcb6061a2a036a0ec0d80ffcec788475d831edb4",
+        "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+        "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+        "src/core/hle/service/nvdrv/nvdrv.cpp": "4fab3fd80c82a2bab9235c770af11ffd3490c6d27c05a1b827b2702a13f26916",
+        "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+        "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+        "src/video_core/gpu.h": "b55625f616af2deb74407ec05104babd5712211c56dce28bad5c3b9f73b68786",
+        "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+        "src/video_core/memory_manager.h": "db03427bd693d7b20812828e60a59c4e2cc6cf314b1c206cfd720e4f56906682",
+        "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+        "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+        "src/video_core/renderer_vulkan/present/layer.cpp": "087aa8421b939bdc243746e35d780e3573192e990171a57e432d6fbe7c9a1875",
+        "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "c8180a3817ba531f18e6bd0ef993bfbd0faf29625bbeecba9a7d8c0b2e3765c1",
+        "src/video_core/renderer_vulkan/vk_blit_screen.cpp": "4e90c45bbf4b6007eebb969299308ee3a72880351c28f483389e7710c616f621",
+        "src/video_core/renderer_vulkan/vk_present_manager.cpp": "6898d942ce1fcaa7c9291129f5a83b1c85429aea7e0c71a0b0c02d6ded3132cf",
+        "src/video_core/renderer_vulkan/vk_rasterizer.h": "03c3f2a44a2010ef4c002db2b6d5ed71ff16f2ed2ec467ff799f529caceb0a79",
+        "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+        "tools/physical_coherency_tests/run_windows_production_checks.py": "4e5d70354c3c8e47e8d81395187c8eeebc595162b7da3bde371aed9a7fe9fd75"
+      },
+      "objects": [
+        {
+          "source": "src/video_core/renderer_vulkan/vk_blit_screen.cpp",
+          "sha256": "4e90c45bbf4b6007eebb969299308ee3a72880351c28f483389e7710c616f621",
+          "object_sha256": "b902ead195a40e5a72cbaabca505274f9c22ed373123b7ea3a0a6fc0ff411d66",
+          "object_size": 9380,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\vk_blit_screen.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-blit-production\\0-vk_blit_screen.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/video_core/renderer_vulkan/vk_present_manager.cpp",
+          "sha256": "6898d942ce1fcaa7c9291129f5a83b1c85429aea7e0c71a0b0c02d6ded3132cf",
+          "object_sha256": "5aab458810d5179edf2fe78db7095c04ff94fee3ad66212c9178ed1ce80a3f41",
+          "object_size": 57541,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\vk_present_manager.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-blit-production\\1-vk_present_manager.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/video_core/renderer_vulkan/present/layer.cpp",
+          "sha256": "087aa8421b939bdc243746e35d780e3573192e990171a57e432d6fbe7c9a1875",
+          "object_sha256": "7e8a37f2f91ccb85957e73c4e89f270c2e279aef6e333b33ead736832d194ac1",
+          "object_size": 28613,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\present\\layer.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-blit-production\\2-layer.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/video_core/renderer_vulkan/renderer_vulkan.cpp",
+          "sha256": "c8180a3817ba531f18e6bd0ef993bfbd0faf29625bbeecba9a7d8c0b2e3765c1",
+          "object_sha256": "2e20255cbe223229260f25ef549d96870393871fda376d620646e88fb3e1e0fb",
+          "object_size": 101977,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\renderer_vulkan.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-blit-production\\3-renderer_vulkan.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/core/hle/service/nvdrv/core/nvmap.cpp",
+          "sha256": "be297bbbc3029d85f5daf58e68b66f83ed5c35a596805c515146f22908e038ad",
+          "object_sha256": "08ae0db1ba4c6a7d329cd2c50079e5d5966cddf8210bc5771e8582710818c4af",
+          "object_size": 56476,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\nvdrv\\core\\nvmap.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-blit-production\\4-nvmap.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/core/hle/service/nvdrv/nvdrv.cpp",
+          "sha256": "4fab3fd80c82a2bab9235c770af11ffd3490c6d27c05a1b827b2702a13f26916",
+          "object_sha256": "492addc68b3f365719df22e471861ded3e03562c74fc6252df296b6d3406636a",
+          "object_size": 218592,
+          "command": [
+            "C:/Strawberry/c/bin/g++.exe",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\nvdrv\\nvdrv.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-blit-production\\5-nvdrv.o"
+          ],
+          "warnings": ""
+        }
+      ],
+      "shader_evidence": null,
+      "boundary": "Actual production Windows x64 object compilation with real headers. No application link, runtime, native Vulkan or Android claim."
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "local_results": ".diagnostics/m4-blit-results",
+    "scope": [
+      ".diagnostics/m4-blit-baseline",
+      ".diagnostics/m4-blit-fixed",
+      ".diagnostics/m4-blit-requests",
+      ".diagnostics/m4-blit-terminal",
+      ".diagnostics/m4-blit-slots",
+      ".diagnostics/m4-blit-production"
+    ],
+    "preserved": "All JSON/logs copied and hash-checked; original logs/manifests retained.",
+    "actual_removed": {
+      "files": 68,
+      "executables": 27,
+      "objects": 6,
+      "generated_sources": 35
+    },
+    "collector_removed": true
+  },
+  "limits": [
+    "Resource recreation completion boundary only; not every VI final unpin/free",
+    "Recording/native submission/timeline and source resources are fixtures in the new suite",
+    "Real PresentManager bodies/threads and TerminalFailStop, no actual Vulkan/game/device validation",
+    "No full application link, Linux/Android/current-head CI acceptance or main merge",
+    "Per-frame deferred guest-fence/source/native owner handoff remains open",
+    "M4 incomplete; F2/F3 open; GuestBackingAdmission Unknown"
+  ]
+}

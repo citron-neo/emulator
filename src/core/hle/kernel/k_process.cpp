@@ -3,11 +3,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <random>
+#include <stdexcept>
+#include <utility>
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "core/arm/dynarmic/arm_dynarmic.h"
 #include "core/arm/dynarmic/dynarmic_exclusive_monitor.h"
 #include "core/core.h"
+#include "core/device_memory.h"
 #include "core/gpu_dirty_memory_manager.h"
 #include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/k_scoped_resource_reservation.h"
@@ -24,6 +27,36 @@
 #endif
 
 namespace Kernel {
+
+std::optional<ProcessCohortStop> KProcess::TryStopProcessCohort(u32 poll_budget) {
+    if (!IsInitialized() || !m_page_table.HasImpl() || !poll_budget || poll_budget > 4096) return std::nullopt;
+    auto backing = m_kernel.System().DeviceMemory().buffer.RetainBackingStorage();
+    if (!backing || !backing->OwnerAlive()) return std::nullopt;
+    auto creation = m_kernel.TryCloseProcessCreation();
+    if (!creation) return std::nullopt;
+    auto publication = m_kernel.ProcessPublicationDomain()->TryClose(poll_budget);
+    if (!publication) return std::nullopt;
+    auto initialization = m_kernel.TryCloseGuestProcessInitialization(poll_budget);
+    if (!initialization) return std::nullopt;
+    return ProcessCohortStop{std::move(*backing), KScopedAutoObject<KProcess>{this}, m_kernel,
+                            std::addressof(m_page_table.GetImpl()), std::move(*creation),
+                            std::move(*publication), std::move(*initialization), poll_budget};
+}
+
+std::optional<ProcessExecutionStop> KProcess::TryStopGuestExecution(u32 poll_budget) {
+    if (!IsInitialized() || !poll_budget || poll_budget > 4096)
+        return std::nullopt;
+    auto backing = m_kernel.System().DeviceMemory().buffer.RetainBackingStorage();
+    if (!backing || !backing->OwnerAlive()) return std::nullopt;
+    KScopedAutoObject<KProcess> owner{this};
+    auto* table = std::addressof(m_page_table.GetImpl());
+    auto initialization = m_kernel.TryCloseGuestProcessInitialization(poll_budget);
+    if (!initialization) return std::nullopt;
+    auto execution = m_kernel.TryCloseGuestExecution(poll_budget);
+    if (!execution) return std::nullopt;
+    return ProcessExecutionStop{std::move(owner), m_kernel, table, std::move(*backing),
+                                 std::move(*initialization), std::move(*execution), poll_budget};
+}
 
 namespace {
 
@@ -134,14 +167,27 @@ void GenerateRandom(std::span<u64> out_random) {
 } // namespace
 
 void KProcess::Finalize() {
-    // Delete the process local region.
-    this->DeleteThreadLocalRegion(m_plr_address);
-
-    // Get the used memory size.
-    const size_t used_memory_size = this->GetUsedNonSystemUserPhysicalMemorySize();
-
-    // Finalize the page table.
-    m_page_table.Finalize();
+    // Stop queued controlled CPU stores BEFORE any process memory/PTE finalization. This joins
+    // only an entered bounded store/publication visit, never a GPU completion or CPU producer.
+    m_memory.SealControlledCpuWrites();
+    size_t used_memory_size{};
+    {
+        // Close normal admission and join before scheduler/PTE locks. This
+        // exclusive owner entry authorizes cleanup unmaps without reopening it.
+        auto teardown = m_memory.BeginMappingTeardown();
+        if (m_plr_address != 0) {
+            const auto result = this->DeleteThreadLocalRegion(m_plr_address, &teardown);
+            if (R_FAILED(result)) {
+                throw std::runtime_error("TLS teardown failed; process resources retained");
+            }
+            m_plr_address = 0;
+        }
+        if (!m_finalizing_tlp_tree.empty()) {
+            throw std::runtime_error("incomplete TLS cleanup; process resources retained");
+        }
+        used_memory_size = this->GetUsedNonSystemUserPhysicalMemorySize();
+        m_page_table.Finalize(&teardown);
+    } // Release teardown lifetime before Memory::Finalize retires/disposes Impl.
 
     // Finish using our system resource.
     if (m_system_resource) {
@@ -174,6 +220,7 @@ void KProcess::Finalize() {
     // Our thread local page list must be empty at this point.
     assert(m_partially_used_tlp_tree.empty());
     assert(m_fully_used_tlp_tree.empty());
+    assert(m_finalizing_tlp_tree.empty());
 
     // Release memory to the resource limit.
     if (m_resource_limit != nullptr) {
@@ -191,10 +238,18 @@ void KProcess::Finalize() {
 
     // Perform inherited finalization.
     KSynchronizationObject::Finalize();
+    m_memory.Finalize(); // Slab destruction skips C++ member destructors.
 }
 
 Result KProcess::Initialize(const Svc::CreateProcessParameter& params, KResourceLimit* res_limit,
                             bool is_real) {
+    auto initialization = m_kernel.TryEnterGuestProcessInitialization();
+    R_UNLESS(initialization.has_value(), ResultBusy);
+    R_RETURN(InitializeCommon(params, res_limit, is_real));
+}
+
+Result KProcess::InitializeCommon(const Svc::CreateProcessParameter& params,
+                                  KResourceLimit* res_limit, bool is_real) {
     // TODO: remove this special case
     if (is_real) {
         // Create and clear the process local region.
@@ -272,6 +327,9 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params, KResource
 Result KProcess::Initialize(const Svc::CreateProcessParameter& params, const KPageGroup& pg,
                             std::span<const u32> caps, KResourceLimit* res_limit,
                             KMemoryManager::Pool pool, bool immortal) {
+    // Keep this entry through all initial mapping effects, publication and rollback.
+    auto initialization = m_kernel.TryEnterGuestProcessInitialization();
+    R_UNLESS(initialization.has_value(), ResultBusy);
     assert(res_limit != nullptr);
     assert((params.code_num_pages * PageSize) / PageSize ==
            static_cast<size_t>(params.code_num_pages));
@@ -357,7 +415,7 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params, const KPa
     assert(m_process_id <= InitialProcessIdMax);
 
     // Initialize the rest of the process.
-    R_TRY(this->Initialize(params, res_limit, true));
+    R_TRY(this->InitializeCommon(params, res_limit, true));
 
     // We succeeded!
     R_SUCCEED();
@@ -366,6 +424,8 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params, const KPa
 Result KProcess::Initialize(const Svc::CreateProcessParameter& params,
                             std::span<const u32> user_caps, KResourceLimit* res_limit,
                             KMemoryManager::Pool pool, KProcessAddress aslr_space_start) {
+    auto initialization = m_kernel.TryEnterGuestProcessInitialization();
+    R_UNLESS(initialization.has_value(), ResultBusy);
     assert(res_limit != nullptr);
 
     // Set members.
@@ -464,7 +524,7 @@ Result KProcess::Initialize(const Svc::CreateProcessParameter& params,
     }
 
     // Initialize the rest of the process.
-    R_TRY(this->Initialize(params, res_limit, true));
+    R_TRY(this->InitializeCommon(params, res_limit, true));
 
     // We succeeded, so commit our memory reservation.
     memory_reservation.Commit();
@@ -689,12 +749,18 @@ Result KProcess::CreateThreadLocalRegion(KProcessAddress* out) {
     R_SUCCEED();
 }
 
-Result KProcess::DeleteThreadLocalRegion(KProcessAddress addr) {
+Result KProcess::DeleteThreadLocalRegion(
+    KProcessAddress addr, const Core::Memory::Memory::MappingTeardown* teardown) {
+    if (teardown) m_memory.ValidateMappingTeardown(*teardown);
     KThreadLocalPage* page_to_free = nullptr;
 
     // Release the region.
     {
         KScopedSchedulerLock sl(m_kernel);
+        // A prior uncertain cleanup retains its owner but is not safe to retry
+        // or return to the allocation trees without a separate recovery protocol.
+        R_UNLESS(m_finalizing_tlp_tree.find_key(Common::AlignDown(GetInteger(addr), PageSize)) ==
+                     m_finalizing_tlp_tree.end(), ResultInvalidState);
 
         // Try to find the page in the partially used list.
         auto it = m_partially_used_tlp_tree.find_key(Common::AlignDown(GetInteger(addr), PageSize));
@@ -725,11 +791,22 @@ Result KProcess::DeleteThreadLocalRegion(KProcessAddress addr) {
                 page_to_free = tlp;
             }
         }
+        if (page_to_free != nullptr) {
+            m_finalizing_tlp_tree.insert(*page_to_free);
+        }
     }
 
     // If we should free the page it was in, do so.
     if (page_to_free != nullptr) {
-        page_to_free->Finalize();
+        R_TRY(page_to_free->Finalize(teardown));
+        {
+            KScopedSchedulerLock sl(m_kernel);
+            const auto finalizing_it =
+                m_finalizing_tlp_tree.find_key(Common::AlignDown(GetInteger(addr), PageSize));
+            assert(finalizing_it != m_finalizing_tlp_tree.end() &&
+                   std::addressof(*finalizing_it) == page_to_free);
+            m_finalizing_tlp_tree.erase(finalizing_it);
+        }
 
         KThreadLocalPage::Free(m_kernel, page_to_free);
     }
@@ -926,6 +1003,8 @@ size_t KProcess::GetTotalNonSystemUserPhysicalMemorySize() const {
 }
 
 Result KProcess::Run(s32 priority, size_t stack_size) {
+    auto publication = m_kernel.ProcessPublicationDomain()->EnterCold();
+    R_UNLESS(publication.has_value(), ResultBusy);
     // Lock ourselves, to prevent concurrent access.
     KScopedLightLock lk(m_state_lock);
 
@@ -1166,14 +1245,44 @@ Result KProcess::GetThreadList(s32* out_num_threads, KProcessAddress out_thread_
 
 void KProcess::Switch(KProcess* cur_process, KProcess* next_process) {}
 
-KProcess::KProcess(KernelCore& kernel)
-    : KAutoObjectWithSlabHeapAndContainer(kernel), m_page_table{kernel}, m_state_lock{kernel},
+KProcess::KProcess(KernelCore& kernel) try
+    : KAutoObjectWithSlabHeapAndContainer(kernel), m_owner_registration{kernel},
+      m_page_table{kernel}, m_state_lock{kernel},
       m_list_lock{kernel}, m_cond_var{kernel.System()}, m_address_arbiter{kernel.System()},
-      m_handle_table{kernel}, m_exclusive_monitor{}, m_memory{kernel.System()} {}
-KProcess::~KProcess() = default;
+      m_handle_table{kernel}, m_exclusive_monitor{}, m_memory{kernel.System()} {
+    m_owner_registration.id = m_kernel.RegisterProcessOwner(this);
+} catch (...) {
+    // Member construction/registration refusal must not leave global bookkeeping.
+    kernel.UnregisterKernelObject(this);
+    throw;
+}
+KProcess::OwnerRegistration::~OwnerRegistration() {
+    if (id) kernel.CompleteProcessOwnerRetirement(id);
+}
+KProcess::~KProcess() {
+    // Only direct C++ destruction still owns a registration. Slab Destroy
+    // consumes it; that path leaves kernel bookkeeping to KAutoObject::Close.
+    if (m_owner_registration.id) {
+        m_kernel.BeginProcessOwnerRetirement(m_owner_registration.id);
+        m_kernel.UnregisterKernelObject(this);
+    }
+}
+
+void KProcess::Destroy() {
+    auto& kernel = m_kernel;
+    const auto registration = std::exchange(m_owner_registration.id, 0);
+    kernel.BeginProcessOwnerRetirement(registration);
+    // Finalize can throw. Keep its retiring record on failure, without claiming
+    // recovery or allowing a future snapshot to omit those retained resources.
+    KAutoObjectWithSlabHeapAndContainer<KProcess, KWorkerTask>::Destroy();
+    // Do not touch this after Free. Another object may already reuse its address.
+    kernel.CompleteProcessOwnerRetirement(registration);
+}
 
 Result KProcess::LoadFromMetadata(const FileSys::ProgramMetadata& metadata, std::size_t code_size,
                                   KProcessAddress aslr_space_start, bool is_hbl) {
+    auto publication = m_kernel.ProcessPublicationDomain()->EnterCold();
+    R_UNLESS(publication.has_value(), ResultBusy);
     // Create a resource limit for the process.
     const auto pool = static_cast<KMemoryManager::Pool>(metadata.GetPoolPartition());
     const auto physical_memory_size = m_kernel.MemoryManager().GetSize(pool);
@@ -1257,6 +1366,8 @@ Result KProcess::LoadFromMetadata(const FileSys::ProgramMetadata& metadata, std:
 }
 
 void KProcess::LoadModule(CodeSet code_set, KProcessAddress base_addr) {
+    auto publication = m_kernel.ProcessPublicationDomain()->EnterCold();
+    if (!publication) throw Core::Memory::ControlledMappingPublication::Refused("process module publication closed");
     const auto ReprotectSegment = [&](const CodeSet::Segment& segment,
                                       Svc::MemoryPermission permission) {
         m_page_table.SetProcessMemoryPermission(segment.addr + base_addr, segment.size, permission);
@@ -1291,6 +1402,8 @@ void KProcess::LoadModule(CodeSet code_set, KProcessAddress base_addr) {
 }
 
 void KProcess::InitializeInterfaces() {
+    auto publication = m_kernel.ProcessPublicationDomain()->EnterCold();
+    if (!publication) throw Core::Memory::ControlledMappingPublication::Refused("process interface publication closed");
     m_exclusive_monitor =
         Core::MakeExclusiveMonitor(this->GetMemory(), Core::Hardware::NUM_CPU_CORES);
 

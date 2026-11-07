@@ -29,7 +29,7 @@
 // Compile constraints:
 //   - No global -maes / -mavx2 / -mavx512f flags required.
 //   - Each function carries its own __attribute__((target(...))).
-//   - Runtime CPU detection uses CPUID directly (<cpuid.h>) for portability
+//   - Runtime CPU detection uses CPUID directly for portability
 //     across Clang and GCC. __builtin_cpu_supports is NOT used because
 //     Clang 18 does not recognise "vaes" as a valid feature string.
 //   - The CpuFeatures::detect() result is cached in a static local (thread-safe).
@@ -39,12 +39,26 @@
 #pragma once
 
 // aes_ni.h is x86-64 only. On other architectures the entire file is a no-op;
-// callers guard usage with #ifdef ARCHITECTURE_x86_64.
-#if defined(__x86_64__) || defined(_M_X64)
+// callers select the implementation with CITRON_HAS_AES_NI.
+// GNU-style per-function ISA targeting is required by this implementation.
+// Clang (including clang-cl) and GCC support per-function target attributes.
+#if (defined(__x86_64__) || defined(_M_X64)) && \
+    (defined(__GNUC__) || defined(__clang__))
+#define CITRON_HAS_AES_NI 1
+#else
+#define CITRON_HAS_AES_NI 0
+#endif
+
+#if CITRON_HAS_AES_NI
 
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#else
+#include <cpuid.h>
+#endif
 #include <wmmintrin.h>   // AES-NI
 #include <emmintrin.h>   // SSE2
 #include <tmmintrin.h>   // SSSE3: _mm_shuffle_epi8
@@ -478,7 +492,6 @@ inline void Ctr128_vaes512(const __m128i* ks128, const uint8_t* in, uint8_t* out
 // but mask bit 9 of CPUID leaf 7 ECX. The dispatcher therefore also checks
 // for avx2/avx512f before attempting a VAES path.
 
-#include <cpuid.h>
 
 namespace detail {
 
@@ -498,11 +511,28 @@ private:
     static CpuFeatures detect() {
         CpuFeatures f;
         unsigned int eax, ebx, ecx, edx;
-        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
+        const auto cpuid = [&](unsigned int leaf, unsigned int subleaf) {
+#if defined(_MSC_VER)
+            int regs[4];
+            __cpuid(regs, 0);
+            if (static_cast<unsigned int>(regs[0]) < leaf) {
+                return false;
+            }
+            __cpuidex(regs, static_cast<int>(leaf), static_cast<int>(subleaf));
+            eax = static_cast<unsigned int>(regs[0]);
+            ebx = static_cast<unsigned int>(regs[1]);
+            ecx = static_cast<unsigned int>(regs[2]);
+            edx = static_cast<unsigned int>(regs[3]);
+            return true;
+#else
+            return __get_cpuid_count(leaf, subleaf, &eax, &ebx, &ecx, &edx) != 0;
+#endif
+        };
+        if (cpuid(1, 0)) {
             f.aes_ni = (ecx >> 25) & 1;
             f.ssse3  = (ecx >>  9) & 1;
         }
-        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx)) {
+        if (cpuid(7, 0)) {
             f.avx2    = (ebx >>  5) & 1;
             f.avx512f = (ebx >> 16) & 1;
             f.vaes    = (ecx >>  9) & 1;

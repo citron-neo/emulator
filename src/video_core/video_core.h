@@ -36,4 +36,7 @@ using Vulkan::GuestMemoryExport;
 GuestMemoryExport ExportGuestMemory(Core::Frontend::EmuWindow& emu_window, u64 total_size,
                                     u64 chunk_size);
 
+std::shared_ptr<Common::GuestBackingExporter> CreateGuestBackingExporter(
+    Core::Frontend::EmuWindow& emu_window);
+
 } // namespace VideoCore

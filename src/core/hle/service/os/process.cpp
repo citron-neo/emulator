@@ -18,7 +18,12 @@ Process::~Process() {
     this->Finalize();
 }
 
-bool Process::Initialize(Loader::AppLoader& loader, Loader::ResultStatus& out_load_result) {
+bool Process::Initialize(Loader::AppLoader& loader, Loader::ResultStatus& out_load_result) try {
+    auto publication = m_system.Kernel().ProcessPublicationDomain()->EnterCold();
+    if (!publication) {
+        out_load_result = Loader::ResultStatus::ErrorNotInitialized;
+        return false;
+    }
     // First, ensure we are not holding another process.
     this->Finalize();
 
@@ -56,6 +61,12 @@ bool Process::Initialize(Loader::AppLoader& loader, Loader::ResultStatus& out_lo
 
     // We succeeded.
     return true;
+} catch (const Kernel::ProcessOwnerRoster::CreationRefused&) {
+    out_load_result = Loader::ResultStatus::ErrorNotInitialized;
+    return false;
+} catch (const Core::Memory::ControlledMappingPublication::Refused&) {
+    out_load_result = Loader::ResultStatus::ErrorNotInitialized;
+    return false;
 }
 
 void Process::Finalize() {
@@ -84,9 +95,8 @@ bool Process::Run() {
     }
 
     // Start.
-    if (m_process) {
-        m_process->Run(m_main_thread_priority, m_main_thread_stack_size);
-    }
+    if (!m_process || R_FAILED(m_process->Run(m_main_thread_priority, m_main_thread_stack_size)))
+        return false;
 
     // Mark as started.
     m_process_started = true;

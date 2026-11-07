@@ -13,10 +13,6 @@ namespace Shader::Maxwell {
     throw NotImplementedException("Instruction {} is not implemented", opcode);
 }
 
-void TranslatorVisitor::ATOM_cas(u64) {
-    ThrowNotImplemented(Opcode::ATOM_cas);
-}
-
 void TranslatorVisitor::ATOMS_cas(u64) {
     ThrowNotImplemented(Opcode::ATOMS_cas);
 }

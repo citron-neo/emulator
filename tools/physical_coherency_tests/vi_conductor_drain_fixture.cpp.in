@@ -1,0 +1,182 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <set>
+#include <stop_token>
+#include <string>
+#include <thread>
+#include <unordered_map>
+using s32=int;using s64=long long;using u64=unsigned long long;using f32=float;
+using namespace std::chrono_literals;
+void Require(bool value,const char* why){if(!value){std::cerr<<"FAIL "<<why<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Gate{std::mutex lock;std::condition_variable cv;bool set=false;
+    void Set(){std::scoped_lock l{lock};set=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{lock};Require(cv.wait_for(l,5s,[&]{return set;}),"rendezvous timeout");}};
+struct Choice{std::mutex lock;std::condition_variable cv;int value=0;
+    void Set(int n){std::scoped_lock l{lock};if(!value)value=n;cv.notify_all();}
+    int Wait(){std::unique_lock l{lock};Require(cv.wait_for(l,5s,[&]{return value!=0;}),"choice timeout");return value;}};
+struct ObservedMutex{std::mutex lock_;std::atomic<bool> held=false;std::function<void()> before;
+    void lock(){if(before)before();lock_.lock();held=true;}void unlock(){held=false;lock_.unlock();}};
+namespace Common {
+void SetCurrentThreadName(const char*){}
+struct Event{std::mutex lock;std::condition_variable cv;bool set=false;std::function<void()> after_wait;
+    void Set(){std::scoped_lock l{lock};set=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{lock};Require(cv.wait_for(l,5s,[&]{return set;}),"worker wake timeout");set=false;auto hook=after_wait;l.unlock();if(hook)hook();}};
+}
+namespace Settings {
+template<class T>struct Setting{T value;T GetValue()const{return value;}};
+struct Values{Setting<bool> use_multi_core{true},use_speed_limit{true},use_video_framerate{false};Setting<int> speed_limit{100};}values;
+}
+bool probe_destructor=false;
+namespace Core::Timing {
+using Callback=std::function<std::optional<std::chrono::nanoseconds>(s64,std::chrono::nanoseconds)>;
+struct EventType{Callback callback;};
+auto CreateEvent(const char*,Callback cb){return std::make_shared<EventType>(EventType{std::move(cb)});}
+}
+struct TimingFixture {
+    std::mutex advance;std::shared_ptr<Core::Timing::EventType> scheduled;
+    std::atomic<bool> cancelled=false;std::atomic<int> waits=0;std::function<void()> unschedule_hook;
+    void ScheduleLoopingEvent(std::chrono::nanoseconds,std::chrono::nanoseconds,std::shared_ptr<Core::Timing::EventType> e){scheduled=std::move(e);}
+    void UnscheduleEvent(const std::shared_ptr<Core::Timing::EventType>&,bool wait=true){
+        cancelled=true;if(unschedule_hook)unschedule_hook();
+        if(wait){++waits;std::scoped_lock l{advance};}
+    }
+    void Fire(){std::scoped_lock l{advance};if(!cancelled)scheduled->callback(0,0ns);}
+};
+namespace Core {
+struct System{bool multicore=true;std::atomic<bool> shutting=false;TimingFixture timing;
+    bool IsMulticore()const{return multicore;}bool IsShuttingDown()const{return shutting;}
+    bool GetNVDECActive()const{return false;}auto& CoreTiming(){return timing;}};
+}
+namespace Service {
+struct Event{std::function<void()> hook;std::atomic<int> signals=0;void Signal(){if(hook)hook();++signals;}};
+}
+constexpr auto FrameNs=std::chrono::nanoseconds{1000000000/60};
+namespace Service::VI {
+struct Container;
+struct Display{u64 GetId()const{return 1;}};
+struct DisplayList{template<class F>void ForEachDisplay(F f){Display d;f(d);}};
+// @VSYNC@
+// @CONDUCTOR@
+struct Layers{template<class F>void ForEachLayer(F f){Display d;f(d);}};
+struct Container {
+    ObservedMutex m_lock,m_termination_lock;Core::System& m_system;
+    DisplayList m_displays;Layers m_layers;std::optional<Conductor> m_conductor;
+    bool m_is_initialized=false,m_is_shut_down=false;
+    std::atomic<int> effects=0,composes=0;std::function<void()> compose_hook;
+    struct Surface{Container& owner;void RemoveDisplay(u64){++owner.effects;}
+        bool ComposeDisplay(s32*,f32*,u64){++owner.composes;if(owner.compose_hook)owner.compose_hook();return true;}
+    }surface{*this};Surface* m_surface_flinger=&surface;
+    explicit Container(Core::System& s,bool warm=true):m_system{s}{if(warm){m_is_initialized=true;m_conductor.emplace(s,*this,m_displays);}}
+    ~Container(){OnTerminate();}
+    bool EnsureInitialized(){std::scoped_lock l{m_lock};return !m_is_shut_down&&m_is_initialized;}
+    bool ComposeOnDisplay(s32*,f32*,u64);
+    void DestroyLayerLocked(u64){++effects;}
+    void OnTerminate();void UnlinkVsyncEvent(u64,Event*);
+};
+// @METHODS@
+}
+using Service::VI::Container;using Service::Event;
+void Warm(){
+    Core::System s;auto container=std::make_shared<Container>(s);Event event;Gate entered,release;Choice progress;
+    s.timing.unschedule_hook=[&]{Require(!container->m_lock.held,"Conductor wait held Container lock");};
+    event.hook=[&]{entered.Set();release.Wait();};container->m_conductor->LinkVsyncEvent(1,&event);
+    s.timing.Fire();entered.Wait();
+    std::stop_callback stopped(container->m_conductor->m_thread.get_stop_token(),[&]{progress.Set(1);});
+    std::stop_source source;auto token=source.get_token();
+    // @STOP_CALLBACK@
+    std::thread terminator([&]{source.request_stop();progress.Set(2);});
+    Require(progress.Wait()==1,"termination returned with live Conductor");
+    Require(container->effects==0,"warm cleanup preceded active worker drainage");
+    release.Set();terminator.join();
+    Require(!container->m_conductor->m_thread.joinable()&&s.timing.cancelled,"termination left a callback source");
+    Require(container->effects==2,"warm cleanup missing");
+    const int signals=event.signals;s.timing.Fire();Require(event.signals==signals,"callback ran after terminal return");
+    // Only an ordering marker, not a native GPU drain.
+    bool gpu_drained=true;Require(gpu_drained,"GPU marker missing");
+}
+void Destructor(){Core::System s;Container c{s};probe_destructor=true;c.m_conductor.reset();probe_destructor=false;c.m_is_initialized=false;}
+void Unlink(){Core::System s;Container c{s};Event event;c.m_conductor->LinkVsyncEvent(1,&event);c.OnTerminate();c.UnlinkVsyncEvent(1,&event);
+    Require(c.m_conductor->m_vsync_managers.at(1).m_vsync_events.empty(),"terminal unlink retained borrowed event");}
+void Normal(){Core::System s;Container c{s};Event event;Gate entered,release;Choice progress;
+    event.hook=[&]{entered.Set();release.Wait();};c.m_conductor->LinkVsyncEvent(1,&event);s.timing.Fire();entered.Wait();
+    const int before=c.composes;
+    std::stop_callback stopped(c.m_conductor->m_thread.get_stop_token(),[&]{progress.Set(1);});
+    std::thread stopper([&]{
+#if HAS_STOP
+        c.m_conductor->Stop();
+#endif
+        progress.Set(2);});
+    Require(progress.Wait()==1,"Conductor did not request worker stop");release.Set();stopper.join();
+    Require(c.composes==before,"stop wake performed another composition");
+    Require(event.signals==1,"normal vsync signal lost");
+    // A distinct idle-worker case: stop wakes Wait before the stop-token check.
+    Core::System idle_system;Container idle{idle_system};Gate woke,continue_wake;
+    {std::scoped_lock l{idle.m_conductor->m_signal.lock};idle.m_conductor->m_signal.after_wait=[&]{woke.Set();continue_wake.Wait();};}
+    std::thread idle_stop([&]{
+#if HAS_STOP
+        idle.m_conductor->Stop();
+#endif
+    });
+    woke.Wait();continue_wake.Set();idle_stop.join();
+    Require(idle.composes==0,"stop wake performed another composition");
+}
+void Single(){Core::System s;s.multicore=false;Container c{s};Event event;c.m_conductor->LinkVsyncEvent(1,&event);
+    s.timing.Fire();Require(c.composes==1&&event.signals==1,"single-core normal semantics changed");
+    c.OnTerminate();Require(s.timing.cancelled&&s.timing.waits==1,"single-core callback remained scheduled");
+    s.timing.Fire();Require(event.signals==1,"single-core callback ran after termination");}
+void Callback(){Core::System s;s.multicore=false;Container c{s};Event event;Gate entered,release;Choice progress;
+    event.hook=[&]{entered.Set();release.Wait();};c.m_conductor->LinkVsyncEvent(1,&event);
+    std::thread timing([&]{s.timing.Fire();});entered.Wait();
+    // Acquire the real fixture advance mutex ourselves after callback release;
+    // the stopped source must report the wait policy, not just cancellation.
+    s.timing.unschedule_hook=[&]{progress.Set(1);};
+    std::thread terminate([&]{c.OnTerminate();progress.Set(2);});
+    Require(progress.Wait()==1,"termination returned with active timing callback");
+    // Unschedule must select the waiting form; hook runs before its wait lock.
+    release.Set();timing.join();terminate.join();
+    Require(s.timing.waits==1,"termination returned with active timing callback");}
+void Concurrent(){Core::System s;Container c{s};Gate draining,release;Choice second;
+    s.timing.unschedule_hook=[&]{draining.Set();release.Wait();};
+    std::thread a([&]{c.OnTerminate();});draining.Wait();
+    c.m_termination_lock.before=[&]{second.Set(1);};
+    std::thread b([&]{c.OnTerminate();second.Set(2);});
+    Require(second.Wait()==1,"second termination bypassed ongoing drain");
+    Require(c.effects==0,"concurrent cleanup preceded first drain");release.Set();a.join();b.join();
+    Require(c.effects==2&&s.timing.waits==1,"concurrent terminal cleanup repeated");}
+void SignalUnlink(){Core::System s;Container c{s};Event event;Gate entered,release;Choice attempt;std::atomic<bool> returned=false;
+    auto& manager=c.m_conductor->m_vsync_managers.at(1);
+    event.hook=[&]{
+#if HAS_STOP
+        Require(manager.m_lock.held,"signal borrow is not protected");
+#endif
+        entered.Set();release.Wait();Require(!returned,"unlink returned during active signal borrow");};
+    c.m_conductor->LinkVsyncEvent(1,&event);s.timing.Fire();entered.Wait();
+#if HAS_STOP
+    manager.m_lock.before=[&]{attempt.Set(1);};
+#endif
+    std::thread unlink([&]{c.UnlinkVsyncEvent(1,&event);returned=true;attempt.Set(2);});
+    Require(attempt.Wait()==1,"unlink bypassed event borrow lock");release.Set();unlink.join();
+    // Drain worker before inspecting the set and clearing instrumentation.
+    c.OnTerminate();Require(manager.m_vsync_events.empty(),"unlink failed to revoke event");
+}
+void Cold(){Core::System s;Container c{s,false};Event e;c.UnlinkVsyncEvent(1,&e);c.OnTerminate();c.OnTerminate();Require(!c.m_conductor&&c.effects==0,"cold termination initialized providers");}
+void ActiveCompose(){Core::System s;Container c{s};Gate entered,release,attempt;
+    c.compose_hook=[&]{entered.Set();release.Wait();};s.timing.Fire();entered.Wait();
+    c.m_lock.before=[&]{attempt.Set();};
+    std::thread terminate([&]{c.OnTerminate();});attempt.Wait();
+    Require(c.effects==0,"cleanup raced active composition");release.Set();terminate.join();
+    Require(c.effects==2&&!c.m_conductor->m_thread.joinable(),"active composition not drained");
+    Require(!c.ComposeOnDisplay(nullptr,nullptr,1),"terminal composition reopened");}
+int main(int argc,char** argv){Require(argc==2,"missing case");std::string mode=argv[1];
+    if(mode=="warm")Warm();else if(mode=="destructor")Destructor();else if(mode=="unlink")Unlink();else if(mode=="normal")Normal();
+    else if(mode=="single")Single();else if(mode=="callback")Callback();else if(mode=="concurrent-stop")Concurrent();else if(mode=="signal-unlink")SignalUnlink();else if(mode=="cold")Cold();else if(mode=="active-compose")ActiveCompose();else Require(false,"unknown case");
+    std::cout<<"PASS VI conductor "<<mode<<'\n';}

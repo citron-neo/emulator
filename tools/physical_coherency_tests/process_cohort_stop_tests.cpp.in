@@ -1,0 +1,274 @@
+// Extraction-only scheduling hook, inserted after cancellation's final Poll.
+// It never replaces a production lock or gate operation.
+std::function<void()> before_cohort_cancel;
+int main() {
+    using R=Kernel::ProcessCohortStop::Result;
+    using Domain=Core::Memory::ControlledMappingPublication;
+    { // Healthy concurrent cold publishers must not turn CAS contention into refusal.
+        Kernel::KernelCore kernel;Domain ordinary{false,kernel.ProcessPublicationDomain()};
+        std::atomic<unsigned> admitted{},refused{};std::vector<std::thread> publishers;
+        for(unsigned i=0;i<8;++i) publishers.emplace_back([&] {
+            for(unsigned visit=0;visit<1000;++visit) {
+                try {auto entry=ordinary.BeginCold();++admitted;entry.Finish();}
+                catch(const Domain::Refused&) {++refused;}
+            }
+        });
+        for(auto& publisher:publishers) publisher.join();
+        assert(admitted==8000 && refused==0 && "normal cold publication contention must not refuse");
+        auto drained=kernel.ProcessPublicationDomain()->TryClose(8);assert(drained);
+        assert(drained->Poll()==Common::ProducerDrain::Result::DrainedSubset && drained->ResumeNoEffects());
+    }
+    { // Capture precedes halt, under continuously owned creation/init/publication closure.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel},writer{kernel},idle{kernel};
+        Kernel::KThread thread{writer};
+        std::thread cpu{[&] {kernel.PhysicalCore(0).RunThread(&thread);}};
+        Until([&] {return writer.backend.running.load();});
+        auto initializing=kernel.TryEnterGuestProcessInitialization();assert(initializing);
+        Domain ordinary{false,kernel.ProcessPublicationDomain()};
+        auto publishing=std::make_optional(ordinary.BeginCold());
+        auto stop=caller.TryStopProcessCohort(4096);assert(stop);
+        assert(stop->Poll()==R::Pending && writer.backend.requests==0);
+        auto not_parked=kernel.PhysicalCore(3).TryCloseGuestExecution(8);assert(not_parked);
+        assert(not_parked->Poll()==Common::ProducerDrain::Result::DrainedSubset && not_parked->ResumeNoEffects());
+        bool refused=false;
+        try {Kernel::KProcess escaped{kernel};} catch(const Kernel::ProcessOwnerRoster::CreationRefused&) {refused=true;}
+        assert(refused && "held creation closure must refuse new owners");
+        assert(!kernel.TryEnterGuestProcessInitialization());
+        refused=false;
+        try {auto escaped=ordinary.BeginCold();escaped.Finish();} catch(const Domain::Refused&) {refused=true;}
+        assert(refused && "held publication closure must refuse ordinary mappings");
+        initializing.reset();
+        assert(stop->Poll()==R::Pending && writer.backend.requests==0);
+        publishing->Finish();publishing.reset();
+        writer.backend.on_request=[&] {
+            assert(idle.refs==2 && writer.refs==3 &&
+                   "entire owner cohort must be retained before halt request");
+        };
+        (void)stop->Poll();cpu.join();
+        assert(stop->Poll()==R::BackendsStopped);
+        assert(idle.refs==2 && "idle unpublished owner must remain retained through backend stop");
+        // Cache/fault-related publication is an independent unclosed route. Mandatory negative.
+        {auto cache=ordinary.Begin();cache.Finish();}
+        assert(stop->GuestBackingAdmission()==Common::ProducerDrain::Result::Unknown);
+        auto moved=std::make_optional(std::move(*stop));
+        assert(stop->Poll()==R::Unknown && !stop->CancelNoEffects());stop.reset();
+        assert(moved->Poll()==R::BackendsStopped && moved->CancelNoEffects());
+        assert(kernel.ProcessPublicationDomain()->TryEnter() &&
+               "successful cohort cancellation must restore publication");
+        assert(kernel.ManagedGuestWriteDomain()->TryEnter() && "cohort cancellation must restore managed writes");
+        assert(kernel.AudioRenderDomain()->TryEnter() && "cohort cancellation must restore audio rendering");
+        assert(kernel.AudioCallbackDomain()->TryEnter() && "cohort cancellation must restore audio callbacks");
+        assert(kernel.Host1xSubmitDomain()->TryEnter() && "cohort cancellation must restore host1x submits");
+        assert(kernel.NvdrvDispatchDomain()->TryEnter() && "cohort cancellation must restore nvdrv dispatch");
+        auto next=caller.TryStopProcessCohort(64);assert(next);
+        assert(!moved->CancelNoEffects());
+        assert(next->Poll()==R::BackendsStopped && next->CancelNoEffects());
+        moved.reset();next.reset();
+        assert(caller.refs==1 && writer.refs==1 && idle.refs==1);
+        Kernel::KProcess resumed{kernel};
+        {auto mapping=ordinary.BeginCold();mapping.Finish();}
+    }
+    { // Unknown cannot release creation/publication on a later producer exit.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto publication=kernel.ProcessPublicationDomain()->TryEnter();assert(publication);
+        auto stop=caller.TryStopProcessCohort(1);assert(stop);
+        assert(stop->Poll()==R::Unknown);publication.reset();
+        assert(stop->Poll()==R::Unknown && !stop->CancelNoEffects());stop.reset();
+        bool refused=false;
+        try {Kernel::KProcess late{kernel};} catch(const Kernel::ProcessOwnerRoster::CreationRefused&) {refused=true;}
+        assert(refused && "Unknown must keep creation closed after handle release");
+        assert(!kernel.ProcessPublicationDomain()->TryEnter());
+    }
+    { // A refused constructor can contend with cancellation AFTER a healthy Poll.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop);
+        assert(stop->Poll()==R::BackendsStopped);
+        std::promise<void> start,locked,release;
+        auto begin=start.get_future();auto held=locked.get_future();auto leave=release.get_future();
+        std::thread constructor{[&] {
+            begin.wait();
+            auto lock=Core::SchedulerTestAccess::HoldRoster(kernel.impl->process_owners);
+            locked.set_value();leave.wait();
+        }};
+        before_cohort_cancel=[&] {start.set_value();held.wait();};
+        assert(!stop->CancelNoEffects());
+        before_cohort_cancel={};
+        assert(!kernel.PhysicalCore(0).TryCloseGuestExecution(8) &&
+               "roster cancellation contention must not reopen a CPU entry");
+        assert(!kernel.TryEnterGuestProcessInitialization() &&
+               !kernel.ProcessPublicationDomain()->TryEnter());
+        release.set_value();constructor.join();
+        assert(stop->Poll()==R::Unknown && !stop->CancelNoEffects());
+    }
+    { // Retirement between Poll and reservation must not be mistaken for the same cohort.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop);
+        assert(stop->Poll()==R::BackendsStopped);
+        before_cohort_cancel=[&] {kernel.impl->process_owners.BeginRetirement(caller.registration);};
+        assert(!stop->CancelNoEffects() &&
+               "a changed cohort must refuse cancellation before reopening");
+        before_cohort_cancel={};
+        assert(!kernel.PhysicalCore(0).TryCloseGuestExecution(8));
+        assert(!kernel.TryEnterGuestProcessInitialization() &&
+               !kernel.ProcessPublicationDomain()->TryEnter());
+    }
+    for (bool late : {false,true}) { // Seal during local release or just before group commit.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop&&stop->Poll()==R::BackendsStopped);
+        if (late) ResumeBatchTest::before_commit=[&] {kernel.ProcessPublicationDomain()->Seal();};
+        else ResumeBatchTest::after_resume=[&](size_t i) {if(i==0)kernel.ProcessPublicationDomain()->Seal();};
+        assert(!stop->CancelNoEffects());
+        ResumeBatchTest::before_commit={};ResumeBatchTest::after_resume={};
+        assert(!kernel.PhysicalCore(0).TryCloseGuestExecution(8) &&
+               "failed cohort release must keep every CPU closed");
+        assert(!kernel.TryEnterGuestProcessInitialization()&&!kernel.ProcessPublicationDomain()->TryEnter());
+        bool refused=false;
+        try {Kernel::KProcess escaped{kernel};} catch(const Kernel::ProcessOwnerRoster::CreationRefused&) {refused=true;}
+        assert(refused);stop.reset();
+        assert(!kernel.PhysicalCore(3).TryCloseGuestExecution(8));
+    }
+    { // A zero-ref owner cannot be omitted or resurrected to certify a cohort.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel},unready{kernel};
+        unready.refs=0;
+        auto stop=caller.TryStopProcessCohort(2);assert(stop);
+        assert(stop->Poll()==R::Pending);
+        assert(stop->Poll()==R::Pending);
+        assert(stop->Poll()==R::Unknown && unready.refs==0);
+    }
+    { // A seal after successful backend exit must be checked before any reopening.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(1);assert(stop);
+        assert(stop->Poll()==R::BackendsStopped);
+        assert(stop->Poll()==R::BackendsStopped); // Successful polling does not consume more budget.
+        kernel.ProcessPublicationDomain()->Seal();
+        assert(!stop->CancelNoEffects());
+        assert(!kernel.PhysicalCore(0).TryCloseGuestExecution(8)); // Execution remains closed.
+        bool refused=false;
+        try {Kernel::KProcess late{kernel};} catch(const Kernel::ProcessOwnerRoster::CreationRefused&) {refused=true;}
+        assert(refused);
+    }
+    { // Shared managed writers drain after backend stop and resume in the same batch.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto writer=kernel.ManagedGuestWriteDomain()->EnterCold();assert(writer);
+        auto stop=caller.TryStopProcessCohort(64);assert(stop);
+        assert(stop->Poll()==R::Pending && "cohort must join active managed writes");
+        assert(!kernel.ManagedGuestWriteDomain()->TryEnter() && "cohort must close shared managed writes");
+        writer.reset();
+        assert(stop->Poll()==R::BackendsStopped);
+        assert(stop->GuestBackingAdmission()==Common::ProducerDrain::Result::Unknown);
+        assert(stop->CancelNoEffects());
+        assert(kernel.ManagedGuestWriteDomain()->TryEnter() && "cohort cancellation must restore managed writes");
+    }
+    { // A Seal after successful stop cannot yield a stale stopped receipt.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop && stop->Poll()==R::BackendsStopped);
+        kernel.ManagedGuestWriteDomain()->Seal();
+        assert(stop->Poll()==R::Unknown && !stop->CancelNoEffects());
+    }
+    { // A render cycle must finish before managed Memory writes close.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto render=kernel.AudioRenderDomain()->EnterCold();assert(render);
+        auto stop=caller.TryStopProcessCohort(64);assert(stop);
+        assert(stop->Poll()==R::Pending && "cohort must join admitted audio render cycles");
+        assert(kernel.ManagedGuestWriteDomain()->TryEnter() && "audio drain must precede managed write closure");
+        assert(!kernel.AudioRenderDomain()->TryEnter());
+        render.reset();assert(stop->Poll()==R::BackendsStopped);
+        assert(!kernel.ManagedGuestWriteDomain()->TryEnter());
+        assert(stop->CancelNoEffects() && kernel.AudioRenderDomain()->TryEnter());
+    }
+    { // A late Audio Seal cannot leave a stale stopped receipt or reopen writes.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop && stop->Poll()==R::BackendsStopped);
+        kernel.AudioRenderDomain()->Seal();
+        assert(stop->Poll()==R::Unknown && !stop->CancelNoEffects());
+        assert(!kernel.ManagedGuestWriteDomain()->TryEnter());
+    }
+    for (bool late : {false,true}) { // Callback Seal may race a shared ResumeBatch commit.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop&&stop->Poll()==R::BackendsStopped);
+        if (late) ResumeBatchTest::before_commit=[&] {kernel.AudioCallbackDomain()->Seal();};
+        else ResumeBatchTest::after_resume=[&](size_t i) {if(i==0)kernel.AudioCallbackDomain()->Seal();};
+        assert(!stop->CancelNoEffects());
+        ResumeBatchTest::before_commit={};ResumeBatchTest::after_resume={};
+        assert(!kernel.PhysicalCore(0).TryCloseGuestExecution(8));
+        assert(!kernel.AudioRenderDomain()->TryEnter() && !kernel.ManagedGuestWriteDomain()->TryEnter());
+        assert(!kernel.AudioCallbackDomain()->TryEnter() && !kernel.ProcessPublicationDomain()->TryEnter());
+    }
+    { // Callback-owned input writes must finish before their Memory domain closes.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto callback=kernel.AudioCallbackDomain()->EnterCold();assert(callback);
+        auto stop=caller.TryStopProcessCohort(64);assert(stop);
+        assert(stop->Poll()==R::Pending && "cohort must join admitted audio callbacks");
+        assert(kernel.ManagedGuestWriteDomain()->TryEnter() && "callback drain must precede managed write closure");
+        assert(!kernel.AudioCallbackDomain()->TryEnter());
+        callback.reset();assert(stop->Poll()==R::BackendsStopped);
+        assert(stop->CancelNoEffects());
+        assert(kernel.AudioCallbackDomain()->TryEnter() && "cohort cancellation must restore audio callbacks");
+    }
+    { // A late callback failure invalidates the receipt and keeps all domains closed.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop && stop->Poll()==R::BackendsStopped);
+        kernel.AudioCallbackDomain()->Seal();
+        assert(stop->Poll()==R::Unknown && !stop->CancelNoEffects());
+        assert(!kernel.ManagedGuestWriteDomain()->TryEnter() && !kernel.AudioRenderDomain()->TryEnter());
+    }
+    { // An admitted synchronous host1x Submit may still write guest bytes.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto submit=kernel.Host1xSubmitDomain()->EnterCold();assert(submit);
+        auto stop=caller.TryStopProcessCohort(64);assert(stop);
+        assert(stop->Poll()==R::Pending && "cohort must join admitted host1x submits");
+        assert(kernel.ManagedGuestWriteDomain()->TryEnter() && "host1x drain must precede managed write closure");
+        assert(!kernel.Host1xSubmitDomain()->TryEnter());
+        submit.reset();assert(stop->Poll()==R::BackendsStopped);
+        assert(stop->CancelNoEffects() && kernel.Host1xSubmitDomain()->TryEnter());
+    }
+    { // Partial execution must invalidate an otherwise stopped cohort.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop&&stop->Poll()==R::BackendsStopped);
+        kernel.Host1xSubmitDomain()->Seal();
+        assert(stop->Poll()==R::Unknown && !stop->CancelNoEffects());
+        assert(!kernel.ManagedGuestWriteDomain()->TryEnter());
+    }
+    for (bool late : {false,true}) {
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop&&stop->Poll()==R::BackendsStopped);
+        if (late) ResumeBatchTest::before_commit=[&] {kernel.Host1xSubmitDomain()->Seal();};
+        else ResumeBatchTest::after_resume=[&](size_t i) {if(i==0)kernel.Host1xSubmitDomain()->Seal();};
+        assert(!stop->CancelNoEffects());
+        ResumeBatchTest::before_commit={};ResumeBatchTest::after_resume={};
+        assert(!kernel.PhysicalCore(0).TryCloseGuestExecution(8));
+        assert(!kernel.AudioRenderDomain()->TryEnter() && !kernel.AudioCallbackDomain()->TryEnter());
+        assert(!kernel.Host1xSubmitDomain()->TryEnter() && !kernel.ManagedGuestWriteDomain()->TryEnter());
+    }
+    { // Outer dispatch may enter host1x later; leave the inner domain open until it drains.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto dispatch=kernel.NvdrvDispatchDomain()->EnterCold();assert(dispatch);
+        auto stop=caller.TryStopProcessCohort(64);assert(stop);
+        assert(stop->Poll()==R::Pending && "cohort must join admitted nvdrv dispatch");
+        assert(!kernel.NvdrvDispatchDomain()->TryEnter());
+        assert(kernel.Host1xSubmitDomain()->TryEnter() && "outer dispatch must drain before inner host1x closes");
+        assert(kernel.ManagedGuestWriteDomain()->TryEnter());
+        dispatch.reset();assert(stop->Poll()==R::BackendsStopped);
+        assert(stop->CancelNoEffects() && kernel.NvdrvDispatchDomain()->TryEnter());
+    }
+    { // Late exception quarantine cannot leave a stale stopped receipt.
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop&&stop->Poll()==R::BackendsStopped);
+        kernel.NvdrvDispatchDomain()->Seal();
+        assert(stop->Poll()==R::Unknown && !stop->CancelNoEffects());
+        assert(!kernel.Host1xSubmitDomain()->TryEnter() && !kernel.ManagedGuestWriteDomain()->TryEnter());
+    }
+    for (bool late : {false,true}) {
+        Kernel::KernelCore kernel;Kernel::KProcess caller{kernel};
+        auto stop=caller.TryStopProcessCohort(64);assert(stop&&stop->Poll()==R::BackendsStopped);
+        if (late) ResumeBatchTest::before_commit=[&] {kernel.NvdrvDispatchDomain()->Seal();};
+        else ResumeBatchTest::after_resume=[&](size_t i) {if(i==0)kernel.NvdrvDispatchDomain()->Seal();};
+        assert(!stop->CancelNoEffects());
+        ResumeBatchTest::before_commit={};ResumeBatchTest::after_resume={};
+        assert(!kernel.PhysicalCore(0).TryCloseGuestExecution(8));
+        assert(!kernel.NvdrvDispatchDomain()->TryEnter() && !kernel.Host1xSubmitDomain()->TryEnter());
+        assert(!kernel.AudioRenderDomain()->TryEnter() && !kernel.ManagedGuestWriteDomain()->TryEnter());
+    }
+    std::cout<<"PASS sustained process cohort: creation/init/cold publication held, real owner retention "
+                 "before backend halt, Unknown and stale-cancel isolation; independent cache/service/GPU routes remain open\n";
+}

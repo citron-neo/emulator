@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <cstdlib>
+#ifndef UNREACHABLE
+#define UNREACHABLE() std::abort()
+#endif
+#include "common/div_ceil.h"
+#include "common/range_mutex.h"
+#include <array>
+#include <tuple>
+#include <vector>
+namespace Core::Memory {
+inline constexpr u64 CITRON_PAGEBITS=::CITRON_PAGEBITS,CITRON_PAGESIZE=::CITRON_PAGESIZE;
+}
+using CacheEvent=std::tuple<Core::Memory::Memory*,VAddr,size_t,bool>;
+std::vector<CacheEvent> cache_events;
+void RecordCacheTarget(Core::Memory::Memory* memory,VAddr address,size_t size,bool cached) {
+    cache_events.emplace_back(memory,address,size,cached);
+}
+namespace Tegra {
+// @DEVICE_METHODS@
+}
+namespace Core {
+struct CacheTraits {using DeviceMethods=Tegra::MaxwellDeviceMethods;};
+struct Asid {size_t id;};
+// Layout/translation collaborators only. Cache counter and real cache/PTE/HostMemory
+// publication bodies are extracted verbatim, apart from the recording annotation.
+template<class Traits> class DeviceMemoryManager {
+public:
+    using DeviceMethods=typename Traits::DeviceMethods;
+    using CounterType=u8;
+    using CounterAtomicType=std::atomic<CounterType>;
+    struct Bucket {CounterAtomicType count{};auto& Count(size_t){return count;}};
+    struct Backing {Asid asid{};VAddr address{};};
+    std::array<Bucket,32> cached_pages;
+    std::array<Backing,32> translations{};
+    std::vector<Core::Memory::Memory*> registered_processes;
+    Common::RangeMutex counter_guard;
+    static constexpr unsigned subentries_shift=0;
+    auto ExtractCPUBacking(size_t page) {
+        const auto& t=translations.at(page);return std::pair{t.asid,t.address};
+    }
+    void UpdatePagesCachedCount(DAddr,size_t,int);
+};
+// @COUNTER_BODY@
+}
+struct CacheOwner {
+    System system;Common::PageTable table;
+    Cpu cpu{system,&table};Core::Memory::Memory memory{&cpu,false};
+    CacheOwner() {
+        table.Resize(16,12);cpu.buffer=&system.device.buffer;
+        table.fastmem_arena=cpu.buffer->VirtualBasePointer();
+        memory.MapMemoryRegion(table,4096,4096*8,DramMemoryMap::Base,Common::MemoryPermission::ReadWrite,false);
+    }
+};
+int main() {
+    constexpr size_t P=4096;
+    for (const auto& route : std::vector<std::vector<unsigned>>{{0,1,0},{1,0,1},{0,1,1,0},{0,1,2,0}}) {
+        std::array<std::unique_ptr<CacheOwner>,3> owners;
+        Core::DeviceMemoryManager<Core::CacheTraits> device;
+        for (auto& owner:owners) {owner=std::make_unique<CacheOwner>();device.registered_processes.push_back(&owner->memory);}
+        for (size_t i=0;i<route.size();++i) device.translations[i+1]={{route[i]},(i+1)*P};
+        for (int delta : {1,-1}) {
+            cache_events.clear();device.UpdatePagesCachedCount(P,route.size()*P,delta);
+            // Expand coalesced callbacks and compare exact owner/address, not just call counts.
+            std::vector<CacheEvent> expanded;
+            for (const auto& [memory,address,size,cached]:cache_events)
+                for(size_t offset=0;offset<size;offset+=P) expanded.emplace_back(memory,address+offset,P,cached);
+            std::vector<CacheEvent> expected;
+            for(size_t i=0;i<route.size();++i) expected.emplace_back(&owners[route[i]]->memory,(i+1)*P,P,delta>0);
+            assert(expanded==expected && "cache publication must target the exact process before and after ASID return");
+            for(size_t page=1;page<=route.size();++page) {
+                assert(device.cached_pages[page].count==(delta>0?1:0));
+                for(size_t owner=0;owner<owners.size();++owner) {
+                    const auto type=owners[owner]->table.entries[page].pointer.Type();
+                    const auto expected_type=delta>0&&owner==route[page-1] ?
+                        Common::PageType::RasterizerCachedMemory:Common::PageType::Memory;
+                    assert(type==expected_type && "unrelated process PTE must remain unchanged");
+                }
+            }
+        }
+    }
+    std::cout<<"PASS device cache owner routing: actual counter and cache/PTE/HostMemory bodies, A-B-A and repeated/third owners, cache/uncache; Guest admission Unknown\n";
+}

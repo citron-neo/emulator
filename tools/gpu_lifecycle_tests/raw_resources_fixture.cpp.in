@@ -1,0 +1,168 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <semaphore>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <type_traits>
+#include <utility>
+#include <vector>
+#include <vulkan/vulkan.h>
+#include "common/terminal_fail_stop.h"
+using u64=unsigned long long;using u32=unsigned;using u8=unsigned char;
+static std::string fault,gate_at,mode;
+static bool host_fault{},initializing{},closed{},joined{},checked_idle{},fail_idle{},gated{};
+static int next_id=1,buffer_calls{},image_calls{},view_calls{},submissions{},aa_destroyed{};
+static size_t image_slot{},view_slot{};
+static std::binary_semaphore entered{0},release_gate{0};
+static void event(const char*s){std::fprintf(stderr,"EVENT %s\n",s);std::fflush(stderr);}
+static void check(bool b,const char*s){if(!b){std::fprintf(stderr,"FAIL %s\n",s);std::fflush(stderr);std::_Exit(91);}}
+struct State{int id,kind;bool live=true;int children{},uses{};std::shared_ptr<State> parent;};
+static std::vector<std::shared_ptr<State>> states;
+static std::vector<int> released;
+namespace Vulkan {
+namespace vk {
+struct Exception:std::exception{VkResult GetResult()const{return VK_ERROR_OUT_OF_DEVICE_MEMORY;}};
+template<class H,int Kind>struct Native{
+    std::shared_ptr<State> state;std::vector<u8> bytes;
+    Native()=default;explicit Native(std::shared_ptr<State>s,size_t size=0):state{std::move(s)},bytes(size){}
+    Native(Native&&)=default;Native&operator=(Native&&other)noexcept{Reset();state=std::move(other.state);bytes=std::move(other.bytes);return *this;}
+    Native(const Native&)=delete;Native&operator=(const Native&)=delete;
+    ~Native(){Reset();}
+    void Reset()noexcept{if(state){check(!state->uses,"native released with unfinished uses");check(!state->children,"image released before view");if(state->parent)--state->parent->children;state->live=false;released.push_back(Kind);event(Kind==0?"buffer.destroy":Kind==1?"image.destroy":"view.destroy");state.reset();}}
+    void reset(){Reset();bytes.clear();}
+    explicit operator bool()const{return bool(state);}
+    H operator*()const{return state?reinterpret_cast<H>(static_cast<uintptr_t>(state->id)):nullptr;}
+    std::span<u8> Mapped(){return bytes;}
+};
+using Buffer=Native<VkBuffer,0>;using Image=Native<VkImage,1>;using ImageView=Native<VkImageView,2>;
+}
+static void before(const std::string& stage){
+    if(!initializing&&gate_at==stage&&!gated){gated=true;entered.release();release_gate.acquire();}
+    if(!initializing&&fault==stage){if(host_fault)throw std::bad_alloc();throw vk::Exception{};}
+}
+static std::shared_ptr<State> make(int kind,std::shared_ptr<State>parent={}){
+    if(parent){check(parent->live,"view parent retired");++parent->children;}
+    auto s=std::make_shared<State>(State{next_id++,kind,true,0,0,std::move(parent)});states.push_back(s);return s;
+}
+enum class MemoryUsage{Upload};
+struct Device{};
+struct MemoryAllocator{vk::Buffer CreateBuffer(const VkBufferCreateInfo&ci,MemoryUsage){++buffer_calls;before("buffer");return vk::Buffer(make(0),static_cast<size_t>(ci.size));}};
+struct Scheduler{
+    std::vector<std::shared_ptr<State>> uses;
+    bool native_resources_retired{};
+    void RequireNativeBorrowAdmission(){if(closed)Common::TerminalFailStop("native_borrow.entry","closed_admission");}
+    void FinishNativeBorrow(){RequireNativeBorrowAdmission();++submissions;before("wait");for(auto&s:uses)--s->uses;uses.clear();}
+    void WaitForResourceRelease(u64){if(native_resources_retired)return;RequireNativeBorrowAdmission();if(!uses.empty())FinishNativeBorrow();}
+    void Use(const std::shared_ptr<State>&s){++s->uses;uses.push_back(s);}
+    void Close(){closed=true;joined=true;event("worker.join");}
+    void CheckedIdle(){check(joined,"idle before join");if(fail_idle)Common::TerminalFailStop("renderer.native_idle","vulkan_result",VK_ERROR_DEVICE_LOST);for(auto&s:uses)--s->uses;uses.clear();checked_idle=true;native_resources_retired=true;event("checked.idle");}
+};
+struct AA{~AA(){++aa_destroyed;event("aa.destroy");}};
+}
+namespace Service::android{enum class PixelFormat{A,B};}
+namespace Tegra{struct FramebufferConfig{u32 width=4,height=4,stride=4;Service::android::PixelFormat pixel_format=Service::android::PixelFormat::A;};}
+namespace Vulkan{
+static size_t GetSizeInBytes(const Tegra::FramebufferConfig&f){return static_cast<size_t>(f.stride)*f.height*4;}
+static VkFormat GetFormat(const Tegra::FramebufferConfig&){return VK_FORMAT_R8G8B8A8_UNORM;}
+static vk::Image CreateWrappedImage(MemoryAllocator&,VkExtent2D,VkFormat){auto slot=image_slot++;++image_calls;before("image"+std::to_string(slot));return vk::Image(make(1));}
+static vk::ImageView CreateWrappedImageView(const Device&,vk::Image&image,VkFormat){auto slot=view_slot++;++view_calls;before("view"+std::to_string(slot));check(bool(image),"view lacks parent");return vk::ImageView(make(2,image.state));}
+struct Layer{
+    Device device;MemoryAllocator memory_allocator;Scheduler& scheduler;size_t image_count=3;
+    vk::Buffer buffer;std::vector<vk::Image> raw_images;std::vector<vk::ImageView> raw_image_views;std::vector<u64> resource_ticks;
+    u32 raw_width{},raw_height{},raw_stride{};Service::android::PixelFormat pixel_format{};
+    std::unique_ptr<AA> anti_alias;
+    @UPLOAD_STATE@
+    @BUNDLE@
+    @UPLOAD_MEMBER@
+    explicit Layer(Scheduler&s):scheduler{s}{}
+    ~Layer();void RefreshResources(const Tegra::FramebufferConfig&);void ClearRawImages();void ReleaseRawImages();void WaitForResourceUses();
+    @FACTORY_DECLS@
+    u64 CalculateBufferSize(const Tegra::FramebufferConfig&)const;
+    u64 GetRawImageOffset(const Tegra::FramebufferConfig&,size_t)const;
+};
+@METHODS@
+struct Snapshot{
+    u32 width,height,stride;Service::android::PixelFormat format;AA*aa;
+    std::vector<int> ids;std::vector<u64> ticks;
+    explicit Snapshot(const Layer&l):width{l.raw_width},height{l.raw_height},stride{l.raw_stride},format{l.pixel_format},aa{l.anti_alias.get()},ticks{l.resource_ticks}{
+        ids.push_back(l.buffer.state?l.buffer.state->id:0);
+        for(auto&r:l.raw_images)ids.push_back(r.state?r.state->id:0);
+        for(auto&r:l.raw_image_views)ids.push_back(r.state?r.state->id:0);
+    }
+    bool Same(const Layer&l)const{Snapshot n(l);return width==n.width&&height==n.height&&stride==n.stride&&format==n.format&&aa==n.aa&&ids==n.ids&&ticks==n.ticks;}
+};
+static void use_all(Layer&l,const Tegra::FramebufferConfig&f){
+    check(l.buffer&&l.raw_images.size()==3&&l.raw_image_views.size()==3&&l.resource_ticks.size()==3,"retry used incomplete raw resources");
+    for(size_t i=0;i<3;++i){
+        check(l.raw_images[i]&&l.raw_image_views[i]&&l.raw_image_views[i].state->parent==l.raw_images[i].state,"retry used incomplete raw resources");
+        auto offset=l.GetRawImageOffset(f,i);auto length=GetSizeInBytes(f);auto bytes=l.buffer.Mapped();
+        check(offset<=bytes.size()&&length<=bytes.size()-offset,"stride update reused undersized staging");
+        std::ranges::fill(bytes.subspan(static_cast<size_t>(offset),length),static_cast<u8>(i+1));
+    }
+}
+}
+int main(int argc,char**argv){
+    if(argc!=3)return 2;const std::string phase=argv[1];mode=argv[2];
+    std::atexit([]{event("atexit");});
+    Vulkan::Scheduler scheduler;
+    {
+        Vulkan::Layer layer(scheduler);Tegra::FramebufferConfig old,desired;desired.width=8;desired.stride=8;
+        if(phase=="warm"){
+            initializing=true;layer.RefreshResources(old);initializing=false;
+            layer.anti_alias=std::make_unique<Vulkan::AA>();
+            for(size_t i=0;i<3;++i){layer.resource_ticks[i]=10+i;scheduler.Use(layer.raw_images[i].state);scheduler.Use(layer.raw_image_views[i].state);}
+            scheduler.Use(layer.buffer.state);
+        }
+        if(mode=="stride"){desired=old;desired.stride=12;}
+        if(mode=="unchanged")desired=old;
+        auto before=Vulkan::Snapshot(layer);const int original_submits=submissions,original_aa=aa_destroyed;
+        auto refresh=[&]{image_slot=0;view_slot=0;try{layer.RefreshResources(desired);return false;}catch(const Vulkan::vk::Exception&){return true;}catch(const std::bad_alloc&){return true;}};
+        auto verify_failure=[&]{
+            check(before.Same(layer),"failed creation changed published resources");
+            check(submissions==original_submits&&aa_destroyed==original_aa,"failed creation retired old use");
+            for(auto&s:states)if(s->live)check(std::ranges::find(before.ids,s->id)!=before.ids.end(),"candidate prefix leaked");
+        };
+        if(mode=="sequence"){
+            for(auto name:{"buffer","image0","view0","image1","view1","image2","view2"}){fault=name;check(refresh(),"missing allocation failure");verify_failure();}
+        }else if(mode!="normal"&&mode!="stride"&&mode!="unchanged"&&mode!="wait-failure"&&mode!="closed"){
+            auto dash=mode.find('-');fault=dash==std::string::npos?mode:mode.substr(dash+1);host_fault=mode.starts_with("host-");
+            if(mode=="shutdown-failed-idle")fault="view2";
+            if(mode.starts_with("gate-")){
+                gate_at=fault;bool failed=false;std::jthread owner([&]{failed=refresh();});entered.acquire();
+                check(before.Same(layer),"partial candidate visible at factory gate");release_gate.release();owner.join();check(failed,"missing gated allocation failure");
+            }else check(refresh(),"missing allocation failure");
+            if(mode.starts_with("retry-")){
+                fault.clear();check(!refresh(),"retry threw");Vulkan::use_all(layer,desired);
+            }else verify_failure();
+        }else if(mode=="wait-failure")fault="wait";
+        else if(mode=="closed")scheduler.Close();
+        fault.clear();gate_at.clear();host_fault=false;
+        if(mode=="wait-failure")fault="wait";
+        if(mode=="shutdown-failed-idle"){
+            event("shutdown.begin");scheduler.Close();fail_idle=true;scheduler.CheckedIdle();
+        }else if(mode.starts_with("shutdown-")){
+            event("shutdown.begin");scheduler.Close();scheduler.CheckedIdle();check(before.Same(layer),"shutdown changed published owner early");
+        }else{
+            check(!refresh(),"successful retry failed");Vulkan::use_all(layer,desired);
+            if(mode=="unchanged"&&phase=="warm")check(before.Same(layer)&&submissions==original_submits,"unchanged path changed publication");
+            else{
+                check(layer.raw_width==desired.width&&layer.raw_height==desired.height&&layer.raw_stride==desired.stride,"metadata did not commit");
+                check(std::ranges::all_of(layer.resource_ticks,[](u64 t){return t==0;}),"new slots inherited old ticks");
+                const int wanted=original_submits+(phase=="warm"?1:0);check(submissions==wanted,"replacement submission count changed");
+                Vulkan::Snapshot committed(layer);check(!refresh()&&committed.Same(layer),"complete tuple was recreated");
+            }
+            scheduler.Close();scheduler.CheckedIdle();
+        }
+    }
+    for(auto&s:states)check(!s->live,"owner leaked after shutdown");
+    std::fprintf(stderr,"PASS %s %s\n",argv[1],argv[2]);
+}

@@ -452,6 +452,11 @@ void ArmDynarmic32::SignalInterrupt(Kernel::KThread* thread) {
     m_jit->HaltExecution(BreakLoop);
 }
 
+bool ArmDynarmic32::RequestNonblockingGuestStop(Kernel::KThread* thread) {
+    SignalInterrupt(thread);
+    return true;
+}
+
 void ArmDynarmic32::ClearInstructionCache() {
     CITRON_PROFILE_SCOPE("Dynarmic32::ClearCache");
     // MemoryReadCode()'s page snapshot goes stale as soon as the guest rewrites that page.

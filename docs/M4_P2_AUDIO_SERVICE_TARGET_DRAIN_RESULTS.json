@@ -1,0 +1,3862 @@
+{
+  "baseline": "7fc738baf7e27b1d1f3c7f0e7ed021fb8f81a3e3",
+  "branch": "codex/issue-372-fixes",
+  "validated_at": "2026-10-25T20:01:36.974790+08:00",
+  "main_untouched": "b6a2ce9488d78efdbbeb0efe14c2ec5c0a263e76",
+  "summary": {
+    "historical_target_owner_witnesses": 2,
+    "historical_late_registration_witnesses": 1,
+    "candidate_and_fixed_each": {
+      "normal_cases": 13,
+      "terminal_cases": 4,
+      "controls": 5,
+      "repeat": 3
+    },
+    "candidate_matches_final_production": true,
+    "system_shutdown_order_unchanged": true,
+    "windows_real_amd64_objects": 9,
+    "production_diagnostics": "",
+    "dependency_pin_changed": false,
+    "named_terminal_Audio_target_gap": "reproduced and repaired",
+    "whole_P2_complete": false,
+    "GuestBackingAdmission": "Unknown",
+    "F2_F3": "open",
+    "CI_current_head": "not yet available; no manual dispatch"
+  },
+  "suites": {
+    "m4-audio-owner-7fc-baseline": {
+      "command": "python tools/physical_coherency_tests/run_audio_service_owner_tests.py --baseline --repeat 3 --output-dir .diagnostics/m4-audio-owner-7fc-baseline",
+      "runner_exit_code": 0,
+      "input_verification": {
+        "src/audio_core/audio_core.cpp": "historical_src",
+        "src/audio_core/audio_core.h": "historical_src",
+        "src/audio_core/audio_event.cpp": "historical_src",
+        "src/audio_core/audio_event.h": "historical_src",
+        "src/audio_core/audio_in_manager.cpp": "historical_src",
+        "src/audio_core/audio_in_manager.h": "historical_src",
+        "src/audio_core/audio_manager.cpp": "historical_src",
+        "src/audio_core/audio_manager.h": "historical_src",
+        "src/audio_core/audio_out_manager.cpp": "historical_src",
+        "src/audio_core/audio_out_manager.h": "historical_src",
+        "src/common/producer_drain.h": "historical_src",
+        "src/common/terminal_fail_stop.cpp": "historical_src",
+        "src/common/terminal_fail_stop.h": "historical_src",
+        "src/core/core.cpp": "historical_src",
+        "src/core/hle/kernel/kernel.cpp": "historical_src",
+        "src/core/hle/service/audio/audio.cpp": "historical_src",
+        "src/core/hle/service/audio/audio_in_manager.cpp": "historical_src",
+        "src/core/hle/service/audio/audio_in_manager.h": "historical_src",
+        "src/core/hle/service/audio/audio_out_manager.cpp": "historical_src",
+        "src/core/hle/service/audio/audio_out_manager.h": "historical_src",
+        "src/core/hle/service/server_manager.cpp": "historical_src",
+        "src/core/hle/service/server_manager.h": "historical_src",
+        "src/core/managed_host_producer.h": "historical_src",
+        "tools/physical_coherency_tests/audio_service_owner_candidate.json": "current_raw",
+        "tools/physical_coherency_tests/audio_service_owner_fixture.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/run_audio_service_owner_tests.py": "current_raw"
+      },
+      "manifest": {
+        "baseline": true,
+        "candidate": false,
+        "revision": "7fc738baf7e27b1d1f3c7f0e7ed021fb8f81a3e3",
+        "repeat": 3,
+        "cases": [],
+        "controls": [],
+        "sha256": {
+          "src/audio_core/audio_core.cpp": "47d3ac3f5d93053ff009013201b3d851e3b37ef936d603b2d0a52ebd69080c78",
+          "src/audio_core/audio_core.h": "61397790a4e6d15e314e2a02360ddcb1ea4c8a526d301a7a2d953cdf3fe3c29d",
+          "src/audio_core/audio_event.cpp": "469d5a516914c1b931cfa2b2ebbd5cb79b36adeeb860e2ead7066452fec45860",
+          "src/audio_core/audio_event.h": "88e69709f1b09970e0a8bd5a0cff3fb2fefc3408ffc414919263ac2d1c68b4e6",
+          "src/audio_core/audio_in_manager.cpp": "386a1b050f4072a51fdd61a59e8a04a3078b6c4a4ad691bea6c57ac78d65bfe0",
+          "src/audio_core/audio_in_manager.h": "daa7996e2f2184a715583ce36144858042069d90eb828a0c235908a0c6d59482",
+          "src/audio_core/audio_manager.cpp": "0967afb23c08be3bcc71397b8d75a2f8fc8ec1c6ccf9086488621b8accd9e687",
+          "src/audio_core/audio_manager.h": "7cbc8516c19e8b8f9243aaeb7067caf7474404b84420817fad22b5809392c240",
+          "src/audio_core/audio_out_manager.cpp": "258c2ce289b1b60201cdc701f1f7dd465c845261040c8ceb6e6b3c4aa4700524",
+          "src/audio_core/audio_out_manager.h": "64fff64b0c051bfb1a2391820437d11e0fdb82445391337be4d1242d1b96dcb9",
+          "src/common/producer_drain.h": "e3e9ed946cbb654043c047c36e5aa134733629b9f1fac3f3ce3901bf10a655cf",
+          "src/common/terminal_fail_stop.cpp": "59a9ba954eeb0350a68a4277a5273f7609c4a0ce8332f903213eb42f2c84cf7c",
+          "src/common/terminal_fail_stop.h": "d79d436eac47142264ef70cd70c7cd09bd5dcba639367dc0233851f7ee189f20",
+          "src/core/core.cpp": "e481bd0409b8141000e6ba868b5cdf4c06852578363f4dae0d4b62a2b406164e",
+          "src/core/hle/kernel/kernel.cpp": "7190d7eb8524c2bd18bf9473572896144779de8c6f147e6222f8949e49d43a4e",
+          "src/core/hle/service/audio/audio.cpp": "18fe442892991b69a2c7e2c3b3ddd17cd8a7d8b28a829f5f56395c0c62aceb43",
+          "src/core/hle/service/audio/audio_in_manager.cpp": "1dd8f78fd0937eec31f5f1af55b2cebe9700e08ee827ba9b0579f2328a9bf0a3",
+          "src/core/hle/service/audio/audio_in_manager.h": "5ca289daf48a0f4c00d3a8fba453458fd4ae5702f6d80a71a002ccad6cabb2e7",
+          "src/core/hle/service/audio/audio_out_manager.cpp": "f365e5c38d22e31dc5fb221f506fcc2526aa98b548d1846940ab7deb6fb1d4bc",
+          "src/core/hle/service/audio/audio_out_manager.h": "efc2ce5ef9634ea587dde629d2a34e742114953f24a5a07cb3af9d234396b37e",
+          "src/core/hle/service/server_manager.cpp": "c4f515b52c1b6139d679225cd08bd7e72cf157ecface67c8efa64cac5cf319ee",
+          "src/core/hle/service/server_manager.h": "b6cc70d25f960901406bff3fd0fe32913d88a3208de74e99bffb79ffd3766a8e",
+          "src/core/managed_host_producer.h": "15d2ae0f4f34827778c7fdce086324df3c62ff28e245cb281d483c880aebe696",
+          "tools/physical_coherency_tests/audio_service_owner_candidate.json": "0c205bd48c6ff402e5e669c9c64368398d4395ae21f44c9fc5abbb1aa76ff131",
+          "tools/physical_coherency_tests/audio_service_owner_fixture.cpp.in": "bf2a950853faea8098a1dc90f6ddfc79473c45226f9635056620ae0d38311404",
+          "tools/physical_coherency_tests/run_audio_service_owner_tests.py": "513be986dcec886b2d22b19cf78fef6a35d2e3ff2cb269a8c6a019f7b87d6575"
+        },
+        "actual": [
+          "Full AudioManager and AudioCore declarations; Audio worker/registration/shutdown and core ownership bodies",
+          "Full AudioIn/Out Manager and service class declarations, service constructors/default destructors, unique impl and target callback bodies",
+          "ServerManager shared-handler registration overload and destructor worker-join prefix; Kernel CloseServices body; System shutdown ordering slice"
+        ],
+        "fixtures": [
+          "CMIF/ServiceFramework dispatch metadata, kernel ports/server thread waits, sinks/ADSP, System fields and native GPU drain",
+          "Implicit target destruction and callback entry/exit use timing/lifetime probes; session bodies are inert"
+        ],
+        "boundary": "Named terminal Audio service target ownership only; no native audio device, full IPC/KProcess or whole-guest admission acceptance."
+      }
+    },
+    "m4-audio-owner-7fc-candidate": {
+      "command": "python tools/physical_coherency_tests/run_audio_service_owner_tests.py --candidate --repeat 3 --output-dir .diagnostics/m4-audio-owner-7fc-candidate",
+      "runner_exit_code": 0,
+      "input_verification": {
+        "src/audio_core/audio_core.cpp": "historical_src",
+        "src/audio_core/audio_core.h": "historical_src",
+        "src/audio_core/audio_event.cpp": "historical_src",
+        "src/audio_core/audio_event.h": "historical_src",
+        "src/audio_core/audio_in_manager.cpp": "historical_src",
+        "src/audio_core/audio_in_manager.h": "historical_src",
+        "src/audio_core/audio_manager.cpp": "historical_src",
+        "src/audio_core/audio_manager.h": "historical_src",
+        "src/audio_core/audio_out_manager.cpp": "historical_src",
+        "src/audio_core/audio_out_manager.h": "historical_src",
+        "src/common/producer_drain.h": "historical_src",
+        "src/common/terminal_fail_stop.cpp": "historical_src",
+        "src/common/terminal_fail_stop.h": "historical_src",
+        "src/core/core.cpp": "historical_src",
+        "src/core/hle/kernel/kernel.cpp": "historical_src",
+        "src/core/hle/service/audio/audio.cpp": "historical_src",
+        "src/core/hle/service/audio/audio_in_manager.cpp": "historical_src",
+        "src/core/hle/service/audio/audio_in_manager.h": "historical_src",
+        "src/core/hle/service/audio/audio_out_manager.cpp": "historical_src",
+        "src/core/hle/service/audio/audio_out_manager.h": "historical_src",
+        "src/core/hle/service/server_manager.cpp": "historical_src",
+        "src/core/hle/service/server_manager.h": "historical_src",
+        "src/core/managed_host_producer.h": "historical_src",
+        "tools/physical_coherency_tests/audio_service_owner_candidate.json": "current_raw",
+        "tools/physical_coherency_tests/audio_service_owner_fixture.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/run_audio_service_owner_tests.py": "current_raw"
+      },
+      "manifest": {
+        "baseline": false,
+        "candidate": true,
+        "revision": "7fc738baf7e27b1d1f3c7f0e7ed021fb8f81a3e3",
+        "repeat": 3,
+        "cases": [
+          "out-active",
+          "in-active",
+          "out-paused",
+          "in-paused",
+          "out-failure",
+          "in-failure",
+          "out-repeat",
+          "in-repeat",
+          "registration-loses",
+          "registration-wins",
+          "both",
+          "out-service-active",
+          "in-service-active"
+        ],
+        "controls": [
+          "omit-service-owner-drain",
+          "omit-worker-join",
+          "service-owners-first",
+          "audio-join-before-service-work",
+          "registration-outside-close-lock"
+        ],
+        "sha256": {
+          "src/audio_core/audio_core.cpp": "47d3ac3f5d93053ff009013201b3d851e3b37ef936d603b2d0a52ebd69080c78",
+          "src/audio_core/audio_core.h": "61397790a4e6d15e314e2a02360ddcb1ea4c8a526d301a7a2d953cdf3fe3c29d",
+          "src/audio_core/audio_event.cpp": "469d5a516914c1b931cfa2b2ebbd5cb79b36adeeb860e2ead7066452fec45860",
+          "src/audio_core/audio_event.h": "88e69709f1b09970e0a8bd5a0cff3fb2fefc3408ffc414919263ac2d1c68b4e6",
+          "src/audio_core/audio_in_manager.cpp": "386a1b050f4072a51fdd61a59e8a04a3078b6c4a4ad691bea6c57ac78d65bfe0",
+          "src/audio_core/audio_in_manager.h": "daa7996e2f2184a715583ce36144858042069d90eb828a0c235908a0c6d59482",
+          "src/audio_core/audio_manager.cpp": "0967afb23c08be3bcc71397b8d75a2f8fc8ec1c6ccf9086488621b8accd9e687",
+          "src/audio_core/audio_manager.h": "7cbc8516c19e8b8f9243aaeb7067caf7474404b84420817fad22b5809392c240",
+          "src/audio_core/audio_out_manager.cpp": "258c2ce289b1b60201cdc701f1f7dd465c845261040c8ceb6e6b3c4aa4700524",
+          "src/audio_core/audio_out_manager.h": "64fff64b0c051bfb1a2391820437d11e0fdb82445391337be4d1242d1b96dcb9",
+          "src/common/producer_drain.h": "e3e9ed946cbb654043c047c36e5aa134733629b9f1fac3f3ce3901bf10a655cf",
+          "src/common/terminal_fail_stop.cpp": "59a9ba954eeb0350a68a4277a5273f7609c4a0ce8332f903213eb42f2c84cf7c",
+          "src/common/terminal_fail_stop.h": "d79d436eac47142264ef70cd70c7cd09bd5dcba639367dc0233851f7ee189f20",
+          "src/core/core.cpp": "e481bd0409b8141000e6ba868b5cdf4c06852578363f4dae0d4b62a2b406164e",
+          "src/core/hle/kernel/kernel.cpp": "7190d7eb8524c2bd18bf9473572896144779de8c6f147e6222f8949e49d43a4e",
+          "src/core/hle/service/audio/audio.cpp": "18fe442892991b69a2c7e2c3b3ddd17cd8a7d8b28a829f5f56395c0c62aceb43",
+          "src/core/hle/service/audio/audio_in_manager.cpp": "1dd8f78fd0937eec31f5f1af55b2cebe9700e08ee827ba9b0579f2328a9bf0a3",
+          "src/core/hle/service/audio/audio_in_manager.h": "5ca289daf48a0f4c00d3a8fba453458fd4ae5702f6d80a71a002ccad6cabb2e7",
+          "src/core/hle/service/audio/audio_out_manager.cpp": "f365e5c38d22e31dc5fb221f506fcc2526aa98b548d1846940ab7deb6fb1d4bc",
+          "src/core/hle/service/audio/audio_out_manager.h": "efc2ce5ef9634ea587dde629d2a34e742114953f24a5a07cb3af9d234396b37e",
+          "src/core/hle/service/server_manager.cpp": "c4f515b52c1b6139d679225cd08bd7e72cf157ecface67c8efa64cac5cf319ee",
+          "src/core/hle/service/server_manager.h": "b6cc70d25f960901406bff3fd0fe32913d88a3208de74e99bffb79ffd3766a8e",
+          "src/core/managed_host_producer.h": "15d2ae0f4f34827778c7fdce086324df3c62ff28e245cb281d483c880aebe696",
+          "tools/physical_coherency_tests/audio_service_owner_candidate.json": "0c205bd48c6ff402e5e669c9c64368398d4395ae21f44c9fc5abbb1aa76ff131",
+          "tools/physical_coherency_tests/audio_service_owner_fixture.cpp.in": "bf2a950853faea8098a1dc90f6ddfc79473c45226f9635056620ae0d38311404",
+          "tools/physical_coherency_tests/run_audio_service_owner_tests.py": "513be986dcec886b2d22b19cf78fef6a35d2e3ff2cb269a8c6a019f7b87d6575"
+        },
+        "actual": [
+          "Full AudioManager and AudioCore declarations; Audio worker/registration/shutdown and core ownership bodies",
+          "Full AudioIn/Out Manager and service class declarations, service constructors/default destructors, unique impl and target callback bodies",
+          "ServerManager shared-handler registration overload and destructor worker-join prefix; Kernel CloseServices body; System shutdown ordering slice"
+        ],
+        "fixtures": [
+          "CMIF/ServiceFramework dispatch metadata, kernel ports/server thread waits, sinks/ADSP, System fields and native GPU drain",
+          "Implicit target destruction and callback entry/exit use timing/lifetime probes; session bodies are inert"
+        ],
+        "boundary": "Named terminal Audio service target ownership only; no native audio device, full IPC/KProcess or whole-guest admission acceptance."
+      }
+    },
+    "m4-audio-owner-7fc-fixed": {
+      "command": "python tools/physical_coherency_tests/run_audio_service_owner_tests.py --repeat 3 --output-dir .diagnostics/m4-audio-owner-7fc-fixed",
+      "runner_exit_code": 0,
+      "input_verification": {
+        "src/audio_core/audio_core.cpp": "current_raw",
+        "src/audio_core/audio_core.h": "current_raw",
+        "src/audio_core/audio_event.cpp": "current_raw",
+        "src/audio_core/audio_event.h": "current_raw",
+        "src/audio_core/audio_in_manager.cpp": "current_raw",
+        "src/audio_core/audio_in_manager.h": "current_raw",
+        "src/audio_core/audio_manager.cpp": "current_raw",
+        "src/audio_core/audio_manager.h": "current_raw",
+        "src/audio_core/audio_out_manager.cpp": "current_raw",
+        "src/audio_core/audio_out_manager.h": "current_raw",
+        "src/common/producer_drain.h": "current_raw",
+        "src/common/terminal_fail_stop.cpp": "current_raw",
+        "src/common/terminal_fail_stop.h": "current_raw",
+        "src/core/core.cpp": "current_raw",
+        "src/core/hle/kernel/kernel.cpp": "current_raw",
+        "src/core/hle/service/audio/audio.cpp": "current_raw",
+        "src/core/hle/service/audio/audio_in_manager.cpp": "current_raw",
+        "src/core/hle/service/audio/audio_in_manager.h": "current_raw",
+        "src/core/hle/service/audio/audio_out_manager.cpp": "current_raw",
+        "src/core/hle/service/audio/audio_out_manager.h": "current_raw",
+        "src/core/hle/service/server_manager.cpp": "current_raw",
+        "src/core/hle/service/server_manager.h": "current_raw",
+        "src/core/managed_host_producer.h": "current_raw",
+        "tools/physical_coherency_tests/audio_service_owner_candidate.json": "current_raw",
+        "tools/physical_coherency_tests/audio_service_owner_fixture.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/run_audio_service_owner_tests.py": "current_raw"
+      },
+      "manifest": {
+        "baseline": false,
+        "candidate": false,
+        "revision": null,
+        "repeat": 3,
+        "cases": [
+          "out-active",
+          "in-active",
+          "out-paused",
+          "in-paused",
+          "out-failure",
+          "in-failure",
+          "out-repeat",
+          "in-repeat",
+          "registration-loses",
+          "registration-wins",
+          "both",
+          "out-service-active",
+          "in-service-active"
+        ],
+        "controls": [
+          "omit-service-owner-drain",
+          "omit-worker-join",
+          "service-owners-first",
+          "audio-join-before-service-work",
+          "registration-outside-close-lock"
+        ],
+        "sha256": {
+          "src/audio_core/audio_core.cpp": "018f030b9cc4e76bc6acb8afc8a06470e27073f1d1725aac3f474703173f0e4b",
+          "src/audio_core/audio_core.h": "d3b6c631e1d047f2da0caf3d1a90e4a90cb1af13ac4ce1c3d6ae4de6284fd402",
+          "src/audio_core/audio_event.cpp": "4e895db3018dedf2b808526ba62767e6646a3f8e215d1c4227448014b333a437",
+          "src/audio_core/audio_event.h": "f72c33125698c2f803c724ed32ead490aa29b6441b86993e45bf4dc1bd391d06",
+          "src/audio_core/audio_in_manager.cpp": "aee9a6a2198d28c9276ff9594ef6f098ec8b68401bf4430211e0213cc68b8b11",
+          "src/audio_core/audio_in_manager.h": "17d51e9c59881b1bafe86f6d955c3a8d2aa5d021db2f21c8470cfe92941d41cd",
+          "src/audio_core/audio_manager.cpp": "2d9b70ae31f454df454a6a856772537884f9f9ab5e1acd284f335125ace837a9",
+          "src/audio_core/audio_manager.h": "f6a14d391ebdb21a588f0965278b5d0f5a7c5a189dad89b713f2ba89905c71a3",
+          "src/audio_core/audio_out_manager.cpp": "564b71dac6f66f1fd2c578410933d44158b7f7490ecb5887848456b00f4f4c07",
+          "src/audio_core/audio_out_manager.h": "292da6a5662f4ef8eb0a1421344f59685a83bc5a1d75c95dbac05045f8ba088f",
+          "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+          "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+          "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+          "src/core/core.cpp": "e481bd0409b8141000e6ba868b5cdf4c06852578363f4dae0d4b62a2b406164e",
+          "src/core/hle/kernel/kernel.cpp": "a69fb40294d28128fbc27d575fb5d15b9df64cf49dc1af32e137d6bce67163ea",
+          "src/core/hle/service/audio/audio.cpp": "1fa00822b09bc9a2ac69d4d24933911cde2015980d0dbf54c73c9cd1f0a0eab8",
+          "src/core/hle/service/audio/audio_in_manager.cpp": "02c407266963c739d8237e0b0a33113444dfcecc1d789c28ef3d87510320303d",
+          "src/core/hle/service/audio/audio_in_manager.h": "0b5409c1350ee2e11ecfa2330ca23aeaa50c1fd0d46a21bac061c47fbab6b5f9",
+          "src/core/hle/service/audio/audio_out_manager.cpp": "dcae19055ef708a182bcdf5859599ef561d6549f2ac1f006df3021789bc4e4b3",
+          "src/core/hle/service/audio/audio_out_manager.h": "a01c7e0a9c7cae2d51f3f979a5c25a9ef178ada32175ead922d746467d43333d",
+          "src/core/hle/service/server_manager.cpp": "bf85e738c824c6bf3cc3fd7d86e23dd93d19fd44bc3c8965267dc61dd0166671",
+          "src/core/hle/service/server_manager.h": "1ebc115ca172c90c3f04d04956081f784b53055e6c517267c4d091532d16a3e0",
+          "src/core/managed_host_producer.h": "aab2e5a4b9fbbedc86848539195191c8bd2722517b5ed8d4422cc9eb13b3352e",
+          "tools/physical_coherency_tests/audio_service_owner_candidate.json": "0c205bd48c6ff402e5e669c9c64368398d4395ae21f44c9fc5abbb1aa76ff131",
+          "tools/physical_coherency_tests/audio_service_owner_fixture.cpp.in": "bf2a950853faea8098a1dc90f6ddfc79473c45226f9635056620ae0d38311404",
+          "tools/physical_coherency_tests/run_audio_service_owner_tests.py": "513be986dcec886b2d22b19cf78fef6a35d2e3ff2cb269a8c6a019f7b87d6575"
+        },
+        "actual": [
+          "Full AudioManager and AudioCore declarations; Audio worker/registration/shutdown and core ownership bodies",
+          "Full AudioIn/Out Manager and service class declarations, service constructors/default destructors, unique impl and target callback bodies",
+          "ServerManager shared-handler registration overload and destructor worker-join prefix; Kernel CloseServices body; System shutdown ordering slice"
+        ],
+        "fixtures": [
+          "CMIF/ServiceFramework dispatch metadata, kernel ports/server thread waits, sinks/ADSP, System fields and native GPU drain",
+          "Implicit target destruction and callback entry/exit use timing/lifetime probes; session bodies are inert"
+        ],
+        "boundary": "Named terminal Audio service target ownership only; no native audio device, full IPC/KProcess or whole-guest admission acceptance."
+      }
+    },
+    "m4-audio-owner-7fc-callback-reg": {
+      "command": "python tools/physical_coherency_tests/run_audio_callback_drain_tests.py --repeat 3 --output-dir .diagnostics/m4-audio-owner-7fc-callback-reg",
+      "runner_exit_code": 0,
+      "input_verification": {
+        "src/audio_core/audio_manager.cpp": "current_raw",
+        "src/audio_core/audio_manager.h": "current_raw",
+        "src/common/terminal_fail_stop.cpp": "current_raw",
+        "src/common/terminal_fail_stop.h": "current_raw",
+        "src/audio_core/audio_event.cpp": "current_raw",
+        "src/audio_core/audio_event.h": "current_raw",
+        "src/audio_core/audio_core.cpp": "current_raw",
+        "src/core/managed_host_producer.h": "current_raw",
+        "src/common/producer_drain.h": "current_raw",
+        "tools/physical_coherency_tests/run_audio_callback_drain_tests.py": "current_raw"
+      },
+      "manifest": {
+        "sha256": {
+          "src/audio_core/audio_manager.cpp": "2d9b70ae31f454df454a6a856772537884f9f9ab5e1acd284f335125ace837a9",
+          "src/audio_core/audio_manager.h": "f6a14d391ebdb21a588f0965278b5d0f5a7c5a189dad89b713f2ba89905c71a3",
+          "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+          "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+          "src/audio_core/audio_event.cpp": "4e895db3018dedf2b808526ba62767e6646a3f8e215d1c4227448014b333a437",
+          "src/audio_core/audio_event.h": "f72c33125698c2f803c724ed32ead490aa29b6441b86993e45bf4dc1bd391d06",
+          "src/audio_core/audio_core.cpp": "018f030b9cc4e76bc6acb8afc8a06470e27073f1d1725aac3f474703173f0e4b",
+          "src/core/managed_host_producer.h": "aab2e5a4b9fbbedc86848539195191c8bd2722517b5ed8d4422cc9eb13b3352e",
+          "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+          "tools/physical_coherency_tests/run_audio_callback_drain_tests.py": "cb9522434b0fd77fc8c6b0a66486269dba3e49a2df73ccd3233a9e477ba821b7"
+        },
+        "positive_repeats": 3,
+        "controls": [
+          "omit-callback-admission",
+          "hold-event-lock",
+          "release-before-callback",
+          "omit-shutdown-wakeup",
+          "omit-failure-seal"
+        ],
+        "actual": [
+          "AudioManager constructor, ThreadFunc, Shutdown",
+          "Event bodies",
+          "ManagedHostProducer and ProducerDrain"
+        ],
+        "fixtures": [
+          "AudioManager member layout, registered callbacks and session/guest writes"
+        ],
+        "boundary": "Manager callback subset only; no sink/device, HLE/service, NCE/GPU or Guest admission proof."
+      }
+    },
+    "m4-audio-owner-7fc-composition-reg": {
+      "command": "python tools/physical_coherency_tests/run_owner_closure_composition_tests.py --repeat 3 --output-dir .diagnostics/m4-audio-owner-7fc-composition-reg",
+      "runner_exit_code": 0,
+      "input_verification": {
+        "src/audio_core/audio_event.cpp": "current_raw",
+        "src/audio_core/audio_event.h": "current_raw",
+        "src/audio_core/audio_in_manager.cpp": "current_raw",
+        "src/audio_core/audio_manager.cpp": "current_raw",
+        "src/audio_core/audio_manager.h": "current_raw",
+        "src/audio_core/audio_out_manager.cpp": "current_raw",
+        "src/common/bounded_threadsafe_queue.h": "current_raw",
+        "src/common/page_table.h": "current_raw",
+        "src/common/polyfill_thread.h": "current_raw",
+        "src/common/producer_drain.h": "current_raw",
+        "src/common/retained_backing_storage.h": "current_raw",
+        "src/common/scope_exit.h": "current_raw",
+        "src/common/terminal_fail_stop.cpp": "current_raw",
+        "src/common/terminal_fail_stop.h": "current_raw",
+        "src/common/terminal_ingress.h": "current_raw",
+        "src/common/typed_address.h": "current_raw",
+        "src/core/core.cpp": "current_raw",
+        "src/core/device_memory_manager.h": "current_raw",
+        "src/core/gpu_dirty_memory_manager.h": "current_raw",
+        "src/core/hle/kernel/k_process.cpp": "current_raw",
+        "src/core/hle/kernel/kernel.cpp": "current_raw",
+        "src/core/hle/kernel/physical_core.cpp": "current_raw",
+        "src/core/hle/kernel/physical_core.h": "current_raw",
+        "src/core/hle/kernel/process_cohort_stop.cpp": "current_raw",
+        "src/core/hle/kernel/process_cohort_stop.h": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.cpp": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.h": "current_raw",
+        "src/core/hle/kernel/process_owner_roster.cpp": "current_raw",
+        "src/core/hle/kernel/process_owner_roster.h": "current_raw",
+        "src/core/hle/result.h": "current_raw",
+        "src/core/hle/service/audio/audio_in_manager.h": "current_raw",
+        "src/core/hle/service/audio/audio_out_manager.h": "current_raw",
+        "src/core/hle/service/audio/errors.h": "current_raw",
+        "src/core/managed_guest_writes.h": "current_raw",
+        "src/core/managed_host_producer.h": "current_raw",
+        "src/core/memory.cpp": "current_raw",
+        "src/core/memory.h": "current_raw",
+        "src/video_core/acknowledged_callback.h": "current_raw",
+        "src/video_core/gpu.cpp": "current_raw",
+        "src/video_core/gpu_thread.cpp": "current_raw",
+        "src/video_core/gpu_thread.h": "current_raw",
+        "tools/gpu_lifecycle_tests/run_thread_tests.py": "current_raw",
+        "tools/physical_coherency_tests/owner_closure_composition.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/owner_closure_memory.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/process_execution_stop_fixture.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/run_owner_closure_composition_tests.py": "current_raw",
+        "tools/physical_coherency_tests/run_process_execution_stop_tests.py": "current_raw"
+      },
+      "manifest": {
+        "repeat": 3,
+        "cases": [
+          "normal",
+          "backend-active",
+          "memory-active",
+          "escaped-alias",
+          "active-stop",
+          "queued-cancel",
+          "callback-fail",
+          "timeout",
+          "late-seal"
+        ],
+        "controls": [
+          "omit-callback-drain",
+          "close-memory-before-callback",
+          "raw-session-capture",
+          "omit-callback-seal",
+          "bypass-write-admission",
+          "weak-backing-owner"
+        ],
+        "sha256": {
+          "src/audio_core/audio_event.cpp": "4e895db3018dedf2b808526ba62767e6646a3f8e215d1c4227448014b333a437",
+          "src/audio_core/audio_event.h": "f72c33125698c2f803c724ed32ead490aa29b6441b86993e45bf4dc1bd391d06",
+          "src/audio_core/audio_in_manager.cpp": "aee9a6a2198d28c9276ff9594ef6f098ec8b68401bf4430211e0213cc68b8b11",
+          "src/audio_core/audio_manager.cpp": "2d9b70ae31f454df454a6a856772537884f9f9ab5e1acd284f335125ace837a9",
+          "src/audio_core/audio_manager.h": "f6a14d391ebdb21a588f0965278b5d0f5a7c5a189dad89b713f2ba89905c71a3",
+          "src/audio_core/audio_out_manager.cpp": "564b71dac6f66f1fd2c578410933d44158b7f7490ecb5887848456b00f4f4c07",
+          "src/common/bounded_threadsafe_queue.h": "9c2746cc8d722f5a24d72c4f3a5bbbae65bef3775971e5de8f5da1fec3508948",
+          "src/common/page_table.h": "b617052d5ff8e5f8b1421229ba36cfc40ed84ff07b0b0d590442b26fb0633d9e",
+          "src/common/polyfill_thread.h": "d2a3b1103f8f65cc28915621acc5bf7a3429bfcdda1dba6aecd7aa0c5ac7cc14",
+          "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+          "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+          "src/common/scope_exit.h": "f441cc79b44dd2b6e6b2ae36ae480281f960a176bbff4f2a501ff752581f35f2",
+          "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+          "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+          "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+          "src/common/typed_address.h": "dac80745ee3eb02a907a2ed3e24bb829cd83954db1dfbb5d9cd1979b0cbf0a01",
+          "src/core/core.cpp": "e481bd0409b8141000e6ba868b5cdf4c06852578363f4dae0d4b62a2b406164e",
+          "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+          "src/core/gpu_dirty_memory_manager.h": "f752ba7d44d5c0164321887e63d452b42c28fa2c41df042fa88fcadb0835c288",
+          "src/core/hle/kernel/k_process.cpp": "69d795ff3a2cdaa8e29917ee03120f70f464a5fff4e1387d51fb00c24aaacf8b",
+          "src/core/hle/kernel/kernel.cpp": "a69fb40294d28128fbc27d575fb5d15b9df64cf49dc1af32e137d6bce67163ea",
+          "src/core/hle/kernel/physical_core.cpp": "0292cf16f3ffc871fae30ecf319a81e6ec8452a39b5f78ced27736a22601849e",
+          "src/core/hle/kernel/physical_core.h": "6742af493b1d6020e024f412ad300d9fa3c2823be5ca15e02e40102e51d46624",
+          "src/core/hle/kernel/process_cohort_stop.cpp": "4a82749d5c8d4d4250285317c06c0667bdd4ca41daf98ad805b422bd4102bea2",
+          "src/core/hle/kernel/process_cohort_stop.h": "133ca868d6d92fc305bb99558bf2f254791b431de8aa1eae015e5185d5ef59c4",
+          "src/core/hle/kernel/process_execution_stop.cpp": "c98ec7c773fb5c059a9e450b6476ca3678acec43e575d0732eaf3b4bbc9f8e4f",
+          "src/core/hle/kernel/process_execution_stop.h": "8ed2dc77fbd9b3143c08c27a6d9b41d6e0a616be6b0f8501b993139f0face8f4",
+          "src/core/hle/kernel/process_owner_roster.cpp": "92ec12e7e86b2cc045543330c97f739ede959a968e129d436271b2c64813b026",
+          "src/core/hle/kernel/process_owner_roster.h": "523d6f254debb7702c88d2c400a4dfcf81ece83b8076315bd06be0eabfa21da3",
+          "src/core/hle/result.h": "058fab0caac9bd55b07f5f77f5f3ea54f5e5f985472a3aa705f03f0c72ca1c28",
+          "src/core/hle/service/audio/audio_in_manager.h": "0b5409c1350ee2e11ecfa2330ca23aeaa50c1fd0d46a21bac061c47fbab6b5f9",
+          "src/core/hle/service/audio/audio_out_manager.h": "a01c7e0a9c7cae2d51f3f979a5c25a9ef178ada32175ead922d746467d43333d",
+          "src/core/hle/service/audio/errors.h": "7def0bf43f7929d7fc1f62b6aef2c003c89cae52aaf0679ed956443fea314a5a",
+          "src/core/managed_guest_writes.h": "86e264b83fc072b1b90d66bffaa3d22cb8a9f89a0409964d751f4732635f51ea",
+          "src/core/managed_host_producer.h": "aab2e5a4b9fbbedc86848539195191c8bd2722517b5ed8d4422cc9eb13b3352e",
+          "src/core/memory.cpp": "799ca1fa3405ccd736e65b8baa64a9fb13535870a1b0b54a354f10918777809f",
+          "src/core/memory.h": "e32bfd7e1037468f102068390371981f7401b56aebe15e875bcc986f68f664b6",
+          "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+          "src/video_core/gpu.cpp": "adecb4d24aadd6a34d5964d307b02becc7945b8316ad480183d2c7f8dfb9d486",
+          "src/video_core/gpu_thread.cpp": "d56e13d853d2bf51c3cc106e72e1903c4d418b4f93a61a70e19c8ff6df4f1c0c",
+          "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+          "tools/gpu_lifecycle_tests/run_thread_tests.py": "bd9332fa187d85285874a756548ea5d78e26c90c54ef00e39e7e032d8255ab07",
+          "tools/physical_coherency_tests/owner_closure_composition.cpp.in": "9671e2b92bddb43b0b05d0e97cb220805411bbccfa94b35c5c4aa86fdf9cdde8",
+          "tools/physical_coherency_tests/owner_closure_memory.cpp.in": "4636b0861edc77a3606bb69126931424f0d32f6a63c1baf27a15231c9a460227",
+          "tools/physical_coherency_tests/process_execution_stop_fixture.cpp.in": "66b656e0e117d72a4438d8d745ea37ddfbb89054c93f8bdac0a611b013663aee",
+          "tools/physical_coherency_tests/run_owner_closure_composition_tests.py": "014497e690aace8479a801651d0e7e3e18f5147606d16bc11b04d065be278bf7",
+          "tools/physical_coherency_tests/run_process_execution_stop_tests.py": "0a81eebcf7702aaa009a607fcd144ee7db7e6da14afe058d69a2c607b8d07590"
+        },
+        "actual": [
+          "Full AudioManager declaration and all method bodies; Event declaration/bodies",
+          "Full ThreadManager declaration, queue, RunThread/Stop/callback acknowledgement bodies",
+          "ProcessCohortStop/ProcessExecutionStop/roster types and bodies; actual KProcess stop factories",
+          "Memory::Write8 facade, Impl::GetPointerImpl and PageInfo bodies; shared ProducerDrain and backing owner type"
+        ],
+        "fixtures": [
+          "One combined Core::System, KProcess lifecycle/refcount/PTE/backend collaborators",
+          "Native renderer/queue completion; scalar Impl store and fixed PTE mapping",
+          "HostMemory allocation is a shared byte array; no actual HostMemory remap/freeze proof"
+        ],
+        "timing_only": [
+          "Existing GPU wait/enqueue/stop/join signals",
+          "Audio event wait observer after prior counted callback scope exits",
+          "ManagedHostProducer closed-entry observer before its real pause mutex"
+        ],
+        "uncovered_actual_registration": {
+          "out": "ServerManager service owns IAudio manager; unique impl target is registered by raw this, not the prepared shared Session tested here",
+          "in": "ServerManager service owns IAudio manager; unique impl target is registered by raw this, not the prepared shared Session tested here"
+        },
+        "negative_coverage_witness": "A pre-resolved owned raw pointer still stores after managed closure; GuestBackingAdmission must remain Unknown",
+        "boundary": "Joined owner-chain evidence for named callback subset; no full KProcess runtime, native Vulkan, whole service closure or Guest admission."
+      }
+    },
+    "m4-audio-owner-7fc-composition-reg/cpu": {
+      "command": "python tools/physical_coherency_tests/run_process_execution_stop_tests.py --output-dir .diagnostics/m4-audio-owner-7fc-composition-reg/cpu",
+      "runner_exit_code": 0,
+      "input_verification": {
+        "src/core/hle/kernel/physical_core.cpp": "current_raw",
+        "src/core/hle/kernel/physical_core.h": "current_raw",
+        "src/core/hle/kernel/k_process.cpp": "current_raw",
+        "src/core/hle/kernel/k_process.h": "current_raw",
+        "src/core/hle/kernel/kernel.h": "current_raw",
+        "src/tests/core/controlled_cpu_scheduler.cpp": "current_raw",
+        "src/core/hle/kernel/kernel.cpp": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.h": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.cpp": "current_raw",
+        "src/common/producer_drain.h": "current_raw",
+        "src/core/hle/kernel/guest_execution_drain.h": "current_raw",
+        "tools/physical_coherency_tests/process_execution_stop_fixture.cpp.in": "current_raw",
+        "src/common/retained_backing_storage.h": "current_raw",
+        "tools/physical_coherency_tests/run_process_execution_stop_tests.py": "current_raw"
+      },
+      "manifest": {
+        "positive_repeats": 3,
+        "assertion_mutants": [
+          "count-suspended-svc-as-backend",
+          "request-is-acknowledgement",
+          "omit-running-owner-retention",
+          "omit-initialization-drain",
+          "stopped-forgets-seal"
+        ],
+        "sha256": {
+          "src/core/hle/kernel/physical_core.cpp": "0292cf16f3ffc871fae30ecf319a81e6ec8452a39b5f78ced27736a22601849e",
+          "src/core/hle/kernel/physical_core.h": "6742af493b1d6020e024f412ad300d9fa3c2823be5ca15e02e40102e51d46624",
+          "src/core/hle/kernel/k_process.cpp": "69d795ff3a2cdaa8e29917ee03120f70f464a5fff4e1387d51fb00c24aaacf8b",
+          "src/core/hle/kernel/k_process.h": "1cfe6a548016cdd563fc0744268c87dd3dbd3a18f23b10bc59f29ba90b9d43dc",
+          "src/core/hle/kernel/kernel.h": "e343df91960ce1b5f213327beae1a9d846e11ffc8bd98676011b93175f0d6fff",
+          "src/tests/core/controlled_cpu_scheduler.cpp": "9d3baefc77d50c179d6fed35d21b8a2c65044857934f6e05a3de96847e7a4f7d",
+          "src/core/hle/kernel/kernel.cpp": "a69fb40294d28128fbc27d575fb5d15b9df64cf49dc1af32e137d6bce67163ea",
+          "src/core/hle/kernel/process_execution_stop.h": "8ed2dc77fbd9b3143c08c27a6d9b41d6e0a616be6b0f8501b993139f0face8f4",
+          "src/core/hle/kernel/process_execution_stop.cpp": "c98ec7c773fb5c059a9e450b6476ca3678acec43e575d0732eaf3b4bbc9f8e4f",
+          "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+          "src/core/hle/kernel/guest_execution_drain.h": "eaf19635a3c101e98751da564c3181d52624c0ea35d9540f032616a5831ac750",
+          "tools/physical_coherency_tests/process_execution_stop_fixture.cpp.in": "66b656e0e117d72a4438d8d745ea37ddfbb89054c93f8bdac0a611b013663aee",
+          "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+          "tools/physical_coherency_tests/run_process_execution_stop_tests.py": "0a81eebcf7702aaa009a607fcd144ee7db7e6da14afe058d69a2c607b8d07590"
+        },
+        "boundary": "Actual execution/stop bodies; injected backend/kernel, no NCE or guest admission proof"
+      }
+    },
+    "m4-audio-owner-7fc-terminal-reg": {
+      "command": "python tools/gpu_lifecycle_tests/run_terminal_disposal_tests.py --repeat 3 --output-dir .diagnostics/m4-audio-owner-7fc-terminal-reg",
+      "runner_exit_code": 0,
+      "input_verification": {
+        "src/common/terminal_fail_stop.cpp": "current_raw",
+        "src/common/terminal_fail_stop.h": "current_raw",
+        "src/core/core.cpp": "current_raw",
+        "src/video_core/gpu.cpp": "current_raw",
+        "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "current_raw",
+        "src/video_core/renderer_vulkan/vk_turbo_mode.cpp": "current_raw",
+        "tools/gpu_lifecycle_tests/run_terminal_disposal_tests.py": "current_raw",
+        "tools/gpu_lifecycle_tests/terminal_disposal_fixture.cpp.in": "current_raw"
+      },
+      "manifest": {
+        "sha256": {
+          "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+          "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+          "src/core/core.cpp": "e481bd0409b8141000e6ba868b5cdf4c06852578363f4dae0d4b62a2b406164e",
+          "src/video_core/gpu.cpp": "adecb4d24aadd6a34d5964d307b02becc7945b8316ad480183d2c7f8dfb9d486",
+          "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "3f245b91784556e33ea8a821919c17f76499bc1f2c9199c4a542d5b177081f88",
+          "src/video_core/renderer_vulkan/vk_turbo_mode.cpp": "8e1e499a096f2fdb94bc6d279983324081b22423c465dc3fab3a4a18f117db38",
+          "tools/gpu_lifecycle_tests/run_terminal_disposal_tests.py": "7d916139e008e2db146b1189ba93a453caef8068004c08e854363072bcb151ee",
+          "tools/gpu_lifecycle_tests/terminal_disposal_fixture.cpp.in": "05d0a7c079dee97f8f909a37f5b313952c05924ce89dbd6d0e5d13dcc8926295"
+        },
+        "repetitions": 3,
+        "success_paths": 5,
+        "failure_paths": 23,
+        "controls": [
+          "ignore-idle-failure",
+          "ignore-checked-refusal",
+          "dispose-services-first",
+          "omit-system-fallback",
+          "normal-exit-runs-handlers"
+        ],
+        "actual": [
+          "System owning shutdown and destructor",
+          "GPU terminal shutdown and destructor",
+          "Vulkan renderer shutdown and destructor",
+          "Turbo destructor",
+          "FailStop implementation"
+        ],
+        "fixtures": [
+          "worker/driver/component methods and protected-owner destructor markers",
+          "platform backing memory reset after successful teardown"
+        ],
+        "boundary": "All failures execute in subprocesses; exact exit 86, diagnostic stage/reason/result, no protected member destruction, service/Process disposal or exit handlers. Not an actual driver-loss injection, blocked-driver timeout or ordinary Guest admission proof."
+      }
+    },
+    "m4-audio-owner-7fc-windows": {
+      "command": "python tools/physical_coherency_tests/run_windows_production_checks.py --source src/core/core.cpp --source src/audio_core/audio_manager.cpp --source src/audio_core/audio_core.cpp --source src/audio_core/audio_in_manager.cpp --source src/audio_core/audio_out_manager.cpp --source src/core/hle/service/audio/audio_in_manager.cpp --source src/core/hle/service/audio/audio_out_manager.cpp --source src/core/hle/service/server_manager.cpp --source src/core/hle/service/audio/audio.cpp --output-dir .diagnostics/m4-audio-owner-7fc-windows",
+      "runner_exit_code": 0,
+      "input_verification": {
+        "src/audio_core/audio_core.cpp": "current_raw",
+        "src/audio_core/audio_in_manager.cpp": "current_raw",
+        "src/audio_core/audio_manager.cpp": "current_raw",
+        "src/audio_core/audio_out_manager.cpp": "current_raw",
+        "src/common/frame_mapping.h": "current_raw",
+        "src/common/terminal_ingress.h": "current_raw",
+        "src/core/core.cpp": "current_raw",
+        "src/core/device_memory_manager.h": "current_raw",
+        "src/core/device_memory_manager.inc": "current_raw",
+        "src/core/hle/service/audio/audio.cpp": "current_raw",
+        "src/core/hle/service/audio/audio_in_manager.cpp": "current_raw",
+        "src/core/hle/service/audio/audio_out_manager.cpp": "current_raw",
+        "src/core/hle/service/nvdrv/core/container.h": "current_raw",
+        "src/core/hle/service/nvdrv/core/nvmap.h": "current_raw",
+        "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "current_raw",
+        "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "current_raw",
+        "src/core/hle/service/server_manager.cpp": "current_raw",
+        "src/video_core/acknowledged_callback.h": "current_raw",
+        "src/video_core/control/channel_state.h": "current_raw",
+        "src/video_core/framebuffer_config.h": "current_raw",
+        "src/video_core/gpu.h": "current_raw",
+        "src/video_core/gpu_thread.h": "current_raw",
+        "src/video_core/memory_manager.h": "current_raw",
+        "src/video_core/rasterizer_binding_state.h": "current_raw",
+        "src/video_core/rasterizer_interface.h": "current_raw",
+        "src/video_core/renderer_vulkan/present/layer.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_blit_screen.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_master_semaphore.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_presentation_source.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_rasterizer.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_scheduler.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_texture_cache.h": "current_raw",
+        "src/video_core/unmap_failure.h": "current_raw",
+        "tools/physical_coherency_tests/run_windows_production_checks.py": "current_raw"
+      },
+      "manifest": {
+        "platform": "Windows-11-10.0.26300-SP0",
+        "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+        "opus_evidence": {
+          "pinned_commit": "101a71e03bbf860aaafb7090a0e440675cb27660",
+          "actual_commit": "101a71e03bbf860aaafb7090a0e440675cb27660",
+          "headers_sha256": {
+            "opus.h": "55e401854c34e1326a14e4f636375675f4f2ba28c3eb905719703292a3d04c76",
+            "opus_custom.h": "526bf7770dfd0c82cbbbc2b89b09758e5fe44567de3edad905e7f0f70e681b1c",
+            "opus_defines.h": "5eafc21600330ab8a8f4b150948b6038aef6f0ec8b0d7947507c8ab3f0f9ab52",
+            "opus_multistream.h": "bd39db566d7a2baf14ca0319c8bc1f437549b9595aafb16a8c2081091930e535",
+            "opus_projection.h": "ec600ceb8fa655d0dcbe44bc5c6eb62d12612c7c24831e73aee26daa84501bd2",
+            "opus_types.h": "e7c71855cee349876cae8bc6c755542e90302614ebfc339f21f32beab07adb11"
+          }
+        },
+        "compiler": "g++.exe (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+        "boost_root": "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+        "boost_version_header": "//  Boost version.hpp configuration header file  ------------------------------//\n\n//  (C) Copyright John maddock 1999. Distributed under the Boost\n//  Software License, Version 1.0. (See accompanying file\n//  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)\n\n//  See http://www.boost.org/libs/config for documentation\n\n#ifndef BOOST_VERSION_HPP\n#define BOOST_VERSION_HPP\n\n//\n//  Caution: this is the only Boost header that is guaranteed\n//  to change with every Boost release. Including this header\n//  will cause a recompile every time a new Boost version is\n//  used.\n//\n//  BOOST_VERSION % 100 is the patch level\n//  BOOST_VERSION / 100 % 1000 is the minor version\n//  BOOST_VERSION / 100000 is the major version\n\n#define BOOST_VERSION 108700\n\n//\n//  BOOST_LIB_VERSION must be defined to be the same as BOOST_VERSION\n//  but as a *string* in the form \"x_y[_z]\" where x is the major version\n//  number, y is the minor version number, and z is the patch level if not 0.\n//  This is used by <config/auto_link.hpp> to select which library version to link to.\n\n#define BOOST_LIB_VERSION \"1_87\"\n\n#endif\n",
+        "boost_official_archive_sha256": null,
+        "sha256": {
+          "src/audio_core/audio_core.cpp": "018f030b9cc4e76bc6acb8afc8a06470e27073f1d1725aac3f474703173f0e4b",
+          "src/audio_core/audio_in_manager.cpp": "aee9a6a2198d28c9276ff9594ef6f098ec8b68401bf4430211e0213cc68b8b11",
+          "src/audio_core/audio_manager.cpp": "2d9b70ae31f454df454a6a856772537884f9f9ab5e1acd284f335125ace837a9",
+          "src/audio_core/audio_out_manager.cpp": "564b71dac6f66f1fd2c578410933d44158b7f7490ecb5887848456b00f4f4c07",
+          "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+          "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+          "src/core/core.cpp": "e481bd0409b8141000e6ba868b5cdf4c06852578363f4dae0d4b62a2b406164e",
+          "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+          "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+          "src/core/hle/service/audio/audio.cpp": "1fa00822b09bc9a2ac69d4d24933911cde2015980d0dbf54c73c9cd1f0a0eab8",
+          "src/core/hle/service/audio/audio_in_manager.cpp": "02c407266963c739d8237e0b0a33113444dfcecc1d789c28ef3d87510320303d",
+          "src/core/hle/service/audio/audio_out_manager.cpp": "dcae19055ef708a182bcdf5859599ef561d6549f2ac1f006df3021789bc4e4b3",
+          "src/core/hle/service/nvdrv/core/container.h": "7f7f117669e99242f84506994e2f3af3bb538a962ef0a0c1208d39cfb96bd562",
+          "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+          "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+          "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+          "src/core/hle/service/server_manager.cpp": "bf85e738c824c6bf3cc3fd7d86e23dd93d19fd44bc3c8965267dc61dd0166671",
+          "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+          "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+          "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+          "src/video_core/gpu.h": "b55625f616af2deb74407ec05104babd5712211c56dce28bad5c3b9f73b68786",
+          "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+          "src/video_core/memory_manager.h": "db03427bd693d7b20812828e60a59c4e2cc6cf314b1c206cfd720e4f56906682",
+          "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+          "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+          "src/video_core/renderer_vulkan/present/layer.h": "a5ae6c6c6523f43de2bc0a7ed2c462c66daf489748f831a3805aae75d706878d",
+          "src/video_core/renderer_vulkan/vk_blit_screen.h": "6a9da58b53835ebbf6fe1ca1bc24f940b8cb0d0a99cdc4994d6fdab3896b3ddd",
+          "src/video_core/renderer_vulkan/vk_master_semaphore.h": "33584679044080c5defd0ab256d879788736382ce825bcb86260013fc602c5b6",
+          "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+          "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+          "src/video_core/renderer_vulkan/vk_rasterizer.h": "03c3f2a44a2010ef4c002db2b6d5ed71ff16f2ed2ec467ff799f529caceb0a79",
+          "src/video_core/renderer_vulkan/vk_scheduler.h": "6da3dbbc5741a059fab77f1e876c9c00fcf3fbf37efbe46841bc7cf50d081dc6",
+          "src/video_core/renderer_vulkan/vk_texture_cache.h": "294de0f628432503d9302c018686ed67d94eb5dbd641c6789f2c450a413fd8d5",
+          "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+          "tools/physical_coherency_tests/run_windows_production_checks.py": "2eef7dfa5874ec9b16f3e68fbde20171292f2e08518d684b3e24f2728d9c24d3"
+        },
+        "objects": [
+          {
+            "source": "src/core/core.cpp",
+            "sha256": "e481bd0409b8141000e6ba868b5cdf4c06852578363f4dae0d4b62a2b406164e",
+            "object_sha256": "cccbd115763192b317af5e1f4c99758acd98ad102bfe148e7d0fcb9f7f6eed0b",
+            "object_size": 170580,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\core.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-audio-owner-7fc-windows\\0-core.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/audio_core/audio_manager.cpp",
+            "sha256": "2d9b70ae31f454df454a6a856772537884f9f9ab5e1acd284f335125ace837a9",
+            "object_sha256": "df7ab1bcda1a44dc3cace628f8851ffa98f3564bea916a2d77478775c965e4a9",
+            "object_size": 42807,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\audio_core\\audio_manager.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-audio-owner-7fc-windows\\1-audio_manager.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/audio_core/audio_core.cpp",
+            "sha256": "018f030b9cc4e76bc6acb8afc8a06470e27073f1d1725aac3f474703173f0e4b",
+            "object_sha256": "2a6461a29ac6b479a81c97f79091ea68b8e281de89bc90adad8f14c7c32ef818",
+            "object_size": 13865,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\audio_core\\audio_core.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-audio-owner-7fc-windows\\2-audio_core.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/audio_core/audio_in_manager.cpp",
+            "sha256": "aee9a6a2198d28c9276ff9594ef6f098ec8b68401bf4430211e0213cc68b8b11",
+            "object_sha256": "404053bff8ae176c48b0868976caa1d6909f8ca8ff3e7a8ebdbe9b41865527c2",
+            "object_size": 11779,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\audio_core\\audio_in_manager.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-audio-owner-7fc-windows\\3-audio_in_manager.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/audio_core/audio_out_manager.cpp",
+            "sha256": "564b71dac6f66f1fd2c578410933d44158b7f7490ecb5887848456b00f4f4c07",
+            "object_sha256": "36e27dcaf1add8ad20c8a4c704e0653ecd5f51966d832e580344b621ac06b3ce",
+            "object_size": 13512,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\audio_core\\audio_out_manager.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-audio-owner-7fc-windows\\4-audio_out_manager.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/core/hle/service/audio/audio_in_manager.cpp",
+            "sha256": "02c407266963c739d8237e0b0a33113444dfcecc1d789c28ef3d87510320303d",
+            "object_sha256": "bc370a44976d0af1b82b7aec06d792982ef76dbd2d9b6338315d7fb38bab8cf6",
+            "object_size": 88991,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\audio\\audio_in_manager.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-audio-owner-7fc-windows\\5-audio_in_manager.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/core/hle/service/audio/audio_out_manager.cpp",
+            "sha256": "dcae19055ef708a182bcdf5859599ef561d6549f2ac1f006df3021789bc4e4b3",
+            "object_sha256": "ee5e8bf988f376ff385b775ec28c5eb2a435acce4b2c4513cfc3452d6ef201f7",
+            "object_size": 86480,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\audio\\audio_out_manager.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-audio-owner-7fc-windows\\6-audio_out_manager.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/core/hle/service/server_manager.cpp",
+            "sha256": "bf85e738c824c6bf3cc3fd7d86e23dd93d19fd44bc3c8965267dc61dd0166671",
+            "object_sha256": "b8377037feb6ee77a27e7d19bad9613ba79841171105bea51958c1fcb169c7e6",
+            "object_size": 53678,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\server_manager.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-audio-owner-7fc-windows\\7-server_manager.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/core/hle/service/audio/audio.cpp",
+            "sha256": "1fa00822b09bc9a2ac69d4d24933911cde2015980d0dbf54c73c9cd1f0a0eab8",
+            "object_sha256": "b8c08173483b0f657474ad7a68067a68cce2974ecc0b1991dfe48eafceb610e5",
+            "object_size": 134247,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\audio\\audio.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-audio-owner-7fc-windows\\8-audio.o"
+            ],
+            "warnings": ""
+          }
+        ],
+        "shader_evidence": null,
+        "window_shader_evidence": null,
+        "boundary": "Actual production Windows x64 object compilation with real headers. No application link, runtime, native Vulkan or Android claim."
+      }
+    }
+  },
+  "local_evidence": [
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/extraction.json",
+      "sha256": "e862098c1caa568fd0fa8291058233e0756c1f78114ec4393bfecc1807cbd892",
+      "size": 4003,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-in-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-in-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-in-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-out-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-out-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-out-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-registration-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-registration-registration-loses-0.log",
+      "sha256": "e7d710b3f2120563eeb34be3dd591dbab79c4ace7da83f313fdd35ec37d14361",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-registration-registration-loses-1.log",
+      "sha256": "e7d710b3f2120563eeb34be3dd591dbab79c4ace7da83f313fdd35ec37d14361",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-registration-registration-loses-2.log",
+      "sha256": "e7d710b3f2120563eeb34be3dd591dbab79c4ace7da83f313fdd35ec37d14361",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/audio-join-before-service-work-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/audio-join-before-service-work-out-service-active-0.log",
+      "sha256": "807f343f766a0fae4a62019b3849beca349883c196fff324e08274dd74a17518",
+      "size": 45,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/audio-join-before-service-work-out-service-active-1.log",
+      "sha256": "807f343f766a0fae4a62019b3849beca349883c196fff324e08274dd74a17518",
+      "size": 45,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/audio-join-before-service-work-out-service-active-2.log",
+      "sha256": "807f343f766a0fae4a62019b3849beca349883c196fff324e08274dd74a17518",
+      "size": 45,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/drain-failure-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/drain-failure-in-drain-failure-0.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/drain-failure-in-drain-failure-1.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/drain-failure-in-drain-failure-2.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/drain-failure-out-drain-failure-0.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/drain-failure-out-drain-failure-1.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/drain-failure-out-drain-failure-2.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/extraction.json",
+      "sha256": "9ed0a24054362938b7fe27ed641d4aa10f77e8cb22a87ae66aa660024ceffffd",
+      "size": 4444,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/join-failure-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/join-failure-in-join-failure-0.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/join-failure-in-join-failure-1.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/join-failure-in-join-failure-2.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/join-failure-out-join-failure-0.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/join-failure-out-join-failure-1.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/join-failure-out-join-failure-2.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-early-audio-join-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-early-audio-join-out-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-early-audio-join-out-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-early-audio-join-out-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-service-owner-drain-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-service-owner-drain-out-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-service-owner-drain-out-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-service-owner-drain-out-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-worker-join-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-worker-join-in-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-worker-join-in-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-worker-join-in-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-both-0.log",
+      "sha256": "7adcddf0edb2ef083e6aed54b893d52db618376324b2f88449ff4024b890af88",
+      "size": 78,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-both-1.log",
+      "sha256": "7adcddf0edb2ef083e6aed54b893d52db618376324b2f88449ff4024b890af88",
+      "size": 78,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-both-2.log",
+      "sha256": "7adcddf0edb2ef083e6aed54b893d52db618376324b2f88449ff4024b890af88",
+      "size": 78,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-active-0.log",
+      "sha256": "0d157c1b9ddfcd8b6b18851b9fa72e2c1092b69415177dcf62430428c16e9d43",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-active-1.log",
+      "sha256": "0d157c1b9ddfcd8b6b18851b9fa72e2c1092b69415177dcf62430428c16e9d43",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-active-2.log",
+      "sha256": "0d157c1b9ddfcd8b6b18851b9fa72e2c1092b69415177dcf62430428c16e9d43",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-failure-0.log",
+      "sha256": "b5259deb6719cec65803da0b457a27477e6ae2ff09f334d4179197d2144f5b7b",
+      "size": 64,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-failure-1.log",
+      "sha256": "b5259deb6719cec65803da0b457a27477e6ae2ff09f334d4179197d2144f5b7b",
+      "size": 64,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-failure-2.log",
+      "sha256": "b5259deb6719cec65803da0b457a27477e6ae2ff09f334d4179197d2144f5b7b",
+      "size": 64,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-paused-0.log",
+      "sha256": "33d43464b55f85e1cec4dec983ced51cd35748394d0f51fca393c3e3bafa2ff3",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-paused-1.log",
+      "sha256": "33d43464b55f85e1cec4dec983ced51cd35748394d0f51fca393c3e3bafa2ff3",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-paused-2.log",
+      "sha256": "33d43464b55f85e1cec4dec983ced51cd35748394d0f51fca393c3e3bafa2ff3",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-repeat-0.log",
+      "sha256": "8e536e9a407f204fb8761124b9ba11ed31d0709d7fcca9b84972b120f0d3e303",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-repeat-1.log",
+      "sha256": "8e536e9a407f204fb8761124b9ba11ed31d0709d7fcca9b84972b120f0d3e303",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-repeat-2.log",
+      "sha256": "8e536e9a407f204fb8761124b9ba11ed31d0709d7fcca9b84972b120f0d3e303",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-service-active-0.log",
+      "sha256": "ebd798edd32dbec675efa8ae3c35fbd64cfd8d4f5f790cfbf9ab5f8b22acbec8",
+      "size": 71,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-service-active-1.log",
+      "sha256": "ebd798edd32dbec675efa8ae3c35fbd64cfd8d4f5f790cfbf9ab5f8b22acbec8",
+      "size": 71,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-in-service-active-2.log",
+      "sha256": "ebd798edd32dbec675efa8ae3c35fbd64cfd8d4f5f790cfbf9ab5f8b22acbec8",
+      "size": 71,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-active-0.log",
+      "sha256": "15df785ccf0f92158298d7552bcd5a048b52c2bc9dd818886b647cb6d92e5543",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-active-1.log",
+      "sha256": "15df785ccf0f92158298d7552bcd5a048b52c2bc9dd818886b647cb6d92e5543",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-active-2.log",
+      "sha256": "15df785ccf0f92158298d7552bcd5a048b52c2bc9dd818886b647cb6d92e5543",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-failure-0.log",
+      "sha256": "48385de5cdc475be503c709e7f026f0f5481dca5cde317d2c2212b48d74f6094",
+      "size": 66,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-failure-1.log",
+      "sha256": "48385de5cdc475be503c709e7f026f0f5481dca5cde317d2c2212b48d74f6094",
+      "size": 66,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-failure-2.log",
+      "sha256": "48385de5cdc475be503c709e7f026f0f5481dca5cde317d2c2212b48d74f6094",
+      "size": 66,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-paused-0.log",
+      "sha256": "2085c6e0e5bdbb168a9807106eff5b69a20f1800d3a721c178b7d9fc9db83239",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-paused-1.log",
+      "sha256": "2085c6e0e5bdbb168a9807106eff5b69a20f1800d3a721c178b7d9fc9db83239",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-paused-2.log",
+      "sha256": "2085c6e0e5bdbb168a9807106eff5b69a20f1800d3a721c178b7d9fc9db83239",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-repeat-0.log",
+      "sha256": "ca3590631431ab24162636755517f5f3624bcbf196dea75c4cb8584d262b50e5",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-repeat-1.log",
+      "sha256": "ca3590631431ab24162636755517f5f3624bcbf196dea75c4cb8584d262b50e5",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-repeat-2.log",
+      "sha256": "ca3590631431ab24162636755517f5f3624bcbf196dea75c4cb8584d262b50e5",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-service-active-0.log",
+      "sha256": "982da411563f7ac2db2cf91ceee88d830c06418d198819edeeb6ff6677a25f41",
+      "size": 73,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-service-active-1.log",
+      "sha256": "982da411563f7ac2db2cf91ceee88d830c06418d198819edeeb6ff6677a25f41",
+      "size": 73,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-out-service-active-2.log",
+      "sha256": "982da411563f7ac2db2cf91ceee88d830c06418d198819edeeb6ff6677a25f41",
+      "size": 73,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-registration-loses-0.log",
+      "sha256": "0d14bba6264c2499d172aa9a29ca8143c7a2517b262e933ddfee5a7dd717356a",
+      "size": 53,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-registration-loses-1.log",
+      "sha256": "0d14bba6264c2499d172aa9a29ca8143c7a2517b262e933ddfee5a7dd717356a",
+      "size": 53,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-registration-loses-2.log",
+      "sha256": "0d14bba6264c2499d172aa9a29ca8143c7a2517b262e933ddfee5a7dd717356a",
+      "size": 53,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-registration-wins-0.log",
+      "sha256": "fdb7035a2e69d646a87b21888e1102ceb303231d23f5e0cdd6b6568577385055",
+      "size": 52,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-registration-wins-1.log",
+      "sha256": "fdb7035a2e69d646a87b21888e1102ceb303231d23f5e0cdd6b6568577385055",
+      "size": 52,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/production-registration-wins-2.log",
+      "sha256": "fdb7035a2e69d646a87b21888e1102ceb303231d23f5e0cdd6b6568577385055",
+      "size": 52,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/registration-outside-close-lock-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/registration-outside-close-lock-registration-loses-0.log",
+      "sha256": "e7d710b3f2120563eeb34be3dd591dbab79c4ace7da83f313fdd35ec37d14361",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/registration-outside-close-lock-registration-loses-1.log",
+      "sha256": "e7d710b3f2120563eeb34be3dd591dbab79c4ace7da83f313fdd35ec37d14361",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/registration-outside-close-lock-registration-loses-2.log",
+      "sha256": "e7d710b3f2120563eeb34be3dd591dbab79c4ace7da83f313fdd35ec37d14361",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-close-first-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-close-first-out-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-close-first-out-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-close-first-out-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-owners-first-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-owners-first-out-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-owners-first-out-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-owners-first-out-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/audio-join-before-service-work-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/audio-join-before-service-work-out-service-active-0.log",
+      "sha256": "807f343f766a0fae4a62019b3849beca349883c196fff324e08274dd74a17518",
+      "size": 45,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/audio-join-before-service-work-out-service-active-1.log",
+      "sha256": "807f343f766a0fae4a62019b3849beca349883c196fff324e08274dd74a17518",
+      "size": 45,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/audio-join-before-service-work-out-service-active-2.log",
+      "sha256": "807f343f766a0fae4a62019b3849beca349883c196fff324e08274dd74a17518",
+      "size": 45,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/drain-failure-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/drain-failure-in-drain-failure-0.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/drain-failure-in-drain-failure-1.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/drain-failure-in-drain-failure-2.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/drain-failure-out-drain-failure-0.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/drain-failure-out-drain-failure-1.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/drain-failure-out-drain-failure-2.log",
+      "sha256": "0f92734e900c66b5400b3612b5982959fd5c04305e0df6085e1e46b4fe8ce616",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/extraction.json",
+      "sha256": "54654cf1a6e6bed36df1edfde77da6ccfa0d8adc5c75143815928597d7ee5386",
+      "size": 4407,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/join-failure-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/join-failure-in-join-failure-0.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/join-failure-in-join-failure-1.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/join-failure-in-join-failure-2.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/join-failure-out-join-failure-0.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/join-failure-out-join-failure-1.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/join-failure-out-join-failure-2.log",
+      "sha256": "c9c816b0fbdde88cf073681e41404bd0b7a3a133d1b92e09243015c7591e90a3",
+      "size": 97,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-early-audio-join-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-early-audio-join-out-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-early-audio-join-out-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-early-audio-join-out-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-service-owner-drain-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-service-owner-drain-out-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-service-owner-drain-out-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-service-owner-drain-out-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-worker-join-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-worker-join-in-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-worker-join-in-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-worker-join-in-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-both-0.log",
+      "sha256": "7adcddf0edb2ef083e6aed54b893d52db618376324b2f88449ff4024b890af88",
+      "size": 78,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-both-1.log",
+      "sha256": "7adcddf0edb2ef083e6aed54b893d52db618376324b2f88449ff4024b890af88",
+      "size": 78,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-both-2.log",
+      "sha256": "7adcddf0edb2ef083e6aed54b893d52db618376324b2f88449ff4024b890af88",
+      "size": 78,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-active-0.log",
+      "sha256": "0d157c1b9ddfcd8b6b18851b9fa72e2c1092b69415177dcf62430428c16e9d43",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-active-1.log",
+      "sha256": "0d157c1b9ddfcd8b6b18851b9fa72e2c1092b69415177dcf62430428c16e9d43",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-active-2.log",
+      "sha256": "0d157c1b9ddfcd8b6b18851b9fa72e2c1092b69415177dcf62430428c16e9d43",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-failure-0.log",
+      "sha256": "b5259deb6719cec65803da0b457a27477e6ae2ff09f334d4179197d2144f5b7b",
+      "size": 64,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-failure-1.log",
+      "sha256": "b5259deb6719cec65803da0b457a27477e6ae2ff09f334d4179197d2144f5b7b",
+      "size": 64,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-failure-2.log",
+      "sha256": "b5259deb6719cec65803da0b457a27477e6ae2ff09f334d4179197d2144f5b7b",
+      "size": 64,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-paused-0.log",
+      "sha256": "33d43464b55f85e1cec4dec983ced51cd35748394d0f51fca393c3e3bafa2ff3",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-paused-1.log",
+      "sha256": "33d43464b55f85e1cec4dec983ced51cd35748394d0f51fca393c3e3bafa2ff3",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-paused-2.log",
+      "sha256": "33d43464b55f85e1cec4dec983ced51cd35748394d0f51fca393c3e3bafa2ff3",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-repeat-0.log",
+      "sha256": "8e536e9a407f204fb8761124b9ba11ed31d0709d7fcca9b84972b120f0d3e303",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-repeat-1.log",
+      "sha256": "8e536e9a407f204fb8761124b9ba11ed31d0709d7fcca9b84972b120f0d3e303",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-repeat-2.log",
+      "sha256": "8e536e9a407f204fb8761124b9ba11ed31d0709d7fcca9b84972b120f0d3e303",
+      "size": 63,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-service-active-0.log",
+      "sha256": "ebd798edd32dbec675efa8ae3c35fbd64cfd8d4f5f790cfbf9ab5f8b22acbec8",
+      "size": 71,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-service-active-1.log",
+      "sha256": "ebd798edd32dbec675efa8ae3c35fbd64cfd8d4f5f790cfbf9ab5f8b22acbec8",
+      "size": 71,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-in-service-active-2.log",
+      "sha256": "ebd798edd32dbec675efa8ae3c35fbd64cfd8d4f5f790cfbf9ab5f8b22acbec8",
+      "size": 71,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-active-0.log",
+      "sha256": "15df785ccf0f92158298d7552bcd5a048b52c2bc9dd818886b647cb6d92e5543",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-active-1.log",
+      "sha256": "15df785ccf0f92158298d7552bcd5a048b52c2bc9dd818886b647cb6d92e5543",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-active-2.log",
+      "sha256": "15df785ccf0f92158298d7552bcd5a048b52c2bc9dd818886b647cb6d92e5543",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-failure-0.log",
+      "sha256": "48385de5cdc475be503c709e7f026f0f5481dca5cde317d2c2212b48d74f6094",
+      "size": 66,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-failure-1.log",
+      "sha256": "48385de5cdc475be503c709e7f026f0f5481dca5cde317d2c2212b48d74f6094",
+      "size": 66,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-failure-2.log",
+      "sha256": "48385de5cdc475be503c709e7f026f0f5481dca5cde317d2c2212b48d74f6094",
+      "size": 66,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-paused-0.log",
+      "sha256": "2085c6e0e5bdbb168a9807106eff5b69a20f1800d3a721c178b7d9fc9db83239",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-paused-1.log",
+      "sha256": "2085c6e0e5bdbb168a9807106eff5b69a20f1800d3a721c178b7d9fc9db83239",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-paused-2.log",
+      "sha256": "2085c6e0e5bdbb168a9807106eff5b69a20f1800d3a721c178b7d9fc9db83239",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-repeat-0.log",
+      "sha256": "ca3590631431ab24162636755517f5f3624bcbf196dea75c4cb8584d262b50e5",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-repeat-1.log",
+      "sha256": "ca3590631431ab24162636755517f5f3624bcbf196dea75c4cb8584d262b50e5",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-repeat-2.log",
+      "sha256": "ca3590631431ab24162636755517f5f3624bcbf196dea75c4cb8584d262b50e5",
+      "size": 65,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-service-active-0.log",
+      "sha256": "982da411563f7ac2db2cf91ceee88d830c06418d198819edeeb6ff6677a25f41",
+      "size": 73,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-service-active-1.log",
+      "sha256": "982da411563f7ac2db2cf91ceee88d830c06418d198819edeeb6ff6677a25f41",
+      "size": 73,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-out-service-active-2.log",
+      "sha256": "982da411563f7ac2db2cf91ceee88d830c06418d198819edeeb6ff6677a25f41",
+      "size": 73,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-registration-loses-0.log",
+      "sha256": "0d14bba6264c2499d172aa9a29ca8143c7a2517b262e933ddfee5a7dd717356a",
+      "size": 53,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-registration-loses-1.log",
+      "sha256": "0d14bba6264c2499d172aa9a29ca8143c7a2517b262e933ddfee5a7dd717356a",
+      "size": 53,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-registration-loses-2.log",
+      "sha256": "0d14bba6264c2499d172aa9a29ca8143c7a2517b262e933ddfee5a7dd717356a",
+      "size": 53,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-registration-wins-0.log",
+      "sha256": "fdb7035a2e69d646a87b21888e1102ceb303231d23f5e0cdd6b6568577385055",
+      "size": 52,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-registration-wins-1.log",
+      "sha256": "fdb7035a2e69d646a87b21888e1102ceb303231d23f5e0cdd6b6568577385055",
+      "size": 52,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/production-registration-wins-2.log",
+      "sha256": "fdb7035a2e69d646a87b21888e1102ceb303231d23f5e0cdd6b6568577385055",
+      "size": 52,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/registration-outside-close-lock-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/registration-outside-close-lock-registration-loses-0.log",
+      "sha256": "e7d710b3f2120563eeb34be3dd591dbab79c4ace7da83f313fdd35ec37d14361",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/registration-outside-close-lock-registration-loses-1.log",
+      "sha256": "e7d710b3f2120563eeb34be3dd591dbab79c4ace7da83f313fdd35ec37d14361",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/registration-outside-close-lock-registration-loses-2.log",
+      "sha256": "e7d710b3f2120563eeb34be3dd591dbab79c4ace7da83f313fdd35ec37d14361",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-close-first-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-close-first-out-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-close-first-out-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-close-first-out-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": true
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-owners-first-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-owners-first-out-active-0.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-owners-first-out-active-1.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-owners-first-out-active-2.log",
+      "sha256": "b8d6ce81c4b9a0c9986f67588b8f45c5ea5a6fd8506d2020bb7156c25f59c533",
+      "size": 43,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/extraction.json",
+      "sha256": "1d97c2ea6fda98fc55fdb87d6b33824ca3ce62aa3ad01ca6c780eee08fca26a0",
+      "size": 1677,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/hold-event-lock.log",
+      "sha256": "56a02ccfc3fc3bfdaa06891aa97c191197d9a9095b828e0bc5dc688a184710ea",
+      "size": 53,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/omit-callback-admission.log",
+      "sha256": "435b86a466ed4b4591b3ebb97332a90042ff0ba3696e5b7cec225c6ec194327e",
+      "size": 54,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/omit-failure-seal.log",
+      "sha256": "5dcec3477632d94505e861617f2e68a6cc77b459d057de0863a99aa2774705a8",
+      "size": 52,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/omit-shutdown-wakeup.log",
+      "sha256": "072fddf7f24e649fb03f0ce7d540d9fa2cc12fb7f0a118fce7b8963ab0a5459a",
+      "size": 50,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/positive-0.log",
+      "sha256": "cc16cf4f095cb86ee39809e4cd9038f245b11cb1176878cf38f95057069d0863",
+      "size": 88,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/positive-1.log",
+      "sha256": "cc16cf4f095cb86ee39809e4cd9038f245b11cb1176878cf38f95057069d0863",
+      "size": 88,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/positive-2.log",
+      "sha256": "cc16cf4f095cb86ee39809e4cd9038f245b11cb1176878cf38f95057069d0863",
+      "size": 88,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/release-before-callback.log",
+      "sha256": "2a00444fe228290df732c36a8d736aeb187243ef0d7f256c762aba4ce2291b02",
+      "size": 51,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/bypass-write-admission-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/bypass-write-admission-normal-0.log",
+      "sha256": "bc84c5b10c91fb23a0daf11a62e9bf26a13c27247e48982b12ef412832c61993",
+      "size": 48,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/bypass-write-admission-normal-1.log",
+      "sha256": "bc84c5b10c91fb23a0daf11a62e9bf26a13c27247e48982b12ef412832c61993",
+      "size": 48,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/bypass-write-admission-normal-2.log",
+      "sha256": "bc84c5b10c91fb23a0daf11a62e9bf26a13c27247e48982b12ef412832c61993",
+      "size": 48,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/close-memory-before-callback-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/close-memory-before-callback-normal-0.log",
+      "sha256": "d3eb045a58fa4db50013cc334e9ed53336334ba4c459aea6ee9f3d27b7591e0c",
+      "size": 50,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/close-memory-before-callback-normal-1.log",
+      "sha256": "d3eb045a58fa4db50013cc334e9ed53336334ba4c459aea6ee9f3d27b7591e0c",
+      "size": 50,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/close-memory-before-callback-normal-2.log",
+      "sha256": "d3eb045a58fa4db50013cc334e9ed53336334ba4c459aea6ee9f3d27b7591e0c",
+      "size": 50,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/count-suspended-svc-as-backend-1.txt",
+      "sha256": "fb2671aab94279a3c6491b2f68f5f32128b6fe5faff800ceadc0df3e84d817a9",
+      "size": 278,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/extraction.json",
+      "sha256": "e0429bcf8b2796e21e8d285df9fdf85c48cd3c5da160a060392843aa9a2c8dba",
+      "size": 2007,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/omit-initialization-drain-1.txt",
+      "sha256": "25b9d0e9dcce88b15dc08c34ec8b5556e461af3d9e35f627f8a28c0e6ca055a4",
+      "size": 253,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/omit-running-owner-retention-1.txt",
+      "sha256": "31eea2c353ee98bef65a92c2a7505ae6dcaaf4b7c3ebffa8cead126c6532f7d4",
+      "size": 255,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/production-1.txt",
+      "sha256": "7531e1881ec5028fc336888d54d2a48457e7bdb2ad050499feb3afe8f98121cb",
+      "size": 168,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/production-2.txt",
+      "sha256": "7531e1881ec5028fc336888d54d2a48457e7bdb2ad050499feb3afe8f98121cb",
+      "size": 168,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/production-3.txt",
+      "sha256": "7531e1881ec5028fc336888d54d2a48457e7bdb2ad050499feb3afe8f98121cb",
+      "size": 168,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/request-is-acknowledgement-1.txt",
+      "sha256": "0a9e76e2b4d198d3a4c5a6cc54e64f70a232c470a57531ce65cb58661cbee1f4",
+      "size": 255,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/stopped-forgets-seal-1.txt",
+      "sha256": "51e818c0d689791ed273c91cc36ba31f76532a8082bd03518a925c56bc3ad3f0",
+      "size": 239,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/extraction.json",
+      "sha256": "c9e796654c98c1df452dcb6891225b6629200c98888f28a32a2d50843cd232b3",
+      "size": 7331,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-drain-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-drain-normal-0.log",
+      "sha256": "4daaea27573edddbd6a98a723e8a4dcbd38a5e0eed12e508d727486faf887a59",
+      "size": 42,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-drain-normal-1.log",
+      "sha256": "4daaea27573edddbd6a98a723e8a4dcbd38a5e0eed12e508d727486faf887a59",
+      "size": 42,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-drain-normal-2.log",
+      "sha256": "4daaea27573edddbd6a98a723e8a4dcbd38a5e0eed12e508d727486faf887a59",
+      "size": 42,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-seal-callback-fail-0.log",
+      "sha256": "1e8c2885e0f736347fbb72ffe91c23ed4b8a073df9f76d8e6021235a4aec4f35",
+      "size": 49,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-seal-callback-fail-1.log",
+      "sha256": "1e8c2885e0f736347fbb72ffe91c23ed4b8a073df9f76d8e6021235a4aec4f35",
+      "size": 49,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-seal-callback-fail-2.log",
+      "sha256": "1e8c2885e0f736347fbb72ffe91c23ed4b8a073df9f76d8e6021235a4aec4f35",
+      "size": 49,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-seal-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-active-stop-0.log",
+      "sha256": "fe852ec148e339ec88789e5faa598a386b80a5b42b54b7f3943445596542db49",
+      "size": 36,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-active-stop-1.log",
+      "sha256": "fe852ec148e339ec88789e5faa598a386b80a5b42b54b7f3943445596542db49",
+      "size": 36,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-active-stop-2.log",
+      "sha256": "fe852ec148e339ec88789e5faa598a386b80a5b42b54b7f3943445596542db49",
+      "size": 36,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-backend-active-0.log",
+      "sha256": "6f0df5e8e4a0d2c67402bbc7e3495339bc18f89186b7f9679e0b087a15199778",
+      "size": 39,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-backend-active-1.log",
+      "sha256": "6f0df5e8e4a0d2c67402bbc7e3495339bc18f89186b7f9679e0b087a15199778",
+      "size": 39,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-backend-active-2.log",
+      "sha256": "6f0df5e8e4a0d2c67402bbc7e3495339bc18f89186b7f9679e0b087a15199778",
+      "size": 39,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-callback-fail-0.log",
+      "sha256": "888cc68a280e905cde5201319542184d10efc05b5bac83829a49d86573e98449",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-callback-fail-1.log",
+      "sha256": "888cc68a280e905cde5201319542184d10efc05b5bac83829a49d86573e98449",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-callback-fail-2.log",
+      "sha256": "888cc68a280e905cde5201319542184d10efc05b5bac83829a49d86573e98449",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-escaped-alias-0.log",
+      "sha256": "b304092129c6dd369d4b3196c2dd3edd634977064be88a70c0eb15fd40e2fdbb",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-escaped-alias-1.log",
+      "sha256": "b304092129c6dd369d4b3196c2dd3edd634977064be88a70c0eb15fd40e2fdbb",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-escaped-alias-2.log",
+      "sha256": "b304092129c6dd369d4b3196c2dd3edd634977064be88a70c0eb15fd40e2fdbb",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-late-seal-0.log",
+      "sha256": "b7776bf2bd7be0d1d7c9665a3e1f04de543caf9ef8bbd6937067ab18eb8ff796",
+      "size": 34,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-late-seal-1.log",
+      "sha256": "b7776bf2bd7be0d1d7c9665a3e1f04de543caf9ef8bbd6937067ab18eb8ff796",
+      "size": 34,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-late-seal-2.log",
+      "sha256": "b7776bf2bd7be0d1d7c9665a3e1f04de543caf9ef8bbd6937067ab18eb8ff796",
+      "size": 34,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-memory-active-0.log",
+      "sha256": "2b4b903be82efa79bbb5192e245931032bb87f501a033f3d878571d2abc5a016",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-memory-active-1.log",
+      "sha256": "2b4b903be82efa79bbb5192e245931032bb87f501a033f3d878571d2abc5a016",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-memory-active-2.log",
+      "sha256": "2b4b903be82efa79bbb5192e245931032bb87f501a033f3d878571d2abc5a016",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-normal-0.log",
+      "sha256": "91ba1e9c28cac29b879a80a7a5560c501fa1a57ceef5ba018196e3141c624e1c",
+      "size": 31,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-normal-1.log",
+      "sha256": "91ba1e9c28cac29b879a80a7a5560c501fa1a57ceef5ba018196e3141c624e1c",
+      "size": 31,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-normal-2.log",
+      "sha256": "91ba1e9c28cac29b879a80a7a5560c501fa1a57ceef5ba018196e3141c624e1c",
+      "size": 31,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-queued-cancel-0.log",
+      "sha256": "c7c21c8a732a89e3ee0ac458c28587e33b8709da28bdafb93d7d6e5bbeb9390c",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-queued-cancel-1.log",
+      "sha256": "c7c21c8a732a89e3ee0ac458c28587e33b8709da28bdafb93d7d6e5bbeb9390c",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-queued-cancel-2.log",
+      "sha256": "c7c21c8a732a89e3ee0ac458c28587e33b8709da28bdafb93d7d6e5bbeb9390c",
+      "size": 38,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-timeout-0.log",
+      "sha256": "2c8cab4e22a36a27a87124525136a0801383634e0a117953e234ab1fd0e46cb1",
+      "size": 32,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-timeout-1.log",
+      "sha256": "2c8cab4e22a36a27a87124525136a0801383634e0a117953e234ab1fd0e46cb1",
+      "size": 32,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production-timeout-2.log",
+      "sha256": "2c8cab4e22a36a27a87124525136a0801383634e0a117953e234ab1fd0e46cb1",
+      "size": 32,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/raw-session-capture-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/raw-session-capture-normal-0.log",
+      "sha256": "3f506e0e7b9f406476b7437855cd06f8ffb992f80609c09b46a7a31fdfdddb4e",
+      "size": 41,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/raw-session-capture-normal-1.log",
+      "sha256": "3f506e0e7b9f406476b7437855cd06f8ffb992f80609c09b46a7a31fdfdddb4e",
+      "size": 41,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/raw-session-capture-normal-2.log",
+      "sha256": "3f506e0e7b9f406476b7437855cd06f8ffb992f80609c09b46a7a31fdfdddb4e",
+      "size": 41,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/weak-backing-owner-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/weak-backing-owner-normal-0.log",
+      "sha256": "63212b173c26d595b6a191188e292fae531795db6c25d2b9ca8203b852829225",
+      "size": 35,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/weak-backing-owner-normal-1.log",
+      "sha256": "63212b173c26d595b6a191188e292fae531795db6c25d2b9ca8203b852829225",
+      "size": 35,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/weak-backing-owner-normal-2.log",
+      "sha256": "63212b173c26d595b6a191188e292fae531795db6c25d2b9ca8203b852829225",
+      "size": 35,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/dispose-services-first.log",
+      "sha256": "e0b650a6aeadddf73f155281d6f67f38a2def726d0d5f7394d8d86f05b679d67",
+      "size": 479,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/extraction.json",
+      "sha256": "ed7c30e105f8422fed560d2de8e5d2ba3ee7ff41eb894a30f440011dadf1978b",
+      "size": 1852,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-0-0.log",
+      "sha256": "6a10011765266f5e35e8969bafb8384015b3ea4ac920bea7ec2c130a90976eb4",
+      "size": 118,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-0-1.log",
+      "sha256": "6a10011765266f5e35e8969bafb8384015b3ea4ac920bea7ec2c130a90976eb4",
+      "size": 118,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-0-2.log",
+      "sha256": "6a10011765266f5e35e8969bafb8384015b3ea4ac920bea7ec2c130a90976eb4",
+      "size": 118,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-1-0.log",
+      "sha256": "f2ab387e8081b915c32498426d24de3a786740fbbea17b596bc48a75c6935859",
+      "size": 212,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-1-1.log",
+      "sha256": "f2ab387e8081b915c32498426d24de3a786740fbbea17b596bc48a75c6935859",
+      "size": 212,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-1-2.log",
+      "sha256": "f2ab387e8081b915c32498426d24de3a786740fbbea17b596bc48a75c6935859",
+      "size": 212,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-10-0.log",
+      "sha256": "fbfaac314e0d2375585e40b13c1ce195e7e67ff3d9b5fb0cc13b455c3cf3b53c",
+      "size": 383,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-10-1.log",
+      "sha256": "fbfaac314e0d2375585e40b13c1ce195e7e67ff3d9b5fb0cc13b455c3cf3b53c",
+      "size": 383,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-10-2.log",
+      "sha256": "fbfaac314e0d2375585e40b13c1ce195e7e67ff3d9b5fb0cc13b455c3cf3b53c",
+      "size": 383,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-11-0.log",
+      "sha256": "f32b3f46452726398fab30314462ac6a6f92ea189e0c1dc8aad1b0011c9f208a",
+      "size": 406,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-11-1.log",
+      "sha256": "f32b3f46452726398fab30314462ac6a6f92ea189e0c1dc8aad1b0011c9f208a",
+      "size": 406,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-11-2.log",
+      "sha256": "f32b3f46452726398fab30314462ac6a6f92ea189e0c1dc8aad1b0011c9f208a",
+      "size": 406,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-12-0.log",
+      "sha256": "addc039754070e648a7b087e56b39ce5a4873b40ee3acf93d62ea7ec3bf4af23",
+      "size": 410,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-12-1.log",
+      "sha256": "addc039754070e648a7b087e56b39ce5a4873b40ee3acf93d62ea7ec3bf4af23",
+      "size": 410,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-12-2.log",
+      "sha256": "addc039754070e648a7b087e56b39ce5a4873b40ee3acf93d62ea7ec3bf4af23",
+      "size": 410,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-13-0.log",
+      "sha256": "a1086667aa0be77f9bfc8c21e64863b3aaa5eb4a964ecd5034c7c84d2c1e7891",
+      "size": 461,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-13-1.log",
+      "sha256": "a1086667aa0be77f9bfc8c21e64863b3aaa5eb4a964ecd5034c7c84d2c1e7891",
+      "size": 461,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-13-2.log",
+      "sha256": "a1086667aa0be77f9bfc8c21e64863b3aaa5eb4a964ecd5034c7c84d2c1e7891",
+      "size": 461,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-14-0.log",
+      "sha256": "f1b58fab6e5ba085c8042afc15db8036cb4214d336c454b46b4e571211c1f22d",
+      "size": 503,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-14-1.log",
+      "sha256": "f1b58fab6e5ba085c8042afc15db8036cb4214d336c454b46b4e571211c1f22d",
+      "size": 503,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-14-2.log",
+      "sha256": "f1b58fab6e5ba085c8042afc15db8036cb4214d336c454b46b4e571211c1f22d",
+      "size": 503,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-15-0.log",
+      "sha256": "157424513ffe3a7505406c99db0d0400135799deedf5dbc756eb8b92633ea25b",
+      "size": 553,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-15-1.log",
+      "sha256": "157424513ffe3a7505406c99db0d0400135799deedf5dbc756eb8b92633ea25b",
+      "size": 553,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-15-2.log",
+      "sha256": "157424513ffe3a7505406c99db0d0400135799deedf5dbc756eb8b92633ea25b",
+      "size": 553,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-2-0.log",
+      "sha256": "94f715a0c37417a49720fd943b8121712d2a453f78e081d2c341016724c8b7cf",
+      "size": 227,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-2-1.log",
+      "sha256": "94f715a0c37417a49720fd943b8121712d2a453f78e081d2c341016724c8b7cf",
+      "size": 227,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-2-2.log",
+      "sha256": "94f715a0c37417a49720fd943b8121712d2a453f78e081d2c341016724c8b7cf",
+      "size": 227,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-3-0.log",
+      "sha256": "1e98021ca061406317d66a41ce2ca4cc09db10ba2477ee24eca332ab40d8cdf6",
+      "size": 245,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-3-1.log",
+      "sha256": "1e98021ca061406317d66a41ce2ca4cc09db10ba2477ee24eca332ab40d8cdf6",
+      "size": 245,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-3-2.log",
+      "sha256": "1e98021ca061406317d66a41ce2ca4cc09db10ba2477ee24eca332ab40d8cdf6",
+      "size": 245,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-4-0.log",
+      "sha256": "73d191c717aad5fef589d577c095f42897d3e9a678b1c33b2fb4976f3fc350c1",
+      "size": 265,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-4-1.log",
+      "sha256": "73d191c717aad5fef589d577c095f42897d3e9a678b1c33b2fb4976f3fc350c1",
+      "size": 265,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-4-2.log",
+      "sha256": "73d191c717aad5fef589d577c095f42897d3e9a678b1c33b2fb4976f3fc350c1",
+      "size": 265,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-5-0.log",
+      "sha256": "0866f3ca36f4a11fcf379bc521359083985af4fcadde2e5c2c502afb0b2c7df3",
+      "size": 182,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-5-1.log",
+      "sha256": "0866f3ca36f4a11fcf379bc521359083985af4fcadde2e5c2c502afb0b2c7df3",
+      "size": 182,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-5-2.log",
+      "sha256": "0866f3ca36f4a11fcf379bc521359083985af4fcadde2e5c2c502afb0b2c7df3",
+      "size": 182,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-6-0.log",
+      "sha256": "38a83dc3b5337bee34e325f9580c3f27d3f2c7f04e26f2b56043fe8f5da634dc",
+      "size": 159,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-6-1.log",
+      "sha256": "38a83dc3b5337bee34e325f9580c3f27d3f2c7f04e26f2b56043fe8f5da634dc",
+      "size": 159,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-6-2.log",
+      "sha256": "38a83dc3b5337bee34e325f9580c3f27d3f2c7f04e26f2b56043fe8f5da634dc",
+      "size": 159,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-7-0.log",
+      "sha256": "3dd01462cb04be4e365a5607aeffde709231da4c4e3a4aadf4021514eee8b2cb",
+      "size": 302,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-7-1.log",
+      "sha256": "3dd01462cb04be4e365a5607aeffde709231da4c4e3a4aadf4021514eee8b2cb",
+      "size": 302,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-7-2.log",
+      "sha256": "3dd01462cb04be4e365a5607aeffde709231da4c4e3a4aadf4021514eee8b2cb",
+      "size": 302,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-8-0.log",
+      "sha256": "e3e8f31829dfde00f675203e11d7eaf1a20d5847bb548a6b6be67cc94f8abf9e",
+      "size": 331,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-8-1.log",
+      "sha256": "e3e8f31829dfde00f675203e11d7eaf1a20d5847bb548a6b6be67cc94f8abf9e",
+      "size": 331,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-8-2.log",
+      "sha256": "e3e8f31829dfde00f675203e11d7eaf1a20d5847bb548a6b6be67cc94f8abf9e",
+      "size": 331,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-9-0.log",
+      "sha256": "6254427ea1f24cf61425cf1933ca60ec82d0148c75a9f419f6b83d36faaa6213",
+      "size": 361,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-9-1.log",
+      "sha256": "6254427ea1f24cf61425cf1933ca60ec82d0148c75a9f419f6b83d36faaa6213",
+      "size": 361,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/failure-9-2.log",
+      "sha256": "6254427ea1f24cf61425cf1933ca60ec82d0148c75a9f419f6b83d36faaa6213",
+      "size": 361,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/fallback-gpu-fallback-0.log",
+      "sha256": "3026ccb1758fca00569daa8d0873d820e06cb3610b9e759d6475a0e52f0720c6",
+      "size": 378,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/fallback-gpu-fallback-1.log",
+      "sha256": "3026ccb1758fca00569daa8d0873d820e06cb3610b9e759d6475a0e52f0720c6",
+      "size": 378,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/fallback-gpu-fallback-2.log",
+      "sha256": "3026ccb1758fca00569daa8d0873d820e06cb3610b9e759d6475a0e52f0720c6",
+      "size": 378,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/fallback-renderer-fallback-0.log",
+      "sha256": "3b38b93eef7101371e3cc024619b10d82b33a83815ebe8654515383dc158294f",
+      "size": 288,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/fallback-renderer-fallback-1.log",
+      "sha256": "3b38b93eef7101371e3cc024619b10d82b33a83815ebe8654515383dc158294f",
+      "size": 288,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/fallback-renderer-fallback-2.log",
+      "sha256": "3b38b93eef7101371e3cc024619b10d82b33a83815ebe8654515383dc158294f",
+      "size": 288,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/fallback-system-fallback-0.log",
+      "sha256": "a1086667aa0be77f9bfc8c21e64863b3aaa5eb4a964ecd5034c7c84d2c1e7891",
+      "size": 461,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/fallback-system-fallback-1.log",
+      "sha256": "a1086667aa0be77f9bfc8c21e64863b3aaa5eb4a964ecd5034c7c84d2c1e7891",
+      "size": 461,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/fallback-system-fallback-2.log",
+      "sha256": "a1086667aa0be77f9bfc8c21e64863b3aaa5eb4a964ecd5034c7c84d2c1e7891",
+      "size": 461,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/gpu-ingress-0.log",
+      "sha256": "beb3f9c85993f30490b1e746433eeb034c2737a54e859b4dacb1b1fa7f15bebe",
+      "size": 114,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/gpu-ingress-1.log",
+      "sha256": "beb3f9c85993f30490b1e746433eeb034c2737a54e859b4dacb1b1fa7f15bebe",
+      "size": 114,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/gpu-ingress-2.log",
+      "sha256": "beb3f9c85993f30490b1e746433eeb034c2737a54e859b4dacb1b1fa7f15bebe",
+      "size": 114,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/ignore-checked-refusal.log",
+      "sha256": "fc77736f2abe1a23fbb231f855f49a11e4e259e2b9b637efadb3beba7a5050fd",
+      "size": 770,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/ignore-idle-failure.log",
+      "sha256": "70aa7486c2b922baaf0469e4aea66b1549851f8f39e2297947c9a158e0c30ce2",
+      "size": 718,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-exit-runs-handlers.log",
+      "sha256": "f08128aec5f96b9538e9898c9a81be2a6018648187d6bd79a925df6e4cec6027",
+      "size": 496,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-explicit-0.log",
+      "sha256": "fc77736f2abe1a23fbb231f855f49a11e4e259e2b9b637efadb3beba7a5050fd",
+      "size": 770,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-explicit-1.log",
+      "sha256": "fc77736f2abe1a23fbb231f855f49a11e4e259e2b9b637efadb3beba7a5050fd",
+      "size": 770,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-explicit-2.log",
+      "sha256": "fc77736f2abe1a23fbb231f855f49a11e4e259e2b9b637efadb3beba7a5050fd",
+      "size": 770,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-gpu-fallback-0.log",
+      "sha256": "d0c08980826d568538d500713ba3ef7b30c2378a0c9dd40ce1cbac9db8e4e985",
+      "size": 513,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-gpu-fallback-1.log",
+      "sha256": "d0c08980826d568538d500713ba3ef7b30c2378a0c9dd40ce1cbac9db8e4e985",
+      "size": 513,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-gpu-fallback-2.log",
+      "sha256": "d0c08980826d568538d500713ba3ef7b30c2378a0c9dd40ce1cbac9db8e4e985",
+      "size": 513,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-idempotent-0.log",
+      "sha256": "d0c08980826d568538d500713ba3ef7b30c2378a0c9dd40ce1cbac9db8e4e985",
+      "size": 513,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-idempotent-1.log",
+      "sha256": "d0c08980826d568538d500713ba3ef7b30c2378a0c9dd40ce1cbac9db8e4e985",
+      "size": 513,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-idempotent-2.log",
+      "sha256": "d0c08980826d568538d500713ba3ef7b30c2378a0c9dd40ce1cbac9db8e4e985",
+      "size": 513,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-renderer-fallback-0.log",
+      "sha256": "80ccdb108ddcd11a5e6e845c033b94d6c4af981b766a71b5c0cdf2259fe4bfd6",
+      "size": 410,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-renderer-fallback-1.log",
+      "sha256": "80ccdb108ddcd11a5e6e845c033b94d6c4af981b766a71b5c0cdf2259fe4bfd6",
+      "size": 410,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-renderer-fallback-2.log",
+      "sha256": "80ccdb108ddcd11a5e6e845c033b94d6c4af981b766a71b5c0cdf2259fe4bfd6",
+      "size": 410,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-system-fallback-0.log",
+      "sha256": "fc77736f2abe1a23fbb231f855f49a11e4e259e2b9b637efadb3beba7a5050fd",
+      "size": 770,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-system-fallback-1.log",
+      "sha256": "fc77736f2abe1a23fbb231f855f49a11e4e259e2b9b637efadb3beba7a5050fd",
+      "size": 770,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-system-fallback-2.log",
+      "sha256": "fc77736f2abe1a23fbb231f855f49a11e4e259e2b9b637efadb3beba7a5050fd",
+      "size": 770,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/omit-system-fallback.log",
+      "sha256": "b2b9fc143aef066f15595c4e7850c31e621c55339f1b729207428b1c907a715c",
+      "size": 427,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/reentrant-gpu-0.log",
+      "sha256": "ac49a87acf773cecbc12115fbbf6c1ae24ba520f63c757a5f0c48713b4a3d6bb",
+      "size": 91,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/reentrant-gpu-1.log",
+      "sha256": "ac49a87acf773cecbc12115fbbf6c1ae24ba520f63c757a5f0c48713b4a3d6bb",
+      "size": 91,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/reentrant-gpu-2.log",
+      "sha256": "ac49a87acf773cecbc12115fbbf6c1ae24ba520f63c757a5f0c48713b4a3d6bb",
+      "size": 91,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/reentrant-renderer-0.log",
+      "sha256": "35134f3db3f5e4f972c083e8706877526186c77de245cc8491c65d900c0835ad",
+      "size": 96,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/reentrant-renderer-1.log",
+      "sha256": "35134f3db3f5e4f972c083e8706877526186c77de245cc8491c65d900c0835ad",
+      "size": 96,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/reentrant-renderer-2.log",
+      "sha256": "35134f3db3f5e4f972c083e8706877526186c77de245cc8491c65d900c0835ad",
+      "size": 96,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/unknown-result-0.log",
+      "sha256": "0502971eb2daa0c8fec40c0a514acab33c162f83fe6f33ed93ddc89f0b400724",
+      "size": 462,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/unknown-result-1.log",
+      "sha256": "0502971eb2daa0c8fec40c0a514acab33c162f83fe6f33ed93ddc89f0b400724",
+      "size": 462,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/unknown-result-2.log",
+      "sha256": "0502971eb2daa0c8fec40c0a514acab33c162f83fe6f33ed93ddc89f0b400724",
+      "size": 462,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-windows/0-core.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-windows/1-audio_manager.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-windows/2-audio_core.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-windows/3-audio_in_manager.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-windows/4-audio_out_manager.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-windows/5-audio_in_manager.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-windows/6-audio_out_manager.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-windows/7-server_manager.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-windows/8-audio.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "superseded_experiment": false
+    },
+    {
+      "path": ".diagnostics/m4-audio-owner-7fc-windows/extraction.json",
+      "sha256": "eb843519c774e76e16fb6dbc5c35f3bfd15269b4867e64f09f8cf0c57bc28cc9",
+      "size": 28907,
+      "superseded_experiment": false
+    }
+  ],
+  "evidence_scope": "Only final extraction manifests and their listed cases/controls establish acceptance. Superseded early-System-join experiment log names are explicitly excluded.",
+  "cleanup": {
+    "deleted": true,
+    "boundary": "Only exact current-run generated exe/object/fixture/shim-header files under checked resolved diagnostics directories; hashes checked before removal. Logs and JSON retained.",
+    "files": [
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-registration.cpp",
+        "sha256": "e8414fea827859a3397a1032124b0318c976da89ea407d96c1bc9ac714ed6983",
+        "size": 33087
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical-registration.exe",
+        "sha256": "fe94eb3b3242676eaaf1912d20e07e868dd5f240ab95ee896bde70106e9abdc8",
+        "size": 291677
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical.cpp",
+        "sha256": "e8414fea827859a3397a1032124b0318c976da89ea407d96c1bc9ac714ed6983",
+        "size": 33087
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-baseline/historical.exe",
+        "sha256": "6152c23834263f9c38058e64453bd4c2484f10f500747886824defc1908c3658",
+        "size": 291649
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-baseline/terminal.cpp",
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+        "size": 1709
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-baseline/timing/core/managed_host_producer.h",
+        "sha256": "016f0ab4e498fb9cbf9d89f43d682e904531015395d1eb3a965b8908c55499b6",
+        "size": 1777
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/audio-join-before-service-work.cpp",
+        "sha256": "285ab3f0f1fbc5260a4af2912689662c0d63c674837dc39961fd98c5adf9c8bf",
+        "size": 34501
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/audio-join-before-service-work.exe",
+        "sha256": "818918b80e5ea5bee5829ac80a8dbf4048dd7f9a1edef05591e53874915820c3",
+        "size": 292416
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/drain-failure.cpp",
+        "sha256": "2906a2733eab0056ddf6c6aa47a578cf5d392f4d8da60300328ff49b4fd09eff",
+        "size": 34460
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/drain-failure.exe",
+        "sha256": "b0a5f7cebe9cb9380a3eb0959f2a0e90918ae748c9e9accd43f9756a4592a5e1",
+        "size": 292381
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/join-failure.cpp",
+        "sha256": "2906a2733eab0056ddf6c6aa47a578cf5d392f4d8da60300328ff49b4fd09eff",
+        "size": 34460
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/join-failure.exe",
+        "sha256": "102b03ab0fa5544c0c645adfa6d57812e8a838a665c9ebdf4dd3795c319962e4",
+        "size": 292381
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-early-audio-join.cpp",
+        "sha256": "e74f969400af91752499b1a6a5c699ecfea838967dd8ebe7ffa09453a0e132e8",
+        "size": 32519
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-early-audio-join.exe",
+        "sha256": "ff165465c5445926149ec9645e2599b3558e48157464ad92ef4a83b39321ff50",
+        "size": 283350
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-service-owner-drain.cpp",
+        "sha256": "75908dbfa727125560943439832de7a1c8e7f9c11b6af22f0496f254f33bac6e",
+        "size": 34370
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-service-owner-drain.exe",
+        "sha256": "ad1c6b242932475d760f30335ebf5c3dbd75efb098fec0d1505876f8d738056f",
+        "size": 291285
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-worker-join.cpp",
+        "sha256": "feaf40ede47da44d73f75e1e46cd03b1356a29638b561963593ca78542bb1e32",
+        "size": 34429
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/omit-worker-join.exe",
+        "sha256": "892775d2f8fab9243599f255d2d21bc70feed86997c04aa5b2c9fa4e3b98fc2d",
+        "size": 292402
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/production.cpp",
+        "sha256": "2906a2733eab0056ddf6c6aa47a578cf5d392f4d8da60300328ff49b4fd09eff",
+        "size": 34460
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/production.exe",
+        "sha256": "a30e3f9107ec7fc24096df0e0d8a89b91158237a668f4915c6694949642b69d5",
+        "size": 292381
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/registration-outside-close-lock.cpp",
+        "sha256": "43343f552967cdfbaab0265de211a37c18c8a35f38293f9cf3b1cf8cc343ebe7",
+        "size": 34480
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/registration-outside-close-lock.exe",
+        "sha256": "2ec886b09c866412c39105def0b517ce548af5c2216b397b87d1080b1ea09920",
+        "size": 292427
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-close-first.cpp",
+        "sha256": "5a74cabbe05e85ea3f334505307856f3042fae52d0d32eb78815d4056c1d229b",
+        "size": 32564
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-close-first.exe",
+        "sha256": "8a8cd7c1757a3aad0ce9cc170404c51e8d912f8180d4c5f065ea93d844e03db3",
+        "size": 283022
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-owners-first.cpp",
+        "sha256": "ff7d10feb5c7ab16b92f890a51cccc4059adffea6b737590e7923d18a0c7feaa",
+        "size": 34484
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/service-owners-first.exe",
+        "sha256": "52199d2b78a0c051012f961de2b8a8d42986843dc2e48681f386681138d1509a",
+        "size": 292406
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/terminal.cpp",
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+        "size": 1709
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-candidate/timing/core/managed_host_producer.h",
+        "sha256": "016f0ab4e498fb9cbf9d89f43d682e904531015395d1eb3a965b8908c55499b6",
+        "size": 1777
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/audio-join-before-service-work.cpp",
+        "sha256": "285ab3f0f1fbc5260a4af2912689662c0d63c674837dc39961fd98c5adf9c8bf",
+        "size": 34501
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/audio-join-before-service-work.exe",
+        "sha256": "476a41a514f5dc782173eba38d95534fbfafa6af60ce08974575ccd68d920d98",
+        "size": 292416
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/drain-failure.cpp",
+        "sha256": "2906a2733eab0056ddf6c6aa47a578cf5d392f4d8da60300328ff49b4fd09eff",
+        "size": 34460
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/drain-failure.exe",
+        "sha256": "b2b4dae8ea70f99ffc4bbe66d3741cb1ab29677ceccf043c0decaf3be26ae0ea",
+        "size": 292381
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/join-failure.cpp",
+        "sha256": "2906a2733eab0056ddf6c6aa47a578cf5d392f4d8da60300328ff49b4fd09eff",
+        "size": 34460
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/join-failure.exe",
+        "sha256": "56a1fcebe2bd51d0140cbe0773ee42d276ed4f8bb723f429c23ea6c7e90ef715",
+        "size": 292381
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-early-audio-join.cpp",
+        "sha256": "e74f969400af91752499b1a6a5c699ecfea838967dd8ebe7ffa09453a0e132e8",
+        "size": 32519
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-early-audio-join.exe",
+        "sha256": "e14c3930a06f4cb4c2d27425d4910abc472ffb1da6bba7b432f67046237dec93",
+        "size": 283350
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-service-owner-drain.cpp",
+        "sha256": "75908dbfa727125560943439832de7a1c8e7f9c11b6af22f0496f254f33bac6e",
+        "size": 34370
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-service-owner-drain.exe",
+        "sha256": "7f7ab7fdc94d9aa057daf983be8d27969af2e231ff4cdac838989ccfd5e336c4",
+        "size": 291285
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-worker-join.cpp",
+        "sha256": "feaf40ede47da44d73f75e1e46cd03b1356a29638b561963593ca78542bb1e32",
+        "size": 34429
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/omit-worker-join.exe",
+        "sha256": "df6d25b49394914dafbb39ead60a9e8f7ce6b00665bccb8a092b24704ebc2cec",
+        "size": 292402
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/production.cpp",
+        "sha256": "2906a2733eab0056ddf6c6aa47a578cf5d392f4d8da60300328ff49b4fd09eff",
+        "size": 34460
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/production.exe",
+        "sha256": "66371cf3d449f146fd5ff2246b4887e593a917f0575b226e7702e182b507b5bb",
+        "size": 292381
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/registration-outside-close-lock.cpp",
+        "sha256": "43343f552967cdfbaab0265de211a37c18c8a35f38293f9cf3b1cf8cc343ebe7",
+        "size": 34480
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/registration-outside-close-lock.exe",
+        "sha256": "31d9e35b24e31ecb6cdf1cbaca33c033590d8f0300b060a3edc739ae2112d648",
+        "size": 292427
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-close-first.cpp",
+        "sha256": "5a74cabbe05e85ea3f334505307856f3042fae52d0d32eb78815d4056c1d229b",
+        "size": 32564
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-close-first.exe",
+        "sha256": "1d2b127fd95ebbc9d845fab1244195a767cc93c30938f83daa2f1b36b0b21578",
+        "size": 283022
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-owners-first.cpp",
+        "sha256": "ff7d10feb5c7ab16b92f890a51cccc4059adffea6b737590e7923d18a0c7feaa",
+        "size": 34484
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/service-owners-first.exe",
+        "sha256": "596ffbd47b03e15ffda78979f3f7d94b5cb2c2b3ef80fc8a8bf1efa4473f3ac5",
+        "size": 292406
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/terminal.cpp",
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+        "size": 1709
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-fixed/timing/core/managed_host_producer.h",
+        "sha256": "016f0ab4e498fb9cbf9d89f43d682e904531015395d1eb3a965b8908c55499b6",
+        "size": 1777
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/audio-callback.cpp",
+        "sha256": "b948c1495a85707215ffb1fc516077dad2efc698afab3d67fb74b38800858db7",
+        "size": 7911
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/audio-callback.exe",
+        "sha256": "2dd88d6b950b3f24aed399ecc2700ba5b5dea95b40ff8a634238a995a4147258",
+        "size": 199864
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/hold-event-lock.cpp",
+        "sha256": "5c099e75549cb8e0bf5e46de57436ab2a060f666e38b6d7dda6d19f157dd5fe2",
+        "size": 7875
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/hold-event-lock.exe",
+        "sha256": "2d0bde928f4ff076bfa1b0fa61f450d8f1a0c1de662a04da908809b7b0be8d86",
+        "size": 199884
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/omit-callback-admission.cpp",
+        "sha256": "042cc44b9367d9b68444e0e0eb97404d4ebcb79e10cc38d594969ba882261df5",
+        "size": 7827
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/omit-callback-admission.exe",
+        "sha256": "060bffce4f8728065d06c1256120338b2e40648994566820415146107784db69",
+        "size": 191812
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/omit-failure-seal.cpp",
+        "sha256": "70851b1adadc054301292b559b34fc705121f0b687165f8df84740faf13285fe",
+        "size": 7876
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/omit-failure-seal.exe",
+        "sha256": "5c897f467101c310cbbd601fe40335c5179cbac086dc763da0f587c5cd2db648",
+        "size": 199886
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/omit-shutdown-wakeup.cpp",
+        "sha256": "375bb999b34fb4ef09d48321dc577e2ac1968fb6c1302b39a8ee234aca801127",
+        "size": 7885
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/omit-shutdown-wakeup.exe",
+        "sha256": "4f3be7d7ee6c4fc6523887a4f64825620bf81452e3ab1c454f8bbd967950689d",
+        "size": 199889
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/release-before-callback.cpp",
+        "sha256": "ff0297eefe2ca129d68b6bfb6af34a1e60729177e3b393cdb7c6499f92875ea7",
+        "size": 7938
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-callback-reg/release-before-callback.exe",
+        "sha256": "6fc2350434154d74e83b6a8cd11ed551e06e87f3121f5e2b7ba6765cb3a79244",
+        "size": 199892
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/bypass-write-admission.cpp",
+        "sha256": "9de962bc9b369a0cda56928db85c1a7c597ff81324091e43349206a8f5cc1958",
+        "size": 77107
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/bypass-write-admission.exe",
+        "sha256": "aeab92822a37c53b9c1f8eb701168fe2a4d8898ea1601a23bad2bcdda49adefd",
+        "size": 329648
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/close-memory-before-callback.cpp",
+        "sha256": "b7ccb3fefb864eb0add0a32afbb22c1ea00668b211059799b676da83fcc4d0d3",
+        "size": 77260
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/close-memory-before-callback.exe",
+        "sha256": "228d2ccc74d558267a14e030b65fddea5f2728dacab6b60e5cbcab7ab42d57cf",
+        "size": 330961
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/count-suspended-svc-as-backend.cpp",
+        "sha256": "206d6a411fccbedc80a6973e7d5195795bd86d63acea51f145e96d84056a9767",
+        "size": 38351
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/count-suspended-svc-as-backend.exe",
+        "sha256": "aceb7884e54134fa108a43c82c64b93c922debadffc17abd2a0732b688ff1ed2",
+        "size": 222266
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/omit-initialization-drain.cpp",
+        "sha256": "6c5202ece1ec86be8822be532f3d87c0ac6af1f0f14edb03e0b63e6fd757f50a",
+        "size": 38302
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/omit-initialization-drain.exe",
+        "sha256": "45d87ae02df3bdd0bcf8513bf5eff3eaee526e655c95d1d6521c2d54720f4216",
+        "size": 221749
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/omit-running-owner-retention.cpp",
+        "sha256": "f2a94db91088e3744d0cb61d33275c407dd855e196b70fd35ff2fe373db2773b",
+        "size": 38218
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/omit-running-owner-retention.exe",
+        "sha256": "48e3facfa572ce13d3a87966aba77bc051ac965c91cf3580c5c46150b01e99f7",
+        "size": 222264
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/production.cpp",
+        "sha256": "111fb321016cfb4853402d4db23a2ce667a1c466b16017dfd675ef30f85ec340",
+        "size": 38279
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/production.exe",
+        "sha256": "475c3802960469e3dc0e44fdf8bab0b0d22b620216d4258bffe79090f449a6dc",
+        "size": 222231
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/request-is-acknowledgement.cpp",
+        "sha256": "68f32538ed46df3a647ee6b244187d4f5aff7055ad1ade47149ccb02eb40f038",
+        "size": 38307
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/request-is-acknowledgement.exe",
+        "sha256": "ee54b7415824b6a5447d71ea2a1efa52e97622d56313e15e758688ece856bd90",
+        "size": 222262
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/stopped-forgets-seal.cpp",
+        "sha256": "f1977aa64abe540032e6c05aea4e7dee9d628f32a3565b470a324ba7e8b47b86",
+        "size": 38031
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/stopped-forgets-seal.exe",
+        "sha256": "a1f5d9cf6254eba49dda2d2d4bf7873ee64bc6e1aa789d074d7a6be2b8301803",
+        "size": 221744
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/stubs/core/arm/arm_interface.h",
+        "sha256": "6c605ce103e1cac92556f3425d9ccfd048d557e5e72dae2a5dd6d3f4f48da122",
+        "size": 997
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/stubs/core/hle/kernel/k_auto_object.h",
+        "sha256": "cf221ed88b0fb40640b55c43d6d97a1de94450fa04480b04548b16b8c14cd03c",
+        "size": 766
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/cpu/stubs/core/hle/kernel/k_process.h",
+        "sha256": "aecb9819eb04bf5ad6cd2535cfac9b1bed5ef7946e551eff2224759862e16294",
+        "size": 14
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/gpu/gpu_thread.cpp",
+        "sha256": "dde88e952fb52238159f33c50748a950078d7cdbbee8e6190f33bb9f2874278b",
+        "size": 44495
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/gpu/shims/common/terminal_ingress.h",
+        "sha256": "a40b48cf2a00e20c1e93736e9e7f32dce22f6e53a18d9bb7f422c09c9312ff05",
+        "size": 2924
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/gpu/shims/core/device_memory_manager.h",
+        "sha256": "1187df800a1315362d92a1e9f5e74d5610e27e07dccece1674cc035bbc1629fc",
+        "size": 112
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/gpu/shims/video_core/acknowledged_callback.h",
+        "sha256": "555c20ec3fedf525ac62ffb0c62ae9a0d23c104e48326be1028a1c81c472f8bc",
+        "size": 2761
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/gpu/shims/video_core/framebuffer_config.h",
+        "sha256": "b0e2f87dac5afd6b56445aedf7ee932635cc22a5652ffb43d0461a4cc7a2a95a",
+        "size": 138
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-drain.cpp",
+        "sha256": "7bd3ee3e43ca529655f3d090878392986053d33865aa78149fc0d9282480d615",
+        "size": 77143
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-drain.exe",
+        "sha256": "98c3ca5a81d93176b8c739ab962b8efa1ae77a23124213a94303ff32c8fff90b",
+        "size": 330952
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-seal.cpp",
+        "sha256": "604f118d5d64b959417f2782c687fc50f643c69b84e96650a907ebd5bf5cfa5f",
+        "size": 77115
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/omit-callback-seal.exe",
+        "sha256": "991102fb703a41b5f42441b49af7061c4dbd11210c5b3114fede25d880d44ab4",
+        "size": 330951
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production.cpp",
+        "sha256": "065cf16bb3daee2627466683059ee163c9d7fab8d8147957f16124a5efffa7b2",
+        "size": 77150
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/production.exe",
+        "sha256": "d4ae709b7bfb1aee29615e775b5f3347831d84b74884df6a6d65acd31909a6e2",
+        "size": 330928
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/raw-session-capture.cpp",
+        "sha256": "abb32c093fa03ace86d8aa1aceb20083ca899862ae21955eb495554d9cb47691",
+        "size": 77156
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/raw-session-capture.exe",
+        "sha256": "6af2689203b3fefb521c9f78609bc88f2d60f476251c2c71655b360910c9c4e0",
+        "size": 330562
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/timing/core/managed_host_producer.h",
+        "sha256": "016f0ab4e498fb9cbf9d89f43d682e904531015395d1eb3a965b8908c55499b6",
+        "size": 1777
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/weak-backing-owner/common/retained_backing_storage.h",
+        "sha256": "f4281c6555350a64325c104a459aa7a59e01efd2ff5d36dd59d67679085a3d92",
+        "size": 1493
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/weak-backing-owner.cpp",
+        "sha256": "065cf16bb3daee2627466683059ee163c9d7fab8d8147957f16124a5efffa7b2",
+        "size": 77150
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-composition-reg/weak-backing-owner.exe",
+        "sha256": "d2253dc4eda0e12b25c5313b60964eafbac0f21380bed246b97ebb0a10f26ae2",
+        "size": 330951
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/dispose-services-first-fail-stop.cpp",
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+        "size": 1709
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/dispose-services-first.cpp",
+        "sha256": "77814ca43dbafbffbd5f55da55fb5fd9afbd7ba779b9ae7a255f3b49d3a5977d",
+        "size": 14970
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/dispose-services-first.exe",
+        "sha256": "c27b545cf893c636a3dc1fa149a7ee9a21aa44c1c37764ae23de1d3bb07bbd66",
+        "size": 104150
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/ignore-checked-refusal-fail-stop.cpp",
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+        "size": 1709
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/ignore-checked-refusal.cpp",
+        "sha256": "5ba36a672652ff3dc588a54b238e13bde6c14fd2ce4b6bbce6127d7ebce6cdd6",
+        "size": 14860
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/ignore-checked-refusal.exe",
+        "sha256": "0006bac75db627d2d331938ee42ceec367c44077ca119975ee8723841b83fa7f",
+        "size": 104150
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/ignore-idle-failure-fail-stop.cpp",
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+        "size": 1709
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/ignore-idle-failure.cpp",
+        "sha256": "8d295384eeca5308a116e7a238e882a5aaea933d7a21f6af013cb6afd063ab42",
+        "size": 14809
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/ignore-idle-failure.exe",
+        "sha256": "29b5801bca962511ac326eff9c4eb03550882249c897b2c9309051cf6dc4be9e",
+        "size": 104144
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-exit-runs-handlers-fail-stop.cpp",
+        "sha256": "15bfedf4c00959ecb2c540614f73c79bf09b6de660a89ca3da7defd7ac17a1c5",
+        "size": 1708
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-exit-runs-handlers.cpp",
+        "sha256": "8440e2b529bef9cb872df16bb97999c3705b74421e03a9f8cedc26d898d95f8f",
+        "size": 14933
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/normal-exit-runs-handlers.exe",
+        "sha256": "fa09234e395797291526ddab6498e802833501129c503564b3520f9d95bf35af",
+        "size": 104156
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/omit-system-fallback-fail-stop.cpp",
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+        "size": 1709
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/omit-system-fallback.cpp",
+        "sha256": "7edf71783806b4d42f16827b01ad0e8cf031349200dff32e5b1a8bfa9723cec0",
+        "size": 14687
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/omit-system-fallback.exe",
+        "sha256": "e46c432f8aa305972330fe376bf04fcf49075889767411327dedc544eea852c1",
+        "size": 104146
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/production-fail-stop.cpp",
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+        "size": 1709
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/production.cpp",
+        "sha256": "8440e2b529bef9cb872df16bb97999c3705b74421e03a9f8cedc26d898d95f8f",
+        "size": 14933
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-terminal-reg/production.exe",
+        "sha256": "6e367a11f29f2087509adc5f9233762608d3bc72842f349fd66d1d7b26bd851f",
+        "size": 104111
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-windows/0-core.o",
+        "sha256": "cccbd115763192b317af5e1f4c99758acd98ad102bfe148e7d0fcb9f7f6eed0b",
+        "size": 170580
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-windows/1-audio_manager.o",
+        "sha256": "df7ab1bcda1a44dc3cace628f8851ffa98f3564bea916a2d77478775c965e4a9",
+        "size": 42807
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-windows/2-audio_core.o",
+        "sha256": "2a6461a29ac6b479a81c97f79091ea68b8e281de89bc90adad8f14c7c32ef818",
+        "size": 13865
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-windows/3-audio_in_manager.o",
+        "sha256": "404053bff8ae176c48b0868976caa1d6909f8ca8ff3e7a8ebdbe9b41865527c2",
+        "size": 11779
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-windows/4-audio_out_manager.o",
+        "sha256": "36e27dcaf1add8ad20c8a4c704e0653ecd5f51966d832e580344b621ac06b3ce",
+        "size": 13512
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-windows/5-audio_in_manager.o",
+        "sha256": "bc370a44976d0af1b82b7aec06d792982ef76dbd2d9b6338315d7fb38bab8cf6",
+        "size": 88991
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-windows/6-audio_out_manager.o",
+        "sha256": "ee5e8bf988f376ff385b775ec28c5eb2a435acce4b2c4513cfc3452d6ef201f7",
+        "size": 86480
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-windows/7-server_manager.o",
+        "sha256": "b8377037feb6ee77a27e7d19bad9613ba79841171105bea51958c1fcb169c7e6",
+        "size": 53678
+      },
+      {
+        "path": ".diagnostics/m4-audio-owner-7fc-windows/8-audio.o",
+        "sha256": "b8c08173483b0f657474ad7a68067a68cce2974ecc0b1991dfe48eafceb610e5",
+        "size": 134247
+      }
+    ],
+    "count": 125,
+    "exe_count": 47
+  },
+  "limits": [
+    "Actual service class declarations/default destructors/unique impl and raw bind/worker/factory/drain bodies; no prepared shared target substitution",
+    "CMIF, Kernel ports, main service stop event, sink/ADSP, System fields and native session bodies are fixtures",
+    "Admitted service mutex owner uses a real jthread, actual target mutex and server stop/join prefix; no native IPC/device run claimed",
+    "Full startup failure, arbitrary escaped service/client references, standalone Kernel teardown and native device/DSP closure remain independent",
+    "Shutdown calls are serialized by the owning teardown; no reversible whole-guest authority or per-access/signal waiting introduced"
+  ]
+}

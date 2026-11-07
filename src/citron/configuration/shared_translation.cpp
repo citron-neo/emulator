@@ -192,6 +192,12 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
               "CPU Asynchronously: Use the CPU to decode ASTC textures as they arrive. Completely "
               "eliminates ASTC decoding\nstuttering at the cost of rendering issues while the "
               "texture is being decoded."));
+    INSERT(Settings, bindless_texture_limit, tr("Bindless Texture Array Limit:"),
+           tr("Maximum number of textures in a dynamically indexed (bindless) texture array.\n"
+              "Default sizes arrays from the shader's constant buffer (up to 1024), which can "
+              "make texture binding the main CPU cost in some games.\n"
+              "Lower values are faster but textures beyond the limit are not bound. Shaders are "
+              "recompiled on the next game start."));
     INSERT(
         Settings, astc_recompression, tr("ASTC Recompression Method:"),
         tr("Almost all desktop and laptop dedicated GPUs lack support for ASTC textures, forcing "
@@ -241,6 +247,9 @@ std::unique_ptr<TranslationMap> InitializeTranslations(QWidget* parent) {
         tr("Enable compute pipelines, required by some games.\nThis setting only exists for Intel "
            "proprietary drivers, and may crash if enabled.\nCompute pipelines are always enabled "
            "on all other drivers."));
+    INSERT(Settings, use_uma_zero_copy, tr("Experimental UMA zero-copy"),
+           tr("Use supported shared guest backing for Vulkan buffers. Requires device validation; "
+              "unsupported mappings retain the copy path."));
     INSERT(
         Settings, use_reactive_flushing, tr("Enable Reactive Flushing"),
         tr("Uses reactive flushing instead of predictive flushing, allowing more accurate memory "
@@ -375,6 +384,16 @@ std::unique_ptr<ComboboxTranslationMap> ComboboxEnumeration(QWidget* parent) {
              PAIR(AstcRecompression, Bc1, tr("BC1 (Low quality)")),
              PAIR(AstcRecompression, Bc3, tr("BC3 (Medium quality)")),
          }});
+    translations->insert({Settings::EnumMetadata<Settings::BindlessTextureLimit>::Index(),
+                          {
+                              PAIR(BindlessTextureLimit, Default, tr("Default (1024)")),
+                              PAIR(BindlessTextureLimit, Limit256, tr("256")),
+                              PAIR(BindlessTextureLimit, Limit128, tr("128")),
+                              PAIR(BindlessTextureLimit, Limit64, tr("64")),
+                              PAIR(BindlessTextureLimit, Limit32, tr("32")),
+                              PAIR(BindlessTextureLimit, Limit16, tr("16")),
+                              PAIR(BindlessTextureLimit, Limit8, tr("8")),
+                          }});
     translations->insert({Settings::EnumMetadata<Settings::ExtendedDynamicState>::Index(),
                           {
                               PAIR(ExtendedDynamicState, Disabled, tr("Disabled")),

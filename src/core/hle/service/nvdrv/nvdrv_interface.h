@@ -36,6 +36,7 @@ private:
     void ServiceError(HLERequestContext& ctx, NvResult result);
 
     std::shared_ptr<Module> nvdrv;
+    std::optional<Module::SessionRetirement> session_retirement;
 
     u64 pid{};
     bool is_initialized{};

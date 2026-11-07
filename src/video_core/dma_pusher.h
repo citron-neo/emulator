@@ -4,8 +4,10 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <queue>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 #include "common/bit_field.h"
@@ -123,6 +125,7 @@ public:
     ~DmaPusher();
 
     void Push(CommandList&& entries) {
+        method_admission_configurable = false;
         dma_pushbuffer.push(std::move(entries));
     }
 
@@ -136,9 +139,22 @@ public:
 
     void BindRasterizer(VideoCore::RasterizerInterface* rasterizer);
 
+    /// GPU-thread-only, nonblocking preflight before a method or NI batch has effects.
+    /// False parks the unexecuted words; retry must not assume the borrowed arguments survive.
+    /// The adapter must retain immutable plans/resources separately. No production adapter is
+    /// installed yet: this boundary alone supplies neither physical admission nor completion.
+    using MethodAdmission = std::function<bool(u32 subchannel, u32 method,
+                                               std::span<const u32> arguments, u32 remaining)>;
+    void SetMethodAdmission(MethodAdmission admission) {
+        if (!method_admission_configurable) {
+            throw std::logic_error("DMA admission must be installed before the first submission");
+        }
+        method_admission = std::move(admission);
+    }
+
     /// True while the channel is stopped at a semaphore acquire. Its queued work waits.
     [[nodiscard]] bool IsSuspended() const {
-        return puller.HasPendingAcquire();
+        return method_admission_parked || puller.HasPendingAcquire();
     }
 
     /// Re-checks the acquire the channel is stopped at. Returns true once the channel may run
@@ -157,6 +173,7 @@ private:
     static constexpr u32 max_subchannels = 8;
     bool Step();
     void ProcessCommands(std::span<const CommandHeader> commands);
+    void SaveContinuation(std::span<const CommandHeader> commands, std::size_t index);
 
     void SetState(const CommandHeader& command_header);
 
@@ -173,6 +190,9 @@ private:
     std::vector<CommandHeader> resume_commands;
     GPUVAddr resume_dma_get{}; ///< Address of the first word in resume_commands
     u64 acquire_flush_generation{};
+    MethodAdmission method_admission;
+    bool method_admission_configurable{true};
+    bool method_admission_parked{};
 
     struct DmaState {
         u32 method;            ///< Current method

@@ -1,0 +1,170 @@
+// Actual production methods with simulated Vulkan execution; not device acceptance.
+void TestMixedReplicaCopy() {
+    using Scheduler = Vulkan::Scheduler;
+    using Content = Vulkan::TransferContent;
+    using Provenance = Vulkan::ReplicaCopyProvenance;
+    using RootSpan = Provenance::RootSpan;
+    for (int mode = 0; mode < 46; ++mode) {
+        auto s = std::make_unique<Scenario>();
+        Vulkan::StorageObserverHarness observation{s->scheduler, s->runtime};
+        std::array<std::unique_ptr<Vulkan::Buffer>, 5> buffers;
+        std::vector<Scheduler::TransferBuffer> targets;
+        std::vector<Content::Command> fills;
+        for (u32 i = 0; i < buffers.size(); ++i) {
+            buffers[i] = std::make_unique<Vulkan::Buffer>(s->runtime, A + i * 131072 + (mode == 45 && i == 2 ? 4096 : 0), 4096);
+            targets.push_back({*buffers[i]->PinStagedRepresentation(0, 128),
+                s->runtime.PhysicalIdentityForBinding(*buffers[i], 0, 128)});
+            fills.push_back({Content::Kind::Fill, i, 0, 0, 0, 128, (i ? i * 10 : 99) * 0x01010101u});
+        }
+        const auto anchor = s->scheduler.RecordTransferBatch(targets, fills);
+        assert(anchor);
+        s->scheduler.RunWorker();s->gpu.Complete();
+        const auto first = s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+            {anchor, 0, 1, 16, 16, 16, 0, 1, 16, 0});
+        assert(first);
+        if (mode == 11) driver->submit_result = VK_ERROR_DEVICE_LOST;
+        bool first_loss{};
+        try {s->scheduler.RunWorker();} catch (const vk::Exception&) {first_loss = true;}
+        assert(first_loss == (mode == 11));
+        if (mode != 33) s->gpu.Complete();
+        driver->submit_result = VK_SUCCESS;
+        const auto anchor_history = anchor->PlannedContent();
+        const auto first_history = first->PlannedReplicaCopy();
+        const std::vector<RootSpan> expected_roots{{8, 8, 1, 8}, {16, 16, 0, 16}, {32, 8, 1, 32}};
+        auto roots = expected_roots;
+        auto wrong = roots;
+        wrong[1].fill = 1;
+        assert(!Provenance::Build(anchor_history, 1, 2, 8, 8, 32, 128, 0, 8, 2, 0, first_history, wrong));
+        const auto remap = [&] {
+            s->runtime.test_mapping.generation += 2;
+            s->runtime.test_mapping.epoch->generation.store(s->runtime.test_mapping.generation);
+        };
+        if (mode >= 1 && mode <= 4) s->scheduler.RecordBufferFill(targets[1].pin.Handle(),
+            mode == 1 ? 20 : mode == 2 ? 8 : mode == 3 ? 36 : 48, 4, 0x4d4d4d4d);
+        if (mode == 9) s->scheduler.Record([](vk::CommandBuffer) {});
+        if (mode == 13) remap();
+        if (mode == 16 || mode == 17) buffers[mode - 16]->RevokeContentEligibility();
+        if (mode == 23) s->scheduler.BreakReplicaSyncForTest(first, 0);
+        if (mode == 26) { (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete(); }
+        if (mode == 28) {
+            roots.pop_back();
+            s->scheduler.RecordBufferFill(targets[1].pin.Handle(), 36, 4, 0x4d4d4d4d); // Unchecked tail would be stale.
+        }
+        if (mode == 29) {
+            roots = {{8, 4, 1, 8}, {16, 16, 0, 16}, {32, 12, 1, 32}};
+            s->scheduler.RecordBufferFill(targets[1].pin.Handle(), 12, 4, 0x4d4d4d4d); // Gap + outside suffix, same summed length.
+        }
+        if (mode == 30) {
+            roots = {{8, 8, 1, 8}, {16, 12, 0, 16}, {24, 4, 0, 24}, {32, 8, 1, 32}};
+            s->scheduler.RecordBufferFill(targets[1].pin.Handle(), 28, 4, 0x4d4d4d4d); // Overlap hides another gap.
+        }
+        if (mode == 31) roots[0].fill = 0;
+        if (mode == 32) roots[1].root_offset = 20;
+        if (mode == 34) roots.assign(Provenance::MaxRootSpans + 1, {8, 1, 1, 8});
+        if (mode == 35) roots[1].size = 0;
+        if (mode == 36) roots.clear(); // Legacy single root cannot stand for a mixed interval.
+        if (mode == 42) roots.push_back({40, 4, 1, 40});
+        if (mode == 44) s->scheduler.RecordBufferFill(targets[2].pin.Handle(), 80, 4, 0x4d4d4d4d);
+        const auto mixed = s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+            {anchor, 1, 2, 8, 8, 32, 0, 2, 8, 0, first, roots});
+        const bool refused = (mode >= 1 && mode <= 3) || mode == 9 || mode == 11 || mode == 13 ||
+            mode == 16 || mode == 17 || mode == 23 || (mode >= 28 && mode <= 36) || mode == 42 || mode == 44 || mode == 45;
+        assert(bool(mixed) == !refused);
+        if (refused) {
+            assert(first->PlannedReplicaCopy() == first_history && anchor->PlannedContent() == anchor_history);
+            (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+            continue;
+        }
+        assert(mixed->PlannedReplicaCopy()->Depth() == 2 && mixed->PlannedReplicaCopy()->SourceCopy() == first_history);
+        assert(std::ranges::equal(mixed->PlannedReplicaCopy()->SourceRoots(), expected_roots));
+        assert(!s->scheduler.CompletedReplicaCopyHasRoot(mixed, anchor, 16, 16, 0, 16));
+        if (mode == 5) {
+            s->scheduler.RecordBufferFill(targets[1].pin.Handle(), 8, 4, 0x4d4d4d4d);
+            (void)s->scheduler.Flush(); // Recorded after the copy: preserve its earlier captured content.
+        }
+        if (mode == 12) driver->submit_result = VK_ERROR_DEVICE_LOST;
+        if (mode == 14) remap();
+        if (mode == 18 || mode == 19) buffers[mode - 17]->RevokeContentEligibility();
+        if (mode == 27) driver->queue_id = 2;
+        if (mode == 37) (void)buffers[1]->Mapped();
+        if (mode == 43) { roots[0].fill = 0;roots[1].size = 0;roots.clear(); }
+        std::weak_ptr<const void> payload = targets[1].pin.RetainedOwner();
+        if (mode == 39) { targets.clear();for (auto& buffer : buffers) buffer.reset(); }
+        if (mode == 39 || mode == 40) {
+            if (mode == 40) s->scheduler.RunOneWorkerCommandForTest();
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+            assert(mixed->ResourcesRetained() && first->ResourcesRetained() && !payload.expired());
+        }
+        bool loss{};
+        try {s->scheduler.RunWorker();} catch (const vk::Exception&) {loss = true;}
+        assert(loss == (mode == 12));
+        assert(!s->scheduler.CompletedReplicaCopyHasRoot(mixed, anchor, 16, 16, 0, 16));
+        s->gpu.Complete();
+        if (mode == 15) remap();
+        if (mode >= 20 && mode <= 22) buffers[mode - 20]->RevokeContentEligibility();
+        if (mode == 24) s->scheduler.BreakReplicaSyncForTest(first, 1);
+        if (mode == 25) s->scheduler.BreakReplicaSyncForTest(mixed, 0);
+        if (mode == 38) (void)buffers[0]->Mapped();
+        const bool rejected = mode == 12 || mode == 14 || mode == 15 || mode == 18 || mode == 19 ||
+            (mode >= 20 && mode <= 22) || (mode >= 24 && mode <= 27) || mode == 37 || mode == 38;
+        const auto current = [&] {
+            for (const auto& part : expected_roots)
+                if (!s->scheduler.CurrentReplicaCopyHasRoot(mixed, s->runtime.test_mapping, anchor,
+                    part.offset, part.size, part.fill, part.root_offset)) return false;
+            return s->scheduler.CurrentReplicaCopyHasRoot(mixed, s->runtime.test_mapping, anchor, 0, 8, 2, 0) &&
+                s->scheduler.CurrentReplicaCopyHasRoot(mixed, s->runtime.test_mapping, anchor, 40, 88, 2, 40);
+        };
+        assert(current() == !rejected);
+        assert(std::ranges::equal(mixed->PlannedReplicaCopy()->SourceRoots(), expected_roots));
+        const bool no_copy = mode == 12 || mode == 14 || mode == 18 || mode == 19 || mode == 26 || mode == 27 || mode == 37;
+        for (u64 i = 0; i < 128; ++i) {
+            const u32 fill = i < 8 || i >= 40 ? 2 : (i < 16 || i >= 32 ? 1 : 0);
+            assert(mixed->PlannedReplicaCopy()->HasRoot(i, 1, fill, i));
+            if (!rejected) assert(s->scheduler.CurrentReplicaCopyHasRoot(mixed, s->runtime.test_mapping, anchor, i, 1, fill, i));
+            if (!targets.empty()) {
+                const auto& bytes = reinterpret_cast<Allocation*>(buffers[2]->Handle())->bytes;
+                assert(bytes[i] == (no_copy || fill == 2 ? 20 : fill == 1 ? 10 : 99));
+            }
+        }
+        assert(!s->scheduler.CompletedReplicaCopyHasRoot(mixed, anchor, 8, 32, 0, 8));
+        assert(!s->scheduler.CompletedReplicaCopyHasRoot(mixed, anchor, 8, 32, 1, 8));
+        if (mode == 6 || mode == 7 || mode == 8 || mode == 10) {
+            if (mode == 10) s->scheduler.Record([](vk::CommandBuffer) {});
+            else s->scheduler.RecordBufferFill(targets[mode == 8 ? 2 : 1].pin.Handle(), mode == 7 ? 8 : 20, 4, 0x4d4d4d4d);
+            (void)s->scheduler.Flush();s->scheduler.RunWorker();s->gpu.Complete();
+            assert(current() == (mode == 6 || mode == 7));
+            assert(s->scheduler.CompletedReplicaCopyHasRoot(mixed, anchor, 16, 16, 0, 16));
+            if (mode == 8) {
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(mixed, s->runtime.test_mapping, anchor, 16, 4, 0, 16));
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(mixed, s->runtime.test_mapping, anchor, 24, 8, 0, 24));
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(mixed, s->runtime.test_mapping, anchor, 8, 8, 1, 8));
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(mixed, s->runtime.test_mapping, anchor, 40, 88, 2, 40));
+            }
+        }
+        if (mode == 41) {
+            const std::array<RootSpan, 5> third_roots{{{0, 8, 2, 0}, {8, 8, 1, 8}, {16, 16, 0, 16}, {32, 8, 1, 32}, {40, 24, 2, 40}}};
+            const auto third = s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+                {anchor, 2, 3, 0, 0, 64, 0, 3, 0, 0, mixed, third_roots});
+            assert(third);
+            s->scheduler.RunWorker();s->gpu.Complete();
+            const std::array<RootSpan, 6> fourth_roots{{{4, 4, 2, 4}, {8, 8, 1, 8}, {16, 16, 0, 16}, {32, 8, 1, 32}, {40, 24, 2, 40}, {64, 4, 3, 64}}};
+            const auto fourth = s->scheduler.RecordControlledReplicaCopy(s->runtime.test_mapping,
+                {anchor, 3, 4, 4, 4, 64, 0, 4, 4, 0, third, fourth_roots});
+            assert(fourth);
+            s->scheduler.RunWorker();s->gpu.Complete();
+            for (u64 i = 0; i < 128; ++i) {
+                const u32 fill = i < 4 || i >= 68 ? 4 : (i >= 64 ? 3 : (i < 8 || i >= 40 ? 2 : (i < 16 || i >= 32 ? 1 : 0)));
+                assert(s->scheduler.CurrentReplicaCopyHasRoot(fourth, s->runtime.test_mapping, anchor, i, 1, fill, i));
+                const auto& bytes = reinterpret_cast<Allocation*>(buffers[4]->Handle())->bytes;
+                assert(bytes[i] == (fill ? fill * 10 : 99));
+            }
+        }
+        assert(first->PlannedReplicaCopy() == first_history && anchor->PlannedContent() == anchor_history);
+        s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+        assert(!mixed->ResourcesRetained() && !current());
+        if (mode == 39) assert(payload.expired());
+    }
+    std::cout << "PASS 46 mixed-source replica modes: exact source partition, copied/untouched roots and complements, "
+                 "coverage gaps/overlaps, partial cancellation, four-hop overlays, failure/remap/retirement; simulated Vulkan\n";
+}

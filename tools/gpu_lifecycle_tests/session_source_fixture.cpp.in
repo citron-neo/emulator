@@ -1,0 +1,217 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <atomic>
+#include <condition_variable>
+#include <cstdlib>
+#include <deque>
+#include <future>
+#include <iostream>
+#include <list>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include "common/bit_field.h"
+#include "frame_mapping_observer.h"
+#include "common/frame_mapping.h"
+#include "core/hle/service/nvnflinger/ui/graphic_buffer.h"
+#include "core/hle/service/nvnflinger/hwc_layer.h"
+#include "video_core/framebuffer_config.h"
+#define LOG_WARNING(...) ((void)0)
+#define LOG_CRITICAL(...) ((void)0)
+void Check(bool ok,const char* message){if(!ok){std::cerr<<"FAIL "<<message<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Gate {
+    std::mutex mutex;std::condition_variable cv;bool ready{};
+    void Set(){std::scoped_lock lock{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock lock{mutex};Check(cv.wait_for(lock,std::chrono::seconds(5),[&]{return ready;}),"gate timeout");}
+};
+inline thread_local int identity;
+struct TrackedMutex {
+    std::mutex mutex;std::atomic<const void*> owner{};
+    void lock(){mutex.lock();owner=&identity;}void unlock(){owner=nullptr;mutex.unlock();}
+    bool HeldByCurrent()const{return owner==&identity;}
+};
+namespace Common {
+namespace Literals {}
+template<class T,class U> auto AlignUp(T value,U alignment){return (value+alignment-1)&~(static_cast<T>(alignment)-1);}
+struct RetainedBackingStorage {bool OwnerAlive()const{return true;}};
+}
+namespace Kernel {
+struct KProcess {
+    std::atomic<u64> pid{1};std::atomic<int> refs{1};int memory{};
+    u64 GetProcessId()const{return pid;}int& GetMemory(){return memory;}
+};
+template<class T> struct KScopedAutoObject {
+    T* value{};
+    KScopedAutoObject()=default;KScopedAutoObject(KScopedAutoObject&& other)noexcept:value{std::exchange(other.value,nullptr)}{}
+    ~KScopedAutoObject(){if(value)--value->refs;}
+    static std::optional<KScopedAutoObject> TryOpen(T* process){if(!process||!process->refs)return {};KScopedAutoObject result;result.value=process;++process->refs;return result;}
+    T* GetPointerUnsafe()const{return value;}
+};
+}
+namespace Core {struct Asid{size_t id{};};}
+struct FakeSystem {
+    struct GPU {std::vector<Tegra::FramebufferConfig> frames;
+        void RequestComposite(std::vector<Tegra::FramebufferConfig>&& layers,std::vector<Service::Nvidia::NvFence>&&){frames=std::move(layers);}}gpu;
+    auto& GPU(){return gpu;}
+    struct Renderer {void SetMainApplicationAruid(u64){}}renderer;auto& Renderer(){return renderer;}
+    u64 GetMainApplicationAruid(){return 1;}
+    struct Limiter {void DoSpeedLimiting(u64){}}limiter;auto& SpeedLimiter(){return limiter;}
+    struct Timing {u64 GetGlobalTimeUs(){return 0;}}timing;auto& CoreTiming(){return timing;}
+    struct Stats {void EndSystemFrame(){}void BeginSystemFrame(){}}stats;auto& GetPerfStats(){return stats;}
+    struct Kernel {std::shared_ptr<int> NvdrvDispatchDomain(){return {};}}kernel;
+    auto& Kernel(){return kernel;}
+    struct Memory {struct Buffer {
+        std::optional<Common::RetainedBackingStorage> RetainBackingStorage(){return Common::RetainedBackingStorage{};}
+    }buffer;}memory;
+    auto& DeviceMemory(){return memory;}
+};
+namespace Service::Nvidia::NvCore {
+@SESSION_ID@
+enum class NvResult{Success,AccessDenied};
+struct ProcessReleaseFailure {std::shared_ptr<int> domain;};
+struct Mapper {u64 GetRegionStart(){return 4096;}size_t GetRegionSize(){return 4096;}};
+struct Session {
+    SessionId id;Kernel::KScopedAutoObject<Kernel::KProcess> owner;Kernel::KProcess* process;
+    u64 pid;Core::Asid asid;std::optional<Common::RetainedBackingStorage> backing;
+    bool has_preallocated_area{},is_active{};s32 ref_count{};std::unique_ptr<Mapper> mapper;
+    Session(SessionId id_,Kernel::KScopedAutoObject<Kernel::KProcess>&& owner_,u64 pid_,Core::Asid asid_,
+            Common::RetainedBackingStorage&& backing_,std::unique_ptr<ProcessReleaseFailure>)
+        :id{id_},owner{std::move(owner_)},process{owner.GetPointerUnsafe()},pid{pid_},asid{asid_},backing{std::move(backing_)}{}
+    Session(Session&&)=default;
+    Session& operator=(Session&& other){this->~Session();std::construct_at(this,std::move(other));return *this;}
+};
+struct Memory {
+    Common::FrameMappingDomain domain;int registered{},unregistered{};
+    auto BeginFrameMappingMutation(){return domain.BeginMutation();}
+    auto CaptureFrameMapping(DAddr address,u64 size){return address ? domain.Capture(address,size) : std::nullopt;}
+    Core::Asid RegisterProcess(int*){return Core::Asid{static_cast<size_t>(registered++)};}
+    void UnregisterProcess(Core::Asid){++unregistered;}
+    void Free(u64,size_t){}
+};
+struct Host {FakeSystem system;Memory memory;auto& System(){return system;}auto& MemoryManager(){return memory;}};
+struct Container {
+    struct Impl {
+        Host host1x;std::deque<Session> sessions;std::deque<size_t> id_pool;size_t new_ids{};
+        @GENERATION_FIELD@std::mutex session_guard;
+        struct File {std::function<void()> hook;void UnmapAllHandles(SessionId){if(hook)hook();}}file;
+    };
+    std::unique_ptr<Impl> impl=std::make_unique<Impl>();std::function<void()> before_validation;
+    SessionId OpenSession(Kernel::KProcess*);
+    void CloseSession(SessionId,bool);
+    bool IsDisplaySessionActive(SessionId);
+};
+@METHODS@
+@VALIDATE@
+struct NvMap {
+    @HANDLE@
+    Container& core;Host& host1x;TrackedMutex handles_lock;
+    std::unordered_map<u32,std::shared_ptr<Handle>> handles;
+    std::function<void()> after_validation;
+    explicit NvMap(Container& container):core{container},host1x{container.impl->host1x}{}
+    std::shared_ptr<Handle> GetHandle(Handle::Id);
+    std::optional<Common::FrameMappingDomain::Stamp> GetDisplayMapping(Handle::Id);
+};
+@NVMETHODS@
+}
+namespace Service::android {
+GraphicBuffer::GraphicBuffer(u32 w,u32 h,PixelFormat f,u32 u):NvGraphicBuffer(w,h,f,u){}
+GraphicBuffer::~GraphicBuffer()=default;
+}
+namespace Service::Nvidia::Devices {
+struct nvdisp_disp0 {
+    FakeSystem& system;NvCore::NvMap& nvmap;
+    void Composite(std::span<const Nvnflinger::HwcLayer>);
+};
+@BLEND@
+@NVDISP@
+}
+using namespace Service::Nvidia::NvCore;
+struct Fixture {
+    Kernel::KProcess process;Container core;NvMap file{core};SessionId session=core.OpenSession(&process);
+    std::shared_ptr<NvMap::Handle> handle;
+    Fixture(){handle=Add(1,session);}
+    std::shared_ptr<NvMap::Handle> Add(u32 id,SessionId session_id){
+        auto result=std::make_shared<NvMap::Handle>(4096,id);
+        Check(result->Alloc({},4096,0,12288,session_id)==NvResult::Success,"handle allocation failed");
+        result->d_address=4096;result->pins=1;result->internal_dupes=1;file.handles.emplace(id,result);return result;
+    }
+    bool Use(const std::optional<Common::FrameMappingDomain::Stamp>& stamp){
+        return stamp && core.impl->host1x.memory.domain.WithUse(*stamp,4096,1,[]{return true;});
+    }
+    SessionId Stale(){process.pid=2;return core.OpenSession(&process);}
+    size_t Publish(u32 id=1){
+        core.impl->host1x.system.gpu.frames.clear();
+        auto owner=std::make_shared<Service::android::GraphicBuffer>(1,1,Service::android::PixelFormat{},0);owner->buffer_id=id;
+        Service::Nvnflinger::HwcLayer layer{};layer.buffer_handle=id;
+        layer.source_owner=std::make_shared<const Service::android::GraphicBufferSource>(owner);
+        Service::Nvidia::Devices::nvdisp_disp0 display{core.impl->host1x.system,file};
+        display.Composite(std::span(&layer,1));return core.impl->host1x.system.gpu.frames.size();
+    }
+};
+int main(int argc,char** argv){
+    Check(argc==2,"missing mode");const std::string mode=argv[1];Kernel::KProcess spare,last;Fixture f;
+    auto captured=f.file.GetDisplayMapping(1);
+    if(mode=="normal")Check(f.Use(captured)&&f.Publish()==1,"live source refused");
+    else if(mode=="shutdown"||mode=="stale"||mode=="stale-stamp") {
+        if(mode=="shutdown")f.core.CloseSession(f.session,true);else {
+            const auto next=f.Stale();f.Add(2,next);Check(f.Use(f.file.GetDisplayMapping(2))&&f.Publish(2)==1,"stale replacement refused live source");
+        }
+        Check(f.handle->d_address==4096 && f.process.refs>=2,"retirement released retained resources");
+        if(mode=="stale-stamp")Check(!f.Use(captured),"stale session retained queued source stamp");
+        else Check(f.Publish()==0&&!f.file.GetDisplayMapping(1),"retired session recaptured source");
+    } else if(mode=="refcount") {
+        auto again=f.core.OpenSession(&f.process);
+        Check(again.id==f.session.id,"duplicate session changed slot");
+        f.core.CloseSession(again,true);Check(f.Use(captured)&&f.Use(f.file.GetDisplayMapping(1)),"nonfinal close retired source");
+        f.core.CloseSession(f.session,true);Check(!f.file.GetDisplayMapping(1),"final close reopened source");
+    } else if(mode=="slot-reuse"||mode=="late-close") {
+        f.core.CloseSession(f.session,false);
+        auto replacement=f.core.OpenSession(&spare);Check(replacement.id==f.session.id,"slot was not reused");
+        f.Add(2,replacement);Check(f.Use(f.file.GetDisplayMapping(2)),"replacement session refused source");
+        if(mode=="slot-reuse")Check(!f.file.GetDisplayMapping(1),"reused slot authorized old source");
+        else {bool refused=false;try{f.core.CloseSession(f.session,true);}catch(const std::runtime_error&){refused=true;}
+            Check(refused&&f.core.impl->sessions[replacement.id].ref_count==1,"late close affected replacement session");}
+    } else if(mode=="before-validation"||mode=="after-validation") {
+        Gate entered,release;
+        const auto gate=[&]{Check(!f.handle->mutex.HeldByCurrent()&&!f.file.handles_lock.HeldByCurrent(),
+                "source validation retained handle/table lock");entered.Set();release.Wait();};
+        if(mode=="before-validation")f.core.before_validation=gate;else f.file.after_validation=gate;
+        auto reader=std::async(std::launch::async,[&]{return f.file.GetDisplayMapping(1);});
+        entered.Wait();f.core.CloseSession(f.session,true);release.Set();auto result=reader.get();
+        Check(mode=="before-validation" ? !result : !f.Use(result),"retirement interleaving admitted source use");
+    } else if(mode=="active-shutdown"||mode=="active-stale") {
+        Gate entered,release,waiting;
+        auto reader=std::async(std::launch::async,[&]{return f.core.impl->host1x.memory.domain.WithUse(*captured,4096,1,[&]{entered.Set();release.Wait();return true;});});
+        entered.Wait();auto writer=std::async(std::launch::async,[&]{on_wait=[&]{waiting.Set();};
+            if(mode=="active-shutdown")f.core.CloseSession(f.session,true);else f.Stale();on_wait={};});
+        waiting.Wait();release.Set();Check(reader.get(),"active bounded read lost mapping use");writer.get();
+        Check(!f.Use(captured)&&!f.file.GetDisplayMapping(1),"active retirement reopened source");
+    } else if(mode=="failure") {
+        int calls{};f.core.impl->file.hook=[&]{++calls;throw std::runtime_error("partial unmap");};
+        bool failed=false;try{f.core.CloseSession(f.session,false);}catch(const std::runtime_error&){failed=true;}
+        Check(failed&&calls==1&&!f.Use(captured)&&!f.file.GetDisplayMapping(1)&&f.handle->d_address==4096,
+              "failed retirement reopened source or lost retained mapping");
+    } else if(mode=="wrong-pid") {
+        f.process.pid=2;Check(!f.file.GetDisplayMapping(1),"PID mismatch recaptured source");
+    } else if(mode=="invalid") {
+        auto missing=f.session;missing.id=999;f.Add(2,missing);
+        Check(!f.file.GetDisplayMapping(999)&&!f.file.GetDisplayMapping(2),"invalid session admitted source");
+#if @HAS_GENERATION@
+        auto unpublished=f.session;unpublished.generation=0;f.Add(3,unpublished);
+        Check(!f.file.GetDisplayMapping(3),"unpublished session admitted source");
+#endif
+    } else if(mode=="exhaustion") {
+#if @HAS_GENERATION@
+        f.core.impl->next_session_generation=~u64{0};bool failed=false;
+        const auto final=f.core.OpenSession(&last);
+        Check(final.generation==~u64{0},"last unique generation lost");
+        const int before=f.core.impl->host1x.memory.registered;
+        try{f.core.OpenSession(&spare);}catch(const std::runtime_error&){failed=true;}
+        Check(failed&&f.core.impl->host1x.memory.registered==before,"generation exhaustion registered reusable identity");
+#endif
+    } else Check(false,"unknown mode");
+    std::cout<<"PASS session source "<<mode<<'\n';
+}

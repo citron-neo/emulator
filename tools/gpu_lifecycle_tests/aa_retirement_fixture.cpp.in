@@ -1,0 +1,200 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <semaphore>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <utility>
+#include <vector>
+#include "common/common_types.h"
+#include "common/scope_exit.h"
+#include "common/terminal_fail_stop.h"
+using VkImage=u64;using VkImageView=u64;using VkSampler=u64;using VkDescriptorSet=u64;
+using VkSemaphore=void*;using VkResult=int;
+struct VkExtent2D {u32 width,height;};
+constexpr int VK_SUCCESS=0,VK_NOT_READY=1,VK_ERROR_DEVICE_LOST=-4;
+static std::string mode;
+static bool replacing{},construction_failure{},low{};
+static int destroyed{},cleared{},constructed{};
+static void event(const char* s){std::fprintf(stderr,"EVENT %s\n",s);std::fflush(stderr);}
+static void check(bool b,const char* s){if(!b){std::fprintf(stderr,"FAIL %s\n",s);std::fflush(stderr);std::_Exit(91);}}
+struct Gate {std::binary_semaphore entered{0},release{0};};
+namespace Settings {
+enum class AntiAliasing{None,Fxaa,Smaa,Taa};
+bool IsGPULevelLow(){return low;}
+struct Resolution{u32 ScaleUp(u32 v)const{return v;}};
+struct Values{Resolution resolution_info;}values;
+}
+namespace Service::android {enum class PixelFormat{Rgba8888,Bgra8888};}
+namespace Tegra {struct FramebufferConfig {u32 width=32,height=32,stride=32;u64 address=1,offset=0;Service::android::PixelFormat pixel_format=Service::android::PixelFormat::Rgba8888;};}
+namespace Layout {struct FramebufferLayout{};}
+namespace Vulkan {
+namespace vk {struct Exception:std::exception{int GetResult()const{return VK_ERROR_DEVICE_LOST;}};}
+struct NativeState {bool live=true;int uses{};};
+struct Resource {
+    bool live=true;
+    Resource()=default;Resource(Resource&& r)noexcept:live{std::exchange(r.live,false)}{}
+    ~Resource(){if(live&&replacing){++cleared;event("raw.destroy");}}
+    u64 operator*()const{return 1;}
+};
+struct Scheduler {
+    struct Use{std::shared_ptr<NativeState> state;u64 tick;size_t slot;};
+    std::vector<Use> uses;u64 tick=1,complete{};int submits{},drains{},polls{};
+    Gate gate;bool delayed{};
+    std::shared_ptr<std::atomic_bool> submission_owner=std::make_shared<std::atomic_bool>(true);
+    struct Master{Scheduler* self;VkResult PollNativeResourceLifetime(u64 value){
+        ++self->polls;
+        if(mode=="query-failure"||mode=="fallback-reset")return VK_ERROR_DEVICE_LOST;
+        if(mode=="pending")return VK_NOT_READY;
+        return self->complete>=value?VK_SUCCESS:VK_NOT_READY;
+    }};
+    std::unique_ptr<Master> master_semaphore=std::make_unique<Master>(this);
+    void WaitForResourceRelease(u64 t){Wait(t);}
+    void RequireNativeBorrowAdmission()const;
+    void FinishNativeBorrow();
+    void Finish(VkSemaphore=nullptr,VkSemaphore=nullptr);
+    u64 CurrentTick()const{return tick;}
+    u64 SubmitExecution(VkSemaphore,VkSemaphore){
+        if(replacing&&mode=="submit-failure")throw vk::Exception{};
+        if(replacing&&mode=="record-failure")throw std::runtime_error("record");
+        ++submits;return tick++;
+    }
+    void Wait(u64 until){
+        if(replacing&&(mode=="wait-failure"||mode=="split-wait-failure"))throw vk::Exception{};
+        if(replacing&&mode=="partial-wait"){
+            for(auto& use:uses)if(use.slot==0&&use.state){--use.state->uses;use.state.reset();}
+            event("slot0.completed");throw vk::Exception{};
+        }
+        if(replacing&&mode=="host-wait")throw std::runtime_error("host");
+        if(replacing&&mode=="native-delay"&&!delayed){delayed=true;event("native.wait.enter");gate.entered.release();gate.release.acquire();}
+        for(auto& use:uses)if(use.tick<=until&&use.state){
+            check(use.state->live,"callback accessed retired AA");--use.state->uses;use.state.reset();
+        }
+        complete=std::max(complete,until);
+    }
+    void WaitWorker(){
+        ++drains;
+        if(replacing&&mode=="worker-failure")throw std::runtime_error("worker");
+        if(replacing&&mode=="worker-delay"&&!delayed){delayed=true;event("worker.wait.enter");gate.entered.release();gate.release.acquire();}
+    }
+    void AllocateNewContext(){if(replacing&&mode=="context-failure")throw std::runtime_error("context");}
+    void RequestOutsideRenderPassOperationContext(){}
+    void RetainPresentationSource(std::shared_ptr<const void>){}
+    void UseSource(const std::shared_ptr<NativeState>& state,size_t slot){++state->uses;uses.push_back({state,tick,slot});}
+};
+@SCHEDULER@
+struct Device{};struct MemoryAllocator{};
+struct AntiAliasPass {
+    std::shared_ptr<NativeState> state=std::make_shared<NativeState>();
+    virtual Settings::AntiAliasing Kind()const{return Settings::AntiAliasing::Fxaa;}
+    virtual ~AntiAliasPass(){check(!state->uses,"AA retired before all uses");state->live=false;++destroyed;event("aa.destroy");}
+    virtual void Draw(Scheduler& s,size_t slot,VkImage*,VkImageView*){
+        if(mode=="internal-finish"||mode=="split-wait-failure")s.Finish();
+        s.UseSource(state,slot);
+    }
+};
+struct NoAA:AntiAliasPass{Settings::AntiAliasing Kind()const override{return Settings::AntiAliasing::None;}};
+struct FXAA:AntiAliasPass{FXAA(const Device&,MemoryAllocator&,size_t,VkExtent2D){if(construction_failure)throw std::bad_alloc();++constructed;}};
+struct SMAA:FXAA{using FXAA::FXAA;Settings::AntiAliasing Kind()const override{return Settings::AntiAliasing::Smaa;}};
+struct TAA:FXAA{using FXAA::FXAA;Settings::AntiAliasing Kind()const override{return Settings::AntiAliasing::Taa;}};
+struct Filters{Settings::AntiAliasing requested=Settings::AntiAliasing::Smaa;Settings::AntiAliasing get_anti_aliasing()const{return requested;}};
+struct TextureInfo {u32 width=32,height=32,scaled_width=32,scaled_height=32;VkImage image=1;VkImageView image_view=1;std::shared_ptr<const void> native_owner;};
+struct RasterizerVulkan {std::optional<TextureInfo> AccelerateDisplay(const Tegra::FramebufferConfig&,u64,u32){return {};}};
+struct PresentPushConstants{};
+namespace vk { using Buffer=std::unique_ptr<Resource>; }
+struct Layer {
+    bool post_upload_failed{};
+    Device device;MemoryAllocator memory_allocator;Scheduler& scheduler;Filters filters;size_t image_count=3;
+    u32 raw_width=32,raw_height=32,raw_stride=32;Service::android::PixelFormat pixel_format=Service::android::PixelFormat::Rgba8888;
+    std::vector<Resource> raw_images=std::vector<Resource>(3),raw_image_views=std::vector<Resource>(3);
+    std::unique_ptr<Resource> buffer=std::make_unique<Resource>();
+    std::unique_ptr<AntiAliasPass> anti_alias=std::make_unique<AntiAliasPass>();
+    Settings::AntiAliasing anti_alias_setting=Settings::AntiAliasing::Fxaa;
+    std::vector<u64> resource_ticks{0,0,0};
+    explicit Layer(Scheduler& s):scheduler{s}{}
+    void RefreshResources(const Tegra::FramebufferConfig&);
+    void SetAntiAliasPass();void ReleaseRawImages();void WaitForResourceUses();void ClearRawImages();
+    bool ConfigureDraw(PresentPushConstants*,VkDescriptorSet*,RasterizerVulkan&,VkSampler,size_t,const Tegra::FramebufferConfig&,const Layout::FramebufferLayout&);
+    bool UpdateRawImage(const Tegra::FramebufferConfig&,size_t){return true;}
+    @RAW_CREATION_STUBS@
+};
+@LAYER@
+}
+int main(int argc,char** argv){
+    if(argc!=3)return 2;
+    const std::string action=argv[1];mode=argv[2];
+    std::atexit([]{event("atexit");});
+    Vulkan::Scheduler scheduler;Vulkan::Layer layer(scheduler);
+    if(mode=="cold"){
+        layer.anti_alias.reset();layer.raw_images.clear();layer.raw_image_views.clear();layer.buffer.reset();
+        if(action=="refresh"){Tegra::FramebufferConfig f;f.width=64;layer.RefreshResources(f);}else layer.SetAntiAliasPass();
+        check(!scheduler.submits&&!scheduler.drains&&!scheduler.polls,"cold path synchronized");
+        std::fprintf(stderr,"PASS %s cold\n",argv[1]);return 0;
+    }
+    if(mode=="fxaa"){layer.anti_alias_setting=Settings::AntiAliasing::None;layer.filters.requested=Settings::AntiAliasing::Fxaa;}
+    if(mode=="taa")layer.filters.requested=Settings::AntiAliasing::Taa;
+    if(mode=="none")layer.filters.requested=Settings::AntiAliasing::None;
+    auto old=layer.anti_alias->state;
+    // Three independent slots, including work already dispatched before replacement.
+    for(size_t slot=0;slot<3;++slot){scheduler.UseSource(old,slot);layer.resource_ticks[slot]=scheduler.CurrentTick();++scheduler.tick;}
+    if(mode=="late-final"){
+        scheduler.Finish(); // completed cached slot ticks
+        // A later WindowAdapt final record samples an old AA output after that Finish.
+        scheduler.UseSource(old,0);
+    }
+    if(mode=="configure"||mode=="internal-finish"||mode=="split-wait-failure"){
+        scheduler.Finish();layer.filters.requested=Settings::AntiAliasing::Fxaa;
+        Vulkan::RasterizerVulkan rasterizer;Vulkan::PresentPushConstants pc;VkDescriptorSet set{};
+        layer.ConfigureDraw(&pc,&set,rasterizer,0,0,{},{});
+        scheduler.Finish();scheduler.UseSource(old,0); // final composite after slot scope
+        layer.filters.requested=Settings::AntiAliasing::Smaa;
+    }
+    const int before=scheduler.submits;
+    auto mutate=[&]{
+        replacing=true;
+        if(mode=="closed")scheduler.submission_owner->store(false);
+        if(mode=="low")low=true;
+        if(mode=="construct-failure")construction_failure=true;
+        if(action=="refresh"){
+            Tegra::FramebufferConfig changed;changed.width=64;
+            if(mode=="unchanged")changed.width=32;
+            layer.RefreshResources(changed);
+        }else{
+            if(mode=="unchanged")layer.filters.requested=Settings::AntiAliasing::Fxaa;
+            try{layer.SetAntiAliasPass();}catch(const std::bad_alloc&){
+                check(layer.anti_alias->state==old&&layer.anti_alias_setting==Settings::AntiAliasing::Fxaa,"failed construction published setting");
+                check(old->live&&!old->uses,"failed construction lost old owner");event("construction.refused");
+            }
+        }
+    };
+    if(mode=="native-delay"||mode=="worker-delay"){
+        std::jthread owner([&]{mutate();});scheduler.gate.entered.acquire();
+        check(old->live&&destroyed==0&&cleared==0,"retired before paused boundary");
+        scheduler.gate.release.release();owner.join();
+    }else mutate();
+    if(mode=="unchanged"){
+        check(scheduler.submits==before&&old->live&&old->uses==3,"unchanged path synchronized");
+        replacing=false;scheduler.Finish();
+    }else if(mode=="construct-failure"){
+        check(old->live&&layer.anti_alias_setting==Settings::AntiAliasing::Fxaa,"construction changed owner");
+        construction_failure=false;layer.SetAntiAliasPass();check(!old->live,"replacement retry skipped");
+    }else{
+        check(!old->live&&!old->uses,"replacement did not retire old owner");
+        check(scheduler.submits==before+1,"replacement added unexpected submissions");
+        check(scheduler.drains&&scheduler.polls,"missing checked retirement");
+        if(action=="refresh")check(cleared==7&&layer.raw_width==64,"refresh raw owners not replaced");
+        if(mode=="low"&&action=="aa")check(layer.anti_alias_setting==Settings::AntiAliasing::None,"low AA setting");
+    }
+    if(action=="aa"){
+        const auto expected=low?Settings::AntiAliasing::None:layer.filters.requested;
+        check(layer.anti_alias->Kind()==expected&&layer.anti_alias_setting==expected,"AA selection mismatch");
+    }
+    replacing=false;
+    std::fprintf(stderr,"PASS %s %s\n",argv[1],argv[2]);
+}

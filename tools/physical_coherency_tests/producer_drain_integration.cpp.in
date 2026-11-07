@@ -1,0 +1,57 @@
+#include <array>
+#include <cassert>
+#include <iostream>
+#include <shared_mutex>
+#include "core/hle/kernel/guest_execution_drain.h"
+namespace Kernel {
+struct PhysicalCore {
+    Common::ProducerDrain guest_execution;
+    auto TryCloseGuestExecution(u32 budget){return guest_execution.TryClose(budget);}
+    void RunThread(unsigned* thread) {
+        @GUEST_ENTRY@
+        ++*thread; // Mock backend, NOT ARM execution or the rest of RunThread.
+    }
+};
+class KernelCore {
+public:
+    struct Impl {std::array<std::unique_ptr<PhysicalCore>,Core::Hardware::NUM_CPU_CORES> cores;};
+    std::unique_ptr<Impl> impl=std::make_unique<Impl>();
+    KernelCore(){for(auto& core:impl->cores) core=std::make_unique<PhysicalCore>();}
+    std::optional<GuestExecutionDrain> TryCloseGuestExecution(u32 poll_budget) @KERNEL_BODY@
+    static bool ResumeCoreForTest(GuestExecutionDrain& drain,size_t index){return drain.cores[index]->ResumeNoEffects();}
+};
+}
+struct CpuOwner {
+    Common::ProducerDrain managed_stores;
+    mutable std::shared_mutex mutex;
+    unsigned target{},*memory=&target;
+    template<class Visit> bool TryVisit(Visit&& visit) const @VISIT_BODY@
+};
+int main(){
+    using R=Common::ProducerDrain::Result;
+    Kernel::KernelCore kernel;unsigned bytes=0;
+    for(auto& core:kernel.impl->cores) core->RunThread(&bytes);
+    assert(bytes==4);
+    auto inflight=kernel.impl->cores[3]->guest_execution.TryEnter();assert(inflight);
+    auto stop=kernel.TryCloseGuestExecution(8);assert(stop);
+    assert(stop->Poll()==R::Pending);assert(!stop->CancelNoEffects());
+    for(auto& core:kernel.impl->cores) core->RunThread(&bytes);
+    assert(bytes==4);inflight.reset();assert(stop->Poll()==R::DrainedSubset);
+    assert(stop->GuestBackingAdmission()==R::Unknown);assert(stop->CancelNoEffects());
+    for(auto& core:kernel.impl->cores) core->RunThread(&bytes);
+    assert(bytes==8);
+    CpuOwner host;assert(host.TryVisit([](unsigned& value){value=77;}));
+    auto close=host.managed_stores.TryClose();assert(close);
+    assert(!host.TryVisit([](unsigned& value){value=99;}));assert(host.target==77);
+    close->Quarantine();assert(!host.TryVisit([](auto&){}));assert(!close->ResumeNoEffects());
+    Kernel::KernelCore broken;broken.impl->cores[2].reset();
+    assert(!broken.TryCloseGuestExecution(8));assert(!broken.impl->cores[0]->guest_execution.TryEnter());
+    Kernel::KernelCore timeout;auto active=timeout.impl->cores[1]->guest_execution.TryEnter();assert(active);
+    auto uncertain=timeout.TryCloseGuestExecution(1);assert(uncertain);
+    assert(uncertain->Poll()==R::Unknown);
+    assert(!Kernel::KernelCore::ResumeCoreForTest(*uncertain,0));
+    assert(!Kernel::KernelCore::ResumeCoreForTest(*uncertain,2));
+    active.reset();assert(!uncertain->CancelNoEffects());
+    for(auto& core:timeout.impl->cores) assert(!core->guest_execution.TryEnter());
+    std::cout<<"PASS extracted kernel close factory, real guest entry prefix and complete controlled visitor; mock backend, full guest coverage Unknown\n";
+}

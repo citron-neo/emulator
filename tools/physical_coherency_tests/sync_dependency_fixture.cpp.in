@@ -1,0 +1,82 @@
+// Included in the actual-body scheduler/driver fixture, not a second dependency model.
+void TestSyncDependencies() {
+    using Scheduler = Vulkan::Scheduler;
+    for (int mode = 0; mode < 13; ++mode) {
+        auto s = std::make_unique<Scenario>();
+        Vulkan::StorageObserverHarness rasterizer{s->scheduler, s->runtime};
+        Vulkan::Buffer original{s->runtime, A, 4096}, replica{s->runtime, A, 4096};
+        auto coverage = rasterizer.storage_write_coverage;
+        auto record = [&](Vulkan::Buffer& buffer, u64 offset, u64 size) {
+            auto pin = buffer.PinStagedRepresentation(offset, size);
+            assert(pin);
+            auto physical = s->runtime.PhysicalIdentityForBinding(buffer, offset, size);
+            assert(physical);
+            Scheduler::WriteFootprint range{pin->RetainedOwner(), pin->Identity(), offset, size, 1,
+                physical, {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT}};
+            const auto writes = s->scheduler.RecordObservedWrites({&range, 1},
+                [pin = *pin, mode](vk::CommandBuffer command) {
+                    if (mode == 9) return false;
+                    command.FillBuffer(pin.Handle(), pin.Offset(), pin.Size(), 0x21212121);
+                    return true;
+                }, coverage);
+            assert(writes && writes->size() == 1);
+            return writes->front();
+        };
+        auto a = record(original, 0, 1024);
+        if (mode == 6) {
+            const VkMemoryBarrier first_barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr,
+                VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT};
+            s->scheduler.RecordProvenanceBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                                VK_PIPELINE_STAGE_TRANSFER_BIT, first_barrier);
+            (void)record(original, 0, 1024);
+            s->scheduler.SubmitExecution(nullptr, nullptr);
+            s->scheduler.RunWorker();
+            s->gpu.Complete(); // Both complete, but no producer-linked semaphore wait.
+            (void)record(original, 0, 1024); // Matching LOCAL positions must not cross submissions.
+        }
+        VkMemoryBarrier memory{VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr,
+            mode == 12 ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_MEMORY_WRITE_BIT,
+            VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT};
+        if (mode != 1) s->scheduler.RecordProvenanceBarrier(
+            mode == 2 ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TRANSFER_BIT,
+            mode == 3 ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TRANSFER_BIT,
+            memory);
+        if (mode == 11) for (int i = 0; i < 256; ++i)
+            s->scheduler.RecordProvenanceBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                                VK_PIPELINE_STAGE_TRANSFER_BIT, memory);
+        auto b = record(mode == 5 ? replica : original, mode == 4 ? 128 : 0, mode == 4 ? 512 : 1024);
+        const auto physical = a->HistoricalPhysicalIdentity()->Segments().front().physical_offset;
+        assert(!s->scheduler.HasConfirmedMemoryDependency(a, b, physical, 1024)); // Pending.
+        if (mode == 8) coverage->Invalidate();
+        coverage->Seal();
+        if (mode == 10) driver->submit_result = VK_ERROR_DEVICE_LOST;
+        bool device_lost = false;
+        try {
+            s->scheduler.SubmitExecution(nullptr, nullptr);
+            s->scheduler.RunWorker();
+        } catch (const vk::Exception& error) {
+            device_lost = error.GetResult() == VK_ERROR_DEVICE_LOST;
+        }
+        assert(device_lost == (mode == 10));
+        assert(driver->barriers == (mode == 1 ? 1u : mode == 6 ? 4u : mode == 11 ? 258u : 2u));
+        if (mode != 7) s->gpu.Complete();
+        assert(s->scheduler.HasConfirmedMemoryDependency(a, b, physical, 1024) == (mode == 0));
+        assert(!s->scheduler.HasConfirmedMemoryDependency(b, a, physical, 128));
+        assert(!s->scheduler.HasConfirmedMemoryDependency(a, a, physical, 128));
+        assert(!s->scheduler.HasConfirmedMemoryDependency(a, b, physical, 0));
+        assert(!s->scheduler.HasConfirmedMemoryDependency(a, b, ~u64{}, 2));
+        if (mode == 4) assert(s->scheduler.HasConfirmedMemoryDependency(a, b, physical + 128, 512));
+        if (mode == 5) {
+            assert(a->HistoricalPhysicalIdentity()->OverlapsPhysical(*b->HistoricalPhysicalIdentity()));
+            assert(a->ResourceIdentity() != b->ResourceIdentity());
+        }
+        if (mode == 0) {
+            s->scheduler.RetireCheckedWritesAfterDeviceIdle();
+            assert(!s->scheduler.HasConfirmedMemoryDependency(a, b, physical, 1024));
+        }
+    }
+    std::cout << "PASS actual-body sync dependency gate: real barrier recorder/command placement, "
+                 "wrong/missing stage/access/barrier, partial physical coverage, independent replica, "
+                 "separate submissions without semaphore wait, pending, skipped, device loss, "
+                 "incomplete coverage and overflow; driver execution is simulated\n";
+}

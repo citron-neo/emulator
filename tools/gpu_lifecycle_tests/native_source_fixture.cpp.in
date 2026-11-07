@@ -1,0 +1,268 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <array>
+#include <atomic>
+#include <condition_variable>
+#include <cstdlib>
+#include <future>
+#include <iostream>
+#include <limits>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <queue>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <vector>
+#include "common/common_types.h"
+#include "common/scope_exit.h"
+#include "common/terminal_fail_stop.h"
+#include "video_core/delayed_destruction_ring.h"
+#include "video_core/renderer_vulkan/vk_native_source_retainer.h"
+using VkResult=int;using VkImage=u64;using VkImageView=u64;using VkQueue=u64;using VkSemaphore=void*;
+using VkDescriptorSet=u64;using VkSampler=u64;
+constexpr int VK_SUCCESS=0,VK_NOT_READY=1,VK_TIMEOUT=2,VK_ERROR_UNKNOWN=-13,VK_ERROR_DEVICE_LOST=-4;
+constexpr int VK_ERROR_FEATURE_NOT_PRESENT=-8;
+constexpr int VK_STRUCTURE_TYPE_MEMORY_BARRIER=1,VK_ACCESS_TRANSFER_WRITE_BIT=2,VK_ACCESS_MEMORY_READ_BIT=4,
+    VK_ACCESS_MEMORY_WRITE_BIT=8,VK_PIPELINE_STAGE_TRANSFER_BIT=1,VK_PIPELINE_STAGE_ALL_COMMANDS_BIT=2;
+struct VkMemoryBarrier{int sType;void* pNext;int srcAccessMask,dstAccessMask;};
+#define CITRON_PROFILE_SCOPE(...) ((void)0)
+void Check(bool ok,const char* why){if(!ok){std::cerr<<"FAIL "<<why<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Gate{std::mutex mutex;std::condition_variable cv;bool ready{};
+    void Set(){std::scoped_lock l{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{mutex};Check(cv.wait_for(l,std::chrono::seconds(5),[&]{return ready;}),"gate timeout");}};
+struct State{bool alive=true;u64 id;std::weak_ptr<State> parent;};
+namespace Shader{enum class TextureType{Color2D};constexpr size_t NUM_TEXTURE_TYPES=1;}
+namespace Vulkan{
+namespace vk{
+struct Exception:std::exception{int result;explicit Exception(int r):result{r}{}int GetResult()const{return result;}};
+void Check(int r){if(r<0)throw Exception{r};}
+struct Resource{
+    std::shared_ptr<State> state;
+    explicit Resource(std::shared_ptr<State> s):state{std::move(s)}{}
+    Resource(Resource&&)=default;
+    ~Resource(){if(state){if(auto p=state->parent.lock())::Check(p->alive,"image destroyed before native view");std::cerr<<"DESTROY native "<<state->id<<'\n';state->alive=false;}}
+    u64 operator*()const{return state->id;}
+};
+using Image=Resource;using ImageView=Resource;
+struct CommandBuffer{void End(){}void PipelineBarrier(int,int,int,const VkMemoryBarrier&){};};
+}
+@PACKET@
+@INFO@
+struct MasterSemaphore{
+    u64 tick=1,complete{};int submit_result{},query_result{},wait_result{},submit_calls{};bool host_throw{};
+    struct Timeline{MasterSemaphore* master;bool enabled=true;explicit operator bool()const{return enabled;}
+        int GetCounterChecked(u64& value)const{value=master->complete;return master->query_result;}
+        int WaitChecked(u64,u64)const{return master->wait_result;}}semaphore{this};
+    std::mutex free_mutex;std::atomic<int> completion_failure{0};std::atomic<u64> gpu_tick{0};
+    u64 NextTick(){return tick++;}
+    int SubmitQueue(vk::CommandBuffer&,vk::CommandBuffer&,void*,void*,u64){++submit_calls;if(host_throw)throw 7;return submit_result;}
+    @POLL_TIMELINE@
+    @POLL_NATIVE@
+};
+struct Scheduler{
+    struct CheckedSubmission{
+        std::shared_ptr<std::atomic_bool> owner;
+        explicit CheckedSubmission(std::shared_ptr<std::atomic_bool> o):owner{std::move(o)}{}
+        std::atomic<int> result{VK_NOT_READY};std::atomic_bool queue_attempted{};VkQueue queue{};u64 tick{};
+        std::weak_ptr<CheckedSubmission> queue_predecessor;
+    };
+    using Submission=std::shared_ptr<CheckedSubmission>;
+    std::shared_ptr<std::atomic_bool> submission_owner=std::make_shared<std::atomic_bool>(true);
+    std::vector<Submission> receipts;
+    bool fail_receipt{},fail_enqueue{},native_resources_retired{};
+    NativeSourceRetainer<Submission> presentation_sources{[this]{if(fail_receipt)throw std::bad_alloc();auto r=std::make_shared<CheckedSubmission>(submission_owner);receipts.push_back(r);return r;}};
+    struct Device{struct Queue{u64 Handle()const{return 5;}}queue;const Queue& GetGraphicsQueue()const{return queue;}void ReportLoss(){}}device;
+    std::unique_ptr<MasterSemaphore> master_semaphore=std::make_unique<MasterSemaphore>();
+    std::jthread worker_thread;Submission observed_submission,last_accepted_submission;
+    std::condition_variable_any event_cv;
+    std::atomic_bool current_content_uncertain{};std::mutex submit_mutex;std::function<void()> on_submit;
+    std::vector<std::function<void(vk::CommandBuffer,vk::CommandBuffer)>> commands,worker_commands;
+    struct Chunk{void MarkSubmit(){}}chunk_value;Chunk* chunk=&chunk_value;
+    NativeSourceRetainer<Submission>::Scope BeginPresentationSources();
+    ~Scheduler();
+    void RequireNativeBorrowAdmission()const;
+    void RetainPresentationSource(std::shared_ptr<const void>);void TrackPresentationSources();
+    void CollectPresentationSources();bool RetirePresentationSourcesAfterDeviceIdle();
+    u64 SubmitExecution(void* =nullptr,void* =nullptr,Submission={});
+    void Finish(void* =nullptr,void* =nullptr);
+    void AllocateNewContext(){}
+    template<class T>void EnqueueCommand(T&& c){if(fail_enqueue)throw 7;commands.emplace_back(std::forward<T>(c));}
+    void DispatchWork(){for(auto& c:commands)worker_commands.push_back(std::move(c));commands.clear();}
+    void RunWorker(){auto work=std::move(worker_commands);worker_commands.clear();for(auto& c:work)c({},{});}
+    void EndPendingOperations(){}void InvalidateState(){}void RevokeTransferContentEligibility(){}
+    @RECORD@
+    template<class F>void Record(F f){RecordWithUploadBuffer([f=std::move(f)](vk::CommandBuffer c,vk::CommandBuffer){f(c);});}
+    void RequestOutsideRenderPassOperationContext(){}
+    void Wait(u64 tick){RunWorker();master_semaphore->complete=tick;master_semaphore->gpu_tick=tick;}
+    u64 CurrentTick()const{return master_semaphore->tick;}
+};
+@METHODS@
+@BEGIN@
+@FINISH@
+@DESTRUCTOR@
+struct Image{
+    std::shared_ptr<vk::Image> original_image,scaled_image;u64 current_image{};
+    @RETAIN_IMAGE@
+};
+struct View{
+    std::shared_ptr<const vk::Image> image_owner;
+    std::array<std::shared_ptr<vk::ImageView>,1> image_views;
+    u64 image_handle{};struct{u32 width=2,height=1;}size;
+    std::shared_ptr<vk::Image> null_image;
+    u64 ImageHandle()const{return image_handle;}
+    u64 Handle(Shader::TextureType)const{return **image_views[0];}
+    void CaptureImage(Image& image){ @VIEW_CAPTURE@ }
+    void CaptureNull(std::shared_ptr<vk::Image> image){null_image=std::move(image); @NULL_CAPTURE@ }
+    void StoreView(Shader::TextureType tex_type,vk::ImageView handle){ @VIEW_STORE@ }
+    @RETAIN_VIEW@
+};
+}
+namespace Settings{struct{struct{u32 ScaleUp(u32 v)const{return v;}}resolution_info;}values;}
+namespace Tegra{struct FramebufferConfig{u64 address=4096;u32 offset{},stride=2,width=2,height=1;std::optional<int>source_mapping{1};};}
+namespace Layout{struct FramebufferLayout{};}
+namespace Vulkan{
+struct RasterizerVulkan{
+    struct Cache{std::mutex mutex;Image image;View view;
+        auto TryFindFramebufferImageView(const Tegra::FramebufferConfig&,u64){return std::pair(&view,false);}}texture_cache;
+    struct Memory{template<class F>bool WithFrameMapping(int,u64,u64,F f){return f();}}device_memory;
+    struct Query{void NotifySegment(bool){}}query_cache;
+    std::optional<FramebufferTextureInfo> AccelerateDisplay(const Tegra::FramebufferConfig&,DAddr,u32);
+};
+@ACCELERATE@
+struct PresentPushConstants{};
+struct Layer{
+    bool post_upload_failed{};
+    Scheduler& scheduler;
+    struct Raw{u64 value{};u64 operator*()const{return value;}};
+    std::array<Raw,1>raw_images{},raw_image_views{};std::array<u64,1>resource_ticks{};
+    std::function<void()> prepare;
+    struct AA{std::function<void()> draw;void Draw(Scheduler&,size_t,u64*,u64*){draw();}}aa;
+    AA* anti_alias=&aa;
+    explicit Layer(Scheduler& s):scheduler{s}{}
+    void RefreshResources(const Tegra::FramebufferConfig&){if(prepare)prepare();}
+    void SetAntiAliasPass(){}bool UpdateRawImage(const Tegra::FramebufferConfig&,size_t){return false;}
+    bool ConfigureDraw(PresentPushConstants*,VkDescriptorSet*,RasterizerVulkan&,VkSampler,size_t,const Tegra::FramebufferConfig&,const Layout::FramebufferLayout&);
+};
+@LAYER@
+struct Frame{
+    std::shared_ptr<State> output_state=std::make_shared<State>();
+    std::unique_ptr<vk::Image> image;
+    Frame(){output_state->id=41;image=std::make_unique<vk::Image>(output_state);}
+    struct Fence{Gate entered,release;bool confirmed{};
+        int Wait(){entered.Set();release.Wait();confirmed=true;return 0;}void Reset(){Check(confirmed,"presentation output reused before native completion");}}present_done;
+};
+struct PresentManager{
+    std::queue<Frame*> free_queue;std::mutex free_mutex;std::condition_variable free_cv;
+    size_t frames_in_flight=1;bool limit_mailbox_frames=false;static constexpr size_t MAX_MAILBOX_FRAMES_IN_FLIGHT=2;
+    Frame* GetRenderFrame();void ReleaseRenderFrame(Frame*);
+};
+@GET_FRAME@
+@RELEASE_FRAME@
+}
+int main(int argc,char** argv){
+    const std::string mode=argc>1?argv[1]:"timeline";
+    using namespace Vulkan;Scheduler scheduler;RasterizerVulkan raster;
+    auto image_state=std::make_shared<State>();image_state->id=11;
+    auto scaled_state=std::make_shared<State>();scaled_state->id=21;
+    auto view_state=std::make_shared<State>();view_state->id=12;
+    raster.texture_cache.image.original_image=std::make_shared<vk::Image>(image_state);
+    raster.texture_cache.image.scaled_image=std::make_shared<vk::Image>(scaled_state);
+    raster.texture_cache.image.current_image=mode=="scaled"?21:11;
+    if(mode=="null-image")raster.texture_cache.view.CaptureNull(std::move(raster.texture_cache.image.original_image));
+    else raster.texture_cache.view.CaptureImage(raster.texture_cache.image);
+    const auto selected_state=mode=="scaled"?scaled_state:image_state;view_state->parent=selected_state;
+    raster.texture_cache.view.image_handle=raster.texture_cache.image.current_image;
+    raster.texture_cache.view.StoreView(Shader::TextureType::Color2D,vk::ImageView{view_state});
+    if(mode.starts_with("fallback"))scheduler.master_semaphore->semaphore.enabled=false;
+    auto assert_alive=[&]{Check(selected_state->alive&&view_state->alive,"native source destroyed before recording");};
+    auto complete=[&]{assert_alive();scheduler.master_semaphore->complete=scheduler.master_semaphore->tick-1;
+        scheduler.master_semaphore->gpu_tick=scheduler.master_semaphore->tick-1;};
+    auto flush_complete=[&]{scheduler.Finish();scheduler.CollectPresentationSources();};
+    if(mode=="closed-scope")*scheduler.submission_owner=false;
+    {
+        auto draw_scope=scheduler.BeginPresentationSources();
+        std::optional<decltype(draw_scope)> scope{std::move(draw_scope)};Layer layer{scheduler};
+        layer.prepare=[&]{
+            // Cache metadata disappears before actual consumer recording.
+            raster.texture_cache.view.null_image.reset();
+            raster.texture_cache.view.image_owner.reset();
+            raster.texture_cache.view.image_views[0].reset();
+            raster.texture_cache.image.original_image.reset();raster.texture_cache.image.scaled_image.reset();
+            if(mode=="preparation-finish")scheduler.Finish();
+            if(mode=="registration-failure")scheduler.fail_receipt=true;
+            if(mode=="closed-admission")*scheduler.submission_owner=false;
+        };
+        layer.aa.draw=[&]{
+            if(mode=="internal-flush"||mode=="fallback-internal-flush"||mode=="renewal-failure")flush_complete();
+            if(mode=="renewal-failure")scheduler.fail_receipt=true;
+            if(mode=="record-throw")scheduler.fail_enqueue=true;
+            if(mode=="closed-record")*scheduler.submission_owner=false;
+            scheduler.Record([&](vk::CommandBuffer){assert_alive();});
+        };
+        bool record_failed=false;
+        try{Check(layer.ConfigureDraw(nullptr,nullptr,raster,0,0,{},{}),"valid accelerated native source refused");}
+        catch(...){record_failed=true;Check(mode=="record-throw","unexpected source recording failure");}
+        if(mode=="partial-registration-failure"){
+            scheduler.SubmitExecution();scheduler.RunWorker();
+            auto parent=std::make_shared<State>();parent->id=31;
+            auto child=std::make_shared<State>();child->id=32;child->parent=parent;
+            auto second=std::make_shared<const PresentationSource>(std::make_shared<vk::Image>(parent),std::make_shared<vk::ImageView>(child));
+            scheduler.fail_receipt=true;scheduler.RetainPresentationSource(second);
+        }
+        if(mode=="inter-layer-flush")flush_complete();
+        // Final descriptor use is recorded after ConfigureDraw's local packet dies.
+        if(!record_failed)scheduler.Record([&](vk::CommandBuffer){assert_alive();});
+        if(mode=="idle-active")Check(!scheduler.RetirePresentationSourcesAfterDeviceIdle(),"open scheduler authorized idle owner retirement");
+    }
+    scheduler.CollectPresentationSources();
+    Check(selected_state->alive&&view_state->alive,"native source destroyed before recording");
+    if(mode=="shutdown-pending")Check(!scheduler.RetirePresentationSourcesAfterDeviceIdle(),"open scheduler authorized idle owner retirement");
+    if(mode=="shutdown-disposal")return 0;
+    if(mode!="unsubmitted"&&mode!="shutdown-worker"&&mode!="record-throw"){
+        if(mode=="queue-failure")scheduler.master_semaphore->submit_result=-4;
+        if(mode=="host-throw")scheduler.master_semaphore->host_throw=true;
+        scheduler.SubmitExecution();scheduler.CollectPresentationSources();assert_alive();
+        bool failed=false;try{scheduler.RunWorker();}catch(...){failed=true;}
+        Check(failed==(mode=="host-throw"||mode=="queue-failure"),"submission error behavior changed");
+        if(mode=="query-failure")scheduler.master_semaphore->query_result=-4;
+        if(mode=="wait-failure")scheduler.master_semaphore->wait_result=-4;
+        if(mode=="fallback-failure")scheduler.master_semaphore->completion_failure=-4;
+        if(mode=="fallback-reset-failure")scheduler.master_semaphore->completion_failure=-1;
+        if(mode=="wrong-queue")scheduler.receipts.back()->queue=99;
+        if(mode=="missing-attempt")scheduler.receipts.back()->queue_attempted=false;
+        scheduler.CollectPresentationSources();
+        Check(selected_state->alive&&view_state->alive,"native source released before native completion");
+        complete();
+        if(mode=="completed-on-next-begin"){
+            Check(selected_state->alive&&view_state->alive,"source retired without collection");
+            auto following=scheduler.BeginPresentationSources();
+        }else scheduler.CollectPresentationSources();
+        const bool uncertain=mode=="queue-failure"||mode=="host-throw"||mode=="query-failure"||mode=="wait-failure"||mode=="wrong-queue"||mode=="missing-attempt"||mode=="fallback-failure"||mode=="fallback-reset-failure";
+        if(uncertain)Check(selected_state->alive&&view_state->alive,"uncertain submission released source");
+        else Check(!selected_state->alive&&!view_state->alive,"completed native source retained indefinitely");
+    }
+    if(mode=="presentation"){
+        Frame frame;PresentManager present;present.ReleaseRenderFrame(&frame);
+        auto reuse=std::async(std::launch::async,[&]{return present.GetRenderFrame();});frame.present_done.entered.Wait();
+        Check(!selected_state->alive&&frame.output_state->alive&&!frame.present_done.confirmed,"source and presentation output lifetimes were conflated");
+        frame.present_done.release.Set();Check(reuse.get()==&frame,"presentation frame handoff failed");
+    }
+    if(mode=="shutdown-worker"){
+        Gate entered,release;
+        scheduler.worker_thread=std::jthread([&]{entered.Set();release.Wait();});entered.Wait();
+        *scheduler.submission_owner=false;
+        Check(!scheduler.RetirePresentationSourcesAfterDeviceIdle()&&selected_state->alive&&view_state->alive,
+              "active worker authorized native source release");
+        release.Set();scheduler.worker_thread.join();
+    }
+    // Controller supplies checked device idle only after closing future sources/work.
+    const bool no_submission=mode=="record-throw"||mode=="unsubmitted"||mode=="shutdown-worker";
+    const bool split_submission=mode=="internal-flush"||mode=="fallback-internal-flush"||mode=="preparation-finish"||mode=="inter-layer-flush";
+    Check(scheduler.master_semaphore->submit_calls==(no_submission?0:split_submission?2:1),"native owner tracking changed submission count");
+    *scheduler.submission_owner=false;
+    Check(scheduler.RetirePresentationSourcesAfterDeviceIdle(),"closed scheduler refused device-idle retirement");
+    Check(!selected_state->alive&&!view_state->alive,"idle retirement leaked source");
+    std::cout<<"PASS native source "<<mode<<'\n';
+}

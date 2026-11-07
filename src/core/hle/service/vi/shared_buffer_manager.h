@@ -5,6 +5,7 @@
 
 #include <map>
 
+#include "common/owned_retirement.h"
 #include "common/math_util.h"
 #include "core/hle/service/nvdrv/core/container.h"
 #include "core/hle/service/nvdrv/nvdata.h"
@@ -82,7 +83,21 @@ private:
     const std::shared_ptr<Nvidia::Module> m_nvdrv;
 };
 
+struct SharedBufferOwners {
+    std::shared_ptr<Nvidia::Module> module;
+    std::shared_ptr<Nvidia::NvCore::Container::SessionLifetime> process;
+    std::weak_ptr<android::BufferQueueProducer> live_producer;
+    std::shared_ptr<android::BufferQueueProducer> producer;
+    // Strong during creation and uncertain retirement only. Healthy committed
+    // sessions must not create a Container -> manager -> Container self-cycle.
+    std::shared_ptr<Container> container;
+};
+
 struct SharedBufferSession {
+    enum class Status { Creating, Ready, Unknown };
+    Status status{Status::Creating};
+    std::shared_ptr<SharedBufferOwners> owners;
+    Common::OwnedRetirementQueue::Owner retention;
     Nvidia::DeviceFD nvmap_fd = {};
     Nvidia::NvCore::SessionId session_id = {};
     u64 layer_id = {};

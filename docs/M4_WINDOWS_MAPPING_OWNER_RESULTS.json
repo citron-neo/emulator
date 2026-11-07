@@ -1,0 +1,1985 @@
+{
+  "date": "2026-10-27 Asia/Taipei",
+  "pull_request": "https://github.com/citron-neo/emulator/pull/375",
+  "branch": "codex/issue-372-fixes",
+  "initial_baseline": "e32d9d5f1a9d2e5f77bd69883dad8e69a1b57666",
+  "final_base": "9f4dc72c91e77e73f5c114b029531b4eb41da7c3",
+  "ci": "deferred; no inspection or dispatch",
+  "scope": "Restricted cold native owners and physical mapping admission only; no main/FFR checkout edits",
+  "summary": {
+    "baseline_processes": 6,
+    "mapping_processes": 18,
+    "native_owner_processes": 21,
+    "nvhost_owner_observations": 26,
+    "rearm_repeats": 3,
+    "strict_production_coff_objects": 8,
+    "physical_freeze": "Open; unsupported or escaped aliases refuse",
+    "guest_backing_admission": "Unknown",
+    "native_gpu_completion": "Unproved"
+  },
+  "candidate_sources_raw_sha256": {
+    "src/common/host_memory.h": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+    "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+    "src/common/host_mapping_domain.h": "979b9ee6c9780f82cf82cb90a235cdd4ca9ae7f40654d6a33d3245cdc6b79694",
+    "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+    "src/common/pinned_physical_memory.h": "b39399eec2de2703433acad85ec84e790ffa2c46978f5902b3936483733c9071",
+    "src/tests/common/windows_mapping_owner.cpp": "7ea6385f4c9485f9eaa2f3e86c896831429f96ab2424126f13931610735ceef6",
+    "src/tests/CMakeLists.txt": "30aa3940996a976cc09c7a9ead14187aead02184c0d66465a93fe9c14a58956d",
+    "tools/physical_coherency_tests/run_windows_mapping_owner_tests.py": "7eaf52d1cbed0ce9900e2a650ed005b22886286007cf4292f2e23cd6ec5ef4c1",
+    "tools/physical_coherency_tests/prepare_windows_mapping_owner_controls.py": "c4b047253be1b7b8ac1193c3479090360eae0b5aa93b986b2bde57aea460ca80",
+    "src/core/restricted_process_owner.h": "dce2e641bf6799a730c7100c32a78cb706cbf0d9a424b7604b15719030698c28",
+    "src/core/restricted_process_owner.cpp": "c0435921dfc3c7586a0c2e399fabb61385546ff99c752bdd62352cd712b81d54",
+    "src/core/restricted_process_renderer.h": "74207d30ade763756d2cc66d5a1de9fa084bf988dc61f79523ed876298afcefd",
+    "src/core/restricted_process_renderer.cpp": "823f98202bb48650b6c04fd6c80d5456e9ba185026fe4017017d88a2f0620256",
+    "src/core/core.h": "ddafa8f22f63c02b1ff12aef9370b8e31d8c15a19dadbeee89a420b48fdf2b59",
+    "src/core/core.cpp": "123964d78872528a90a99df018a961a2bbde96772bdb9f35b6e04b4122bb2096",
+    "src/core/hle/kernel/kernel.h": "23dd2f7985384bbc9a21fa96ce4dde12bcd72cd2ca22a7dfd8ed140d25b63488",
+    "src/core/hle/kernel/kernel.cpp": "88e32eed4339b321a75a9ca72072a4ae2adaaa837bf09c6f40227585b667790f",
+    "src/core/hle/kernel/k_event.cpp": "bf59b18affda1e49717e8fa01b673c47df5d868f51e9e4875f3dd78d94f2f5dc",
+    "src/core/hle/kernel/k_process.cpp": "69d795ff3a2cdaa8e29917ee03120f70f464a5fff4e1387d51fb00c24aaacf8b",
+    "src/core/hle/kernel/process_cohort_stop.cpp": "4a82749d5c8d4d4250285317c06c0667bdd4ca41daf98ad805b422bd4102bea2",
+    "src/core/hle/kernel/process_cohort_stop.h": "133ca868d6d92fc305bb99558bf2f254791b431de8aa1eae015e5185d5ef59c4",
+    "src/tests/core/restricted_process_owner.cpp": "4439297578f059c55ee6e78ddc06e01ebef16a163ffa5e857e8a7cd833b87fee",
+    "src/core/CMakeLists.txt": "aad6c5f9ed4198a26001106ae34e121bd8c23b6daf01f0a7fbfdeffdb4b013a2",
+    "tools/physical_coherency_tests/run_native_restricted_owner_tests.py": "9c49aaab12b013bab2a574e9702e90f1547cfa9fda56d4f735f2288dcf6c0144",
+    "tools/physical_coherency_tests/prepare_native_restricted_owner_control.py": "965b5117455eaac65eca99293051ef2ff9bdeaa274f8a45b51ef0852956576c2",
+    "src/common/owned_retirement.h": "bd1f8cbb8aa4f70d20ec0dbb9ac082b037285549fe76f61ec2195304c51f59ea",
+    "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+    "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+    "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+    "src/core/hle/service/nvdrv/core/container.cpp": "2e411d1242b67d5ac5ad90caf8437e598a074c7ce52d5ad45d884e6cd9089c55",
+    "src/core/hle/service/nvdrv/core/container.h": "7f7f117669e99242f84506994e2f3af3bb538a962ef0a0c1208d39cfb96bd562",
+    "src/core/hle/service/nvdrv/devices/ioctl_serialization.h": "bece04488995f5b7661b85b5da59b3c3dd2a64986be63610bb2d59b8cb1c9df1",
+    "src/core/hle/service/nvdrv/devices/nvdevice.h": "6e64a83c7fd48dca5cd6d1e5bf31630b916c3e8baaa459efede1e0bca11df19d",
+    "src/core/hle/service/nvdrv/devices/nvhost_ctrl.cpp": "720c4b3d3dd95cad246eb7c06160b26ac56c9265cfb806f3e9b5c8e420707e85",
+    "src/core/hle/service/nvdrv/devices/nvhost_ctrl.h": "757bcaf9cab1a952289073a309495c02813dd9b973bf66081e0ce580490ff43c",
+    "src/core/hle/service/nvdrv/nvdata.h": "c0988980252bba964f006a5656afde05047b0e698fe68307500a99af02af1960",
+    "src/core/hle/service/nvdrv/nvdrv.cpp": "4fab3fd80c82a2bab9235c770af11ffd3490c6d27c05a1b827b2702a13f26916",
+    "src/core/hle/service/nvdrv/nvdrv.h": "7323b096c941c67c72b333f1f619427af36b7ebf2d4a56e70e1ad67dd614870f",
+    "src/core/hle/service/nvdrv/nvdrv_interface.cpp": "e83703e6d8e6e125f61c2d39d3530e44f77311fc4fced9a81c45ce1970bd20b8",
+    "src/video_core/host1x/syncpoint_manager.cpp": "66f8154d5514292a68a5011a5cad011349581199260ff81fe2e9cc4c1621d13e",
+    "src/video_core/host1x/syncpoint_manager.h": "88c080ff6d193bfef4f20a6fb7b23c374551a2ae0a2563a7a8261af9b82735f1",
+    "tools/physical_coherency_tests/nvhost_ctrl_owner_candidate.json": "a086e67bcba9611429f36dd29827bca7b1262e74303b4a4ba527ba981b5c26a4",
+    "tools/physical_coherency_tests/nvhost_ctrl_owner_fixture.cpp.in": "62d10b64f1e530b8a7de6a9e8fda9fe763b723ace05d67b56de4603be6783a30",
+    "tools/physical_coherency_tests/run_nvhost_ctrl_owner_tests.py": "1b521c624abbf16d38aae7cf0c0575b48cc8390571bed672d8aa8e91475ed4d5",
+    "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+    "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+    "src/core/device_memory.cpp": "5c67e6a2b019b08bb070e7f54f8de5670bb4816755b9608d70950bdf195ce615",
+    "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+    "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+    "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+    "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+    "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+    "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+    "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+    "src/video_core/gpu.cpp": "e90eb0147d4069e325789a6fe362e25df57fc8ce804fb589d1bc115680cdf893",
+    "src/video_core/gpu.h": "b55625f616af2deb74407ec05104babd5712211c56dce28bad5c3b9f73b68786",
+    "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+    "src/video_core/memory_manager.h": "85146d67f5eafb4bd458132a9599f7b74722b3c511155fb830b74983da78fcb8",
+    "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+    "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+    "src/video_core/renderer_vulkan/present/layer.h": "a5ae6c6c6523f43de2bc0a7ed2c462c66daf489748f831a3805aae75d706878d",
+    "src/video_core/renderer_vulkan/vk_blit_screen.h": "aeebb35ff8bfedf20438c207d102175042680fb482b45baa5088c2fbbe9f01a6",
+    "src/video_core/renderer_vulkan/vk_master_semaphore.h": "33584679044080c5defd0ab256d879788736382ce825bcb86260013fc602c5b6",
+    "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+    "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+    "src/video_core/renderer_vulkan/vk_rasterizer.h": "d59ccb65cbbe53264bc1b00472c96518b8d4a17f3e25d8ad663cea05b06be357",
+    "src/video_core/renderer_vulkan/vk_scheduler.h": "6da3dbbc5741a059fab77f1e876c9c00fcf3fbf37efbe46841bc7cf50d081dc6",
+    "src/video_core/renderer_vulkan/vk_texture_cache.h": "02e5863edc34eed1c5f2d46f8c3f4f1c141821beffa393949bd76f321ff71125",
+    "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+    "tools/physical_coherency_tests/run_windows_production_checks.py": "69d52b57680415a9a85eb6a1e254cf6ab2cd970e482db676088f6f22913c6b8d",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.cpp": "b53f767c74896a811784252a4e01b9101dcf34fe1f4f7bae386ff1892dcd2f38",
+    "src/core/hle/service/nvdrv/core/syncpoint_manager.cpp": "e7ca4382142a9bde979db0a80912993d03a4fbb4fd8691bb1db83947bc2758f0",
+    "src/core/hle/service/nvdrv/core/syncpoint_manager.h": "e3ff05bf874058acd31b4be1db5579c68f5317136dfb84a750e325360d7d8b0f"
+  },
+  "candidate_sources_git_lf_sha256": {
+    "src/common/host_memory.h": "6d7636f6639adc554e2bb247566e9c24802585b52498db286ee7383149642b45",
+    "src/common/host_memory.cpp": "1bc0bbf7249f41e9c7f56e88ade4a7d1229ea0b53eb9b692c9a63b8e25aab205",
+    "src/common/host_mapping_domain.h": "22fce52d07cb07c27308e8d1cbcd2bdb2df94a1ce829fdada0f59709c482cc4b",
+    "src/common/retained_backing_storage.h": "228c6661913d504906dcd09e243d3471c6d9aa79613bbcd1cd8f4d373de56166",
+    "src/common/pinned_physical_memory.h": "a7aa364cf1c4c2a8fc2ad22f17261de4e6f2817cac0f0ef6dbf9b78e19715ff4",
+    "src/tests/common/windows_mapping_owner.cpp": "7ea6385f4c9485f9eaa2f3e86c896831429f96ab2424126f13931610735ceef6",
+    "src/tests/CMakeLists.txt": "82af2d0d51ce0273c9e38dc4031ee8f5fcfda5b4895470482a7f97f1b181bca4",
+    "tools/physical_coherency_tests/run_windows_mapping_owner_tests.py": "7eaf52d1cbed0ce9900e2a650ed005b22886286007cf4292f2e23cd6ec5ef4c1",
+    "tools/physical_coherency_tests/prepare_windows_mapping_owner_controls.py": "c4b047253be1b7b8ac1193c3479090360eae0b5aa93b986b2bde57aea460ca80",
+    "src/core/restricted_process_owner.h": "dce2e641bf6799a730c7100c32a78cb706cbf0d9a424b7604b15719030698c28",
+    "src/core/restricted_process_owner.cpp": "c0435921dfc3c7586a0c2e399fabb61385546ff99c752bdd62352cd712b81d54",
+    "src/core/restricted_process_renderer.h": "74207d30ade763756d2cc66d5a1de9fa084bf988dc61f79523ed876298afcefd",
+    "src/core/restricted_process_renderer.cpp": "823f98202bb48650b6c04fd6c80d5456e9ba185026fe4017017d88a2f0620256",
+    "src/core/core.h": "9e9ff5fea758f112ce2356c277d7315a29db6e0fff58d3637c19bfc1449544e5",
+    "src/core/core.cpp": "478f8f82e16783de15f977aab9c75496fa5bb0bd8da7d3d7920369336fa69161",
+    "src/core/hle/kernel/kernel.h": "492647c72d749d14cccaef0fc4de460f2319d0f6d929834f36313a1db08b39f3",
+    "src/core/hle/kernel/kernel.cpp": "70173620ed3c159af5c344e0b82cf07d78ad8608d4578f6374c8885beb588691",
+    "src/core/hle/kernel/k_event.cpp": "0207383a8a623c9975a944f70403389e9a397c4b3668af3ed127751402865d83",
+    "src/core/hle/kernel/k_process.cpp": "0f645f69661de1696acafc2ee234a1c42e78c8844a97e949bedde197ed0f1a20",
+    "src/core/hle/kernel/process_cohort_stop.cpp": "f7b0ab0d24a9186eb1480df65b4aea07099c7e2e5f25cdbcd7a1c75a896a2251",
+    "src/core/hle/kernel/process_cohort_stop.h": "c1715376db51ea0b7058b18c827d2581a320ba7d6e56a2a2ee744c31f7e5b06d",
+    "src/tests/core/restricted_process_owner.cpp": "4439297578f059c55ee6e78ddc06e01ebef16a163ffa5e857e8a7cd833b87fee",
+    "src/core/CMakeLists.txt": "1388e6a704b059505b081c06e8501f4bd73faf38de58ea606fc6c1afdbad983c",
+    "tools/physical_coherency_tests/run_native_restricted_owner_tests.py": "9c49aaab12b013bab2a574e9702e90f1547cfa9fda56d4f735f2288dcf6c0144",
+    "tools/physical_coherency_tests/prepare_native_restricted_owner_control.py": "965b5117455eaac65eca99293051ef2ff9bdeaa274f8a45b51ef0852956576c2",
+    "src/common/owned_retirement.h": "e42c389bc607a4fe8992df0688bbde7b2429d6dad81554e27f7b48fc9de51c24",
+    "src/common/producer_drain.h": "e3e9ed946cbb654043c047c36e5aa134733629b9f1fac3f3ce3901bf10a655cf",
+    "src/common/terminal_fail_stop.cpp": "59a9ba954eeb0350a68a4277a5273f7609c4a0ce8332f903213eb42f2c84cf7c",
+    "src/common/terminal_fail_stop.h": "d79d436eac47142264ef70cd70c7cd09bd5dcba639367dc0233851f7ee189f20",
+    "src/core/hle/service/nvdrv/core/container.cpp": "9d2cb310707ac0bd06f1ed30d3057ba5406440591542c3617c4d45a70a2eb67b",
+    "src/core/hle/service/nvdrv/core/container.h": "4391ded1478f4db2a4cb3e9758d9c19d951e0dcfefd3072a72b807d6efe4243b",
+    "src/core/hle/service/nvdrv/devices/ioctl_serialization.h": "cb5f652ad3a589ece4692fbd69014bfeca1da684a6a2c289c2aca690f2e76709",
+    "src/core/hle/service/nvdrv/devices/nvdevice.h": "68c4f511ff3ed262c0d884ead8c5921089d63e85bd236893816b6bb981206eb1",
+    "src/core/hle/service/nvdrv/devices/nvhost_ctrl.cpp": "be245aabdf66c399d8dc30fb66dc411afe0655df76658293c3cfd5af88cd2611",
+    "src/core/hle/service/nvdrv/devices/nvhost_ctrl.h": "e1663126416e4f0b7c00d2735dcbd08be516eabee8a28b65f20aba99adc52979",
+    "src/core/hle/service/nvdrv/nvdata.h": "8e5756034b016f190f17d143d721d77796130b7e44a7350563ffcaa47b6bed5a",
+    "src/core/hle/service/nvdrv/nvdrv.cpp": "ef155beff5c3bdbe06bd2412d81023f234d844ab030f33f0ca1e7a5760522606",
+    "src/core/hle/service/nvdrv/nvdrv.h": "b83a1d2eaf727d4286010cce51a3d4e3e421d05ffa10f8fd896ddb666a8f1473",
+    "src/core/hle/service/nvdrv/nvdrv_interface.cpp": "e07ca17d42388166a1d57477a2b56cc8f8c88de807bc8cd76ce501e436068fb8",
+    "src/video_core/host1x/syncpoint_manager.cpp": "ce1a6d0bf0fe681cc2da4d80a957b37397268261cd55fe4e30244825117bb0b9",
+    "src/video_core/host1x/syncpoint_manager.h": "88c080ff6d193bfef4f20a6fb7b23c374551a2ae0a2563a7a8261af9b82735f1",
+    "tools/physical_coherency_tests/nvhost_ctrl_owner_candidate.json": "77ae333a005b8593efc31c9c0a20b5bba0b26be4e3e2bfbdb0cf8ed2f313f8fa",
+    "tools/physical_coherency_tests/nvhost_ctrl_owner_fixture.cpp.in": "d0e64135c2159227a41cd92f5bfd5dfbf22d76eb92531c67d0c6521acc9054a3",
+    "tools/physical_coherency_tests/run_nvhost_ctrl_owner_tests.py": "1b521c624abbf16d38aae7cf0c0575b48cc8390571bed672d8aa8e91475ed4d5",
+    "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+    "src/common/terminal_ingress.h": "184102c599ff77014512996218a965d83f15b9d7dc7e0bcfde62c7bd1af186ed",
+    "src/core/device_memory.cpp": "5c3cb273ff98c8757662670c5d1bff75601090bbd5811725ae506239731a017f",
+    "src/core/device_memory_manager.h": "4c91627f0eae285412bcafa9bff0050b020eafce9cd86701abeeff94967268f5",
+    "src/core/device_memory_manager.inc": "2cbdb107bee460e1d9d843039c8831048d15e30b3f7e1dfc77bc40e11637349f",
+    "src/core/hle/service/nvdrv/core/nvmap.h": "356612c09918dd336a6299db586b7a60fee48d21957e9f240c46a762d132d89f",
+    "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "6aa054515312dad923a50fafe8676eb789d775a6049f895d1564c150fb2c5738",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "69bab440d56023e630ff67fddc4c96d2373da90e110c8d5a600f8cc920da134f",
+    "src/video_core/acknowledged_callback.h": "80b716b154fde5b8134903d93f7b3b598aeb74b8c5c9834993a70e52ae6a9314",
+    "src/video_core/control/channel_state.h": "0304c0cce92d247e0895bdbc0ca9cfe7d0c163239b9ad4584c2e213addd5eca5",
+    "src/video_core/framebuffer_config.h": "347a806c4b2b71bb17ff0b290218bb8da81ecaef56dc5ae18292fbc3bbe0a647",
+    "src/video_core/gpu.cpp": "3603e2493f429b4dab03d3b645840dfc4294e22dd05ebf541038ccc5445d9966",
+    "src/video_core/gpu.h": "5b7768ebda9e6d8e436f42800cf37af4bf56e48f3decc4187f85ec13732ac312",
+    "src/video_core/gpu_thread.h": "22173347e472f2a280dfd776190a4315e4e654561004e045289b2b1a2e8058cf",
+    "src/video_core/memory_manager.h": "bc762f561d3f6c059d629440baf50995acab568a5ed9ce5681ad54cae0389f63",
+    "src/video_core/rasterizer_binding_state.h": "67ea10e23d7fdc0260e1037b19290c61ff1e6b7cd2953e9f5ce3ed084af7f421",
+    "src/video_core/rasterizer_interface.h": "719c851ed4742932a90ea5a8f509c621d893d0cf13146141eea76f2d4229d6b0",
+    "src/video_core/renderer_vulkan/present/layer.h": "ea9a4b0bc9c40407f577dad1df8ad91fafd865e74b19d354640febb53dadf868",
+    "src/video_core/renderer_vulkan/vk_blit_screen.h": "228c1b1cb53e8d4df25e10eed6317a591273e856e19fe04b92c490b7a9d63a38",
+    "src/video_core/renderer_vulkan/vk_master_semaphore.h": "71f816cb2e4d2917d3e2e5bf2b890f093dcceeb94ec64183ab14b891ad1652c4",
+    "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+    "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+    "src/video_core/renderer_vulkan/vk_rasterizer.h": "0f21f1a38c5235c28d4e1eca86c298fdaf88887752a62ce4fd815ae1081d2da5",
+    "src/video_core/renderer_vulkan/vk_scheduler.h": "b9bc5816762b8672498a486dde3352b7b4a2693aaceb21935ca5633a8a8ced36",
+    "src/video_core/renderer_vulkan/vk_texture_cache.h": "ce866b1e084cbd5ca25490d0290149e663023c1c23f346b237f70e17f5fb7f73",
+    "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+    "tools/physical_coherency_tests/run_windows_production_checks.py": "395db17a4c9873605ef9625d26701362a3962cc1fdc3a83548a5334cc0bd0030",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.cpp": "92bd5511ceb930e5f90a33223c7465e6983e4397f26c7f0953e1988133d8a1b9",
+    "src/core/hle/service/nvdrv/core/syncpoint_manager.cpp": "3008a777940ba489e2c4d575e686d2acb29903d9e72def422d4a3fa19d6c97a5",
+    "src/core/hle/service/nvdrv/core/syncpoint_manager.h": "6deefdbb21cc984f9df0ebce53762da3bccd4d31550aab393a4b271b000dce09"
+  },
+  "hash_conventions": "Rearm harness hashes normalized UTF-8 text; other accepted source manifests hash raw files. Both final forms verified.",
+  "mapping_baseline": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "revision": "e32d9d5f1a9d2e5f77bd69883dad8e69a1b57666",
+    "baseline": true,
+    "records": [
+      {
+        "name": "baseline-witness",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-build\\bin\\windows_mapping_owner_tests.exe",
+          "--expect-vulnerable"
+        ],
+        "expected_exit": 42,
+        "actual_exit": 42,
+        "marker": "WITNESS post-move first export bypasses the transferred owner",
+        "passed": true,
+        "log": "baseline-witness-0.log",
+        "binary_sha256": "17987d80aa7671231f7598eea83f3603b4d1e3dfee5af454d2bd700115b6acc8"
+      },
+      {
+        "name": "baseline-witness",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-build\\bin\\windows_mapping_owner_tests.exe",
+          "--expect-vulnerable"
+        ],
+        "expected_exit": 42,
+        "actual_exit": 42,
+        "marker": "WITNESS post-move first export bypasses the transferred owner",
+        "passed": true,
+        "log": "baseline-witness-1.log",
+        "binary_sha256": "17987d80aa7671231f7598eea83f3603b4d1e3dfee5af454d2bd700115b6acc8"
+      },
+      {
+        "name": "baseline-witness",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-build\\bin\\windows_mapping_owner_tests.exe",
+          "--expect-vulnerable"
+        ],
+        "expected_exit": 42,
+        "actual_exit": 42,
+        "marker": "WITNESS post-move first export bypasses the transferred owner",
+        "passed": true,
+        "log": "baseline-witness-2.log",
+        "binary_sha256": "17987d80aa7671231f7598eea83f3603b4d1e3dfee5af454d2bd700115b6acc8"
+      },
+      {
+        "name": "baseline-reject-fixed",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-build\\bin\\windows_mapping_owner_tests.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "baseline-reject-fixed-0.log",
+        "binary_sha256": "17987d80aa7671231f7598eea83f3603b4d1e3dfee5af454d2bd700115b6acc8"
+      },
+      {
+        "name": "baseline-reject-fixed",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-build\\bin\\windows_mapping_owner_tests.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "baseline-reject-fixed-1.log",
+        "binary_sha256": "17987d80aa7671231f7598eea83f3603b4d1e3dfee5af454d2bd700115b6acc8"
+      },
+      {
+        "name": "baseline-reject-fixed",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-build\\bin\\windows_mapping_owner_tests.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "baseline-reject-fixed-2.log",
+        "binary_sha256": "17987d80aa7671231f7598eea83f3603b4d1e3dfee5af454d2bd700115b6acc8"
+      }
+    ],
+    "passed": true,
+    "sha256": {
+      "src/common/host_memory.h": "21fce2bb22eed15e61f127826d22a4a0daf3b31fbd5bb8c21c43ed0dd962b5dd",
+      "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "src/common/host_mapping_domain.h": "979b9ee6c9780f82cf82cb90a235cdd4ca9ae7f40654d6a33d3245cdc6b79694",
+      "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+      "src/common/pinned_physical_memory.h": "b39399eec2de2703433acad85ec84e790ffa2c46978f5902b3936483733c9071",
+      "src/tests/common/windows_mapping_owner.cpp": "7ea6385f4c9485f9eaa2f3e86c896831429f96ab2424126f13931610735ceef6",
+      "src/tests/CMakeLists.txt": "30aa3940996a976cc09c7a9ead14187aead02184c0d66465a93fe9c14a58956d",
+      "tools/physical_coherency_tests/run_windows_mapping_owner_tests.py": "5ccb554119c40368c471dd2b4aa81367db7122cf9768d8bedb450cf7808a5893"
+    },
+    "boundary": "Actual common library and Windows Kernelbase maps; Windows freeze remains unsupported/refused; no physical isolation, GPU or guest admission",
+    "preserved_logs": {
+      "baseline-reject-fixed-0.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "baseline-reject-fixed-1.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "baseline-reject-fixed-2.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "baseline-witness-0.log": "WITNESS post-move first export bypasses the transferred owner\n\nWITNESS moved-from facade exports four unowned raw pointers\n\nPASS real Windows alias/remap/protection/retained-allocation effects; all unproved freezes refuse\n\nCOMPLETE native mapping teardown\n\n",
+      "baseline-witness-1.log": "WITNESS post-move first export bypasses the transferred owner\n\nWITNESS moved-from facade exports four unowned raw pointers\n\nPASS real Windows alias/remap/protection/retained-allocation effects; all unproved freezes refuse\n\nCOMPLETE native mapping teardown\n\n",
+      "baseline-witness-2.log": "WITNESS post-move first export bypasses the transferred owner\n\nWITNESS moved-from facade exports four unowned raw pointers\n\nPASS real Windows alias/remap/protection/retained-allocation effects; all unproved freezes refuse\n\nCOMPLETE native mapping teardown\n\n"
+    }
+  },
+  "mapping_final": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "revision": "9f4dc72c91e77e73f5c114b029531b4eb41da7c3",
+    "baseline": false,
+    "records": [
+      {
+        "name": "positive",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\windows_mapping_owner_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "marker": "COMPLETE native mapping teardown",
+        "passed": true,
+        "log": "positive-0.log",
+        "binary_sha256": "41794b265e9f5e213c271835d8056113ef6fb9322b737d8f964f71b9fb3750ba"
+      },
+      {
+        "name": "positive",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\windows_mapping_owner_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "marker": "COMPLETE native mapping teardown",
+        "passed": true,
+        "log": "positive-1.log",
+        "binary_sha256": "41794b265e9f5e213c271835d8056113ef6fb9322b737d8f964f71b9fb3750ba"
+      },
+      {
+        "name": "positive",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\windows_mapping_owner_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "marker": "COMPLETE native mapping teardown",
+        "passed": true,
+        "log": "positive-2.log",
+        "binary_sha256": "41794b265e9f5e213c271835d8056113ef6fb9322b737d8f964f71b9fb3750ba"
+      },
+      {
+        "name": "backing_mutable",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_backing_mutable.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "backing_mutable-0.log",
+        "binary_sha256": "59d646a84be6c73ae5cd7afc0e9d08ddd07b3e3cd34fda4a6cb201b28a0e6f7c"
+      },
+      {
+        "name": "backing_mutable",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_backing_mutable.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "backing_mutable-1.log",
+        "binary_sha256": "59d646a84be6c73ae5cd7afc0e9d08ddd07b3e3cd34fda4a6cb201b28a0e6f7c"
+      },
+      {
+        "name": "backing_mutable",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_backing_mutable.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "backing_mutable-2.log",
+        "binary_sha256": "59d646a84be6c73ae5cd7afc0e9d08ddd07b3e3cd34fda4a6cb201b28a0e6f7c"
+      },
+      {
+        "name": "backing_const",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_backing_const.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "backing_const-0.log",
+        "binary_sha256": "8e93769133bf7c9e8e7611c01990c911e0434ec8be3b948fc8ee1f75901a7366"
+      },
+      {
+        "name": "backing_const",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_backing_const.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "backing_const-1.log",
+        "binary_sha256": "8e93769133bf7c9e8e7611c01990c911e0434ec8be3b948fc8ee1f75901a7366"
+      },
+      {
+        "name": "backing_const",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_backing_const.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "backing_const-2.log",
+        "binary_sha256": "8e93769133bf7c9e8e7611c01990c911e0434ec8be3b948fc8ee1f75901a7366"
+      },
+      {
+        "name": "virtual_mutable",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_virtual_mutable.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "virtual_mutable-0.log",
+        "binary_sha256": "b66807026560076ea6ccc4bf375c1a754f5be176ba94ce0826d5b3b96e6545ea"
+      },
+      {
+        "name": "virtual_mutable",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_virtual_mutable.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "virtual_mutable-1.log",
+        "binary_sha256": "b66807026560076ea6ccc4bf375c1a754f5be176ba94ce0826d5b3b96e6545ea"
+      },
+      {
+        "name": "virtual_mutable",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_virtual_mutable.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "virtual_mutable-2.log",
+        "binary_sha256": "b66807026560076ea6ccc4bf375c1a754f5be176ba94ce0826d5b3b96e6545ea"
+      },
+      {
+        "name": "virtual_const",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_virtual_const.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "virtual_const-0.log",
+        "binary_sha256": "f66d513f1189f89f601c176fd9479003d2fa8e2c99b3d6a4f403b4522d59b9d3"
+      },
+      {
+        "name": "virtual_const",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_virtual_const.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "virtual_const-1.log",
+        "binary_sha256": "f66d513f1189f89f601c176fd9479003d2fa8e2c99b3d6a4f403b4522d59b9d3"
+      },
+      {
+        "name": "virtual_const",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_virtual_const.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: moved-from-pointer",
+        "passed": true,
+        "log": "virtual_const-2.log",
+        "binary_sha256": "f66d513f1189f89f601c176fd9479003d2fa8e2c99b3d6a4f403b4522d59b9d3"
+      },
+      {
+        "name": "windows_enrollment",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_windows_enrollment.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: unsupported-windows-freeze-refusal",
+        "passed": true,
+        "log": "windows_enrollment-0.log",
+        "binary_sha256": "1bff1039bab75ab5458521668be40619c0dd19145e4062a1c5ef13694cb4a297"
+      },
+      {
+        "name": "windows_enrollment",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_windows_enrollment.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: unsupported-windows-freeze-refusal",
+        "passed": true,
+        "log": "windows_enrollment-1.log",
+        "binary_sha256": "1bff1039bab75ab5458521668be40619c0dd19145e4062a1c5ef13694cb4a297"
+      },
+      {
+        "name": "windows_enrollment",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\mapping_owner_windows_enrollment.exe"
+        ],
+        "expected_exit": 91,
+        "actual_exit": 91,
+        "marker": "MAPPING OWNER CHECK: unsupported-windows-freeze-refusal",
+        "passed": true,
+        "log": "windows_enrollment-2.log",
+        "binary_sha256": "1bff1039bab75ab5458521668be40619c0dd19145e4062a1c5ef13694cb4a297"
+      }
+    ],
+    "passed": true,
+    "sha256": {
+      "src/common/host_memory.h": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+      "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "src/common/host_mapping_domain.h": "979b9ee6c9780f82cf82cb90a235cdd4ca9ae7f40654d6a33d3245cdc6b79694",
+      "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+      "src/common/pinned_physical_memory.h": "b39399eec2de2703433acad85ec84e790ffa2c46978f5902b3936483733c9071",
+      "src/tests/common/windows_mapping_owner.cpp": "7ea6385f4c9485f9eaa2f3e86c896831429f96ab2424126f13931610735ceef6",
+      "src/tests/CMakeLists.txt": "30aa3940996a976cc09c7a9ead14187aead02184c0d66465a93fe9c14a58956d",
+      "tools/physical_coherency_tests/run_windows_mapping_owner_tests.py": "7eaf52d1cbed0ce9900e2a650ed005b22886286007cf4292f2e23cd6ec5ef4c1",
+      "tools/physical_coherency_tests/prepare_windows_mapping_owner_controls.py": "c4b047253be1b7b8ac1193c3479090360eae0b5aa93b986b2bde57aea460ca80"
+    },
+    "boundary": "Actual common library and Windows Kernelbase maps; Windows freeze remains unsupported/refused; no physical isolation, GPU or guest admission",
+    "preserved_logs": {
+      "backing_const-0.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "backing_const-1.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "backing_const-2.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "backing_mutable-0.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "backing_mutable-1.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "backing_mutable-2.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "positive-0.log": "PASS real Windows alias/remap/protection/retained-allocation effects; all unproved freezes refuse\n\nCOMPLETE native mapping teardown\n\n",
+      "positive-1.log": "PASS real Windows alias/remap/protection/retained-allocation effects; all unproved freezes refuse\n\nCOMPLETE native mapping teardown\n\n",
+      "positive-2.log": "PASS real Windows alias/remap/protection/retained-allocation effects; all unproved freezes refuse\n\nCOMPLETE native mapping teardown\n\n",
+      "virtual_const-0.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "virtual_const-1.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "virtual_const-2.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "virtual_mutable-0.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "virtual_mutable-1.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "virtual_mutable-2.log": "MAPPING OWNER CHECK: moved-from-pointer\n\n",
+      "windows_enrollment-0.log": "MAPPING OWNER CHECK: unsupported-windows-freeze-refusal\n\n",
+      "windows_enrollment-1.log": "MAPPING OWNER CHECK: unsupported-windows-freeze-refusal\n\n",
+      "windows_enrollment-2.log": "MAPPING OWNER CHECK: unsupported-windows-freeze-refusal\n\n"
+    }
+  },
+  "native_owner_final": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+    "baseline": "9f4dc72c91e77e73f5c114b029531b4eb41da7c3",
+    "binary_sha256": "172796f90b1cc7711b8a6feb6079fe2fa06842e27fdb5cf25500235b29a77ac0",
+    "sources_sha256": {
+      "src/core/restricted_process_owner.h": "dce2e641bf6799a730c7100c32a78cb706cbf0d9a424b7604b15719030698c28",
+      "src/core/restricted_process_owner.cpp": "c0435921dfc3c7586a0c2e399fabb61385546ff99c752bdd62352cd712b81d54",
+      "src/core/restricted_process_renderer.h": "74207d30ade763756d2cc66d5a1de9fa084bf988dc61f79523ed876298afcefd",
+      "src/core/restricted_process_renderer.cpp": "823f98202bb48650b6c04fd6c80d5456e9ba185026fe4017017d88a2f0620256",
+      "src/common/host_memory.h": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+      "src/core/core.h": "ddafa8f22f63c02b1ff12aef9370b8e31d8c15a19dadbeee89a420b48fdf2b59",
+      "src/core/core.cpp": "123964d78872528a90a99df018a961a2bbde96772bdb9f35b6e04b4122bb2096",
+      "src/core/hle/kernel/kernel.h": "23dd2f7985384bbc9a21fa96ce4dde12bcd72cd2ca22a7dfd8ed140d25b63488",
+      "src/core/hle/kernel/kernel.cpp": "88e32eed4339b321a75a9ca72072a4ae2adaaa837bf09c6f40227585b667790f",
+      "src/core/hle/kernel/k_event.cpp": "bf59b18affda1e49717e8fa01b673c47df5d868f51e9e4875f3dd78d94f2f5dc",
+      "src/core/hle/kernel/k_process.cpp": "69d795ff3a2cdaa8e29917ee03120f70f464a5fff4e1387d51fb00c24aaacf8b",
+      "src/core/hle/kernel/process_cohort_stop.cpp": "4a82749d5c8d4d4250285317c06c0667bdd4ca41daf98ad805b422bd4102bea2",
+      "src/core/hle/kernel/process_cohort_stop.h": "133ca868d6d92fc305bb99558bf2f254791b431de8aa1eae015e5185d5ef59c4",
+      "src/tests/core/restricted_process_owner.cpp": "4439297578f059c55ee6e78ddc06e01ebef16a163ffa5e857e8a7cd833b87fee",
+      "src/core/CMakeLists.txt": "aad6c5f9ed4198a26001106ae34e121bd8c23b6daf01f0a7fbfdeffdb4b013a2",
+      "src/tests/CMakeLists.txt": "30aa3940996a976cc09c7a9ead14187aead02184c0d66465a93fe9c14a58956d",
+      "tools/physical_coherency_tests/run_native_restricted_owner_tests.py": "9c49aaab12b013bab2a574e9702e90f1547cfa9fda56d4f735f2288dcf6c0144",
+      "tools/physical_coherency_tests/prepare_native_restricted_owner_control.py": "965b5117455eaac65eca99293051ef2ff9bdeaa274f8a45b51ef0852956576c2"
+    },
+    "repeats_requested": 3,
+    "records": [
+      {
+        "name": "native-owner",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-restricted-owner]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "required_marker": "All tests passed",
+        "passed": true,
+        "log": "0-native-owner.log"
+      },
+      {
+        "name": "unknown-owner",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-unknown]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "required_marker": "All tests passed",
+        "passed": true,
+        "log": "0-unknown-owner.log"
+      },
+      {
+        "name": "unpolled-owner",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-unpolled]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "required_marker": "All tests passed",
+        "passed": true,
+        "log": "0-unpolled-owner.log"
+      },
+      {
+        "name": "forbidden-gpu",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-forbidden-gpu]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 86,
+        "actual_exit": 86,
+        "required_marker": "stage=restricted_owner.renderer reason=submission_forbidden",
+        "passed": true,
+        "log": "0-forbidden-gpu.log"
+      },
+      {
+        "name": "foreign-owner-release",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-terminal]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 86,
+        "actual_exit": 86,
+        "required_marker": "stage=restricted_owner.release reason=wrong_thread",
+        "passed": true,
+        "log": "0-foreign-owner-release.log"
+      },
+      {
+        "name": "foreign-cohort-release",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-cohort-terminal]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 86,
+        "actual_exit": 86,
+        "required_marker": "stage=restricted_owner.cohort_release reason=wrong_thread",
+        "passed": true,
+        "log": "0-foreign-cohort-release.log"
+      },
+      {
+        "name": "native-owner",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-restricted-owner]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "required_marker": "All tests passed",
+        "passed": true,
+        "log": "1-native-owner.log"
+      },
+      {
+        "name": "unknown-owner",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-unknown]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "required_marker": "All tests passed",
+        "passed": true,
+        "log": "1-unknown-owner.log"
+      },
+      {
+        "name": "unpolled-owner",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-unpolled]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "required_marker": "All tests passed",
+        "passed": true,
+        "log": "1-unpolled-owner.log"
+      },
+      {
+        "name": "forbidden-gpu",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-forbidden-gpu]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 86,
+        "actual_exit": 86,
+        "required_marker": "stage=restricted_owner.renderer reason=submission_forbidden",
+        "passed": true,
+        "log": "1-forbidden-gpu.log"
+      },
+      {
+        "name": "foreign-owner-release",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-terminal]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 86,
+        "actual_exit": 86,
+        "required_marker": "stage=restricted_owner.release reason=wrong_thread",
+        "passed": true,
+        "log": "1-foreign-owner-release.log"
+      },
+      {
+        "name": "foreign-cohort-release",
+        "repeat": 1,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-cohort-terminal]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 86,
+        "actual_exit": 86,
+        "required_marker": "stage=restricted_owner.cohort_release reason=wrong_thread",
+        "passed": true,
+        "log": "1-foreign-cohort-release.log"
+      },
+      {
+        "name": "native-owner",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-restricted-owner]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "required_marker": "All tests passed",
+        "passed": true,
+        "log": "2-native-owner.log"
+      },
+      {
+        "name": "unknown-owner",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-unknown]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "required_marker": "All tests passed",
+        "passed": true,
+        "log": "2-unknown-owner.log"
+      },
+      {
+        "name": "unpolled-owner",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-unpolled]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 0,
+        "required_marker": "All tests passed",
+        "passed": true,
+        "log": "2-unpolled-owner.log"
+      },
+      {
+        "name": "forbidden-gpu",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-forbidden-gpu]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 86,
+        "actual_exit": 86,
+        "required_marker": "stage=restricted_owner.renderer reason=submission_forbidden",
+        "passed": true,
+        "log": "2-forbidden-gpu.log"
+      },
+      {
+        "name": "foreign-owner-release",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-owner-terminal]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 86,
+        "actual_exit": 86,
+        "required_marker": "stage=restricted_owner.release reason=wrong_thread",
+        "passed": true,
+        "log": "2-foreign-owner-release.log"
+      },
+      {
+        "name": "foreign-cohort-release",
+        "repeat": 2,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-english\\bin\\restricted_process_owner_tests.exe",
+          "[native-cohort-terminal]",
+          "--colour-mode",
+          "none"
+        ],
+        "expected_exit": 86,
+        "actual_exit": 86,
+        "required_marker": "stage=restricted_owner.cohort_release reason=wrong_thread",
+        "passed": true,
+        "log": "2-foreign-cohort-release.log"
+      }
+    ],
+    "mutant_records": [
+      {
+        "repeat": 0,
+        "actual_exit": 91,
+        "passed": true,
+        "log": "0-missing-foundation.log"
+      },
+      {
+        "repeat": 1,
+        "actual_exit": 91,
+        "passed": true,
+        "log": "1-missing-foundation.log"
+      },
+      {
+        "repeat": 2,
+        "actual_exit": 91,
+        "passed": true,
+        "log": "2-missing-foundation.log"
+      }
+    ],
+    "mutant_binary_sha256": "6134a8a73d01539a54283626db024d98e4344833596d6861cf4a9d285a0d6ce4",
+    "passed": true,
+    "evidence_scope": "Native Windows real kernel owner lifetime only; guest backing admission Unknown",
+    "preserved_logs": {
+      "0-forbidden-gpu.log": "Filters: [native-owner-forbidden-gpu]\n\nRandomness seeded to: 1205292934\n\nCITRON TERMINAL FAIL-STOP stage=restricted_owner.renderer reason=submission_forbidden vk_result=unavailable\n",
+      "0-foreign-cohort-release.log": "Filters: [native-cohort-terminal]\n\nRandomness seeded to: 1602988472\n\nCITRON TERMINAL FAIL-STOP stage=restricted_owner.cohort_release reason=wrong_thread vk_result=unavailable\n",
+      "0-foreign-owner-release.log": "Filters: [native-owner-terminal]\n\nRandomness seeded to: 576161247\n\nCITRON TERMINAL FAIL-STOP stage=restricted_owner.release reason=wrong_thread vk_result=unavailable\n",
+      "0-missing-foundation.log": "Filters: [native-restricted-owner]\n\nRandomness seeded to: 3045148123\n\nNATIVE OWNER WITNESS: cohort foundation retired early\n\n",
+      "0-native-owner.log": "Filters: [native-restricted-owner]\n\nRandomness seeded to: 3537891453\n\n===============================================================================\n\nAll tests passed (35 assertions in 1 test case)\n\n\n\n",
+      "0-unknown-owner.log": "Filters: [native-owner-unknown]\n\nRandomness seeded to: 457832893\n\n===============================================================================\n\nAll tests passed (8 assertions in 1 test case)\n\n\n\n",
+      "0-unpolled-owner.log": "Filters: [native-owner-unpolled]\n\nRandomness seeded to: 3222512992\n\n===============================================================================\n\nAll tests passed (5 assertions in 1 test case)\n\n\n\n",
+      "1-forbidden-gpu.log": "Filters: [native-owner-forbidden-gpu]\n\nRandomness seeded to: 538995389\n\nCITRON TERMINAL FAIL-STOP stage=restricted_owner.renderer reason=submission_forbidden vk_result=unavailable\n",
+      "1-foreign-cohort-release.log": "Filters: [native-cohort-terminal]\n\nRandomness seeded to: 3737623102\n\nCITRON TERMINAL FAIL-STOP stage=restricted_owner.cohort_release reason=wrong_thread vk_result=unavailable\n",
+      "1-foreign-owner-release.log": "Filters: [native-owner-terminal]\n\nRandomness seeded to: 3884227991\n\nCITRON TERMINAL FAIL-STOP stage=restricted_owner.release reason=wrong_thread vk_result=unavailable\n",
+      "1-missing-foundation.log": "Filters: [native-restricted-owner]\n\nRandomness seeded to: 3413134751\n\nNATIVE OWNER WITNESS: cohort foundation retired early\n\n",
+      "1-native-owner.log": "Filters: [native-restricted-owner]\n\nRandomness seeded to: 3601255931\n\n===============================================================================\n\nAll tests passed (35 assertions in 1 test case)\n\n\n\n",
+      "1-unknown-owner.log": "Filters: [native-owner-unknown]\n\nRandomness seeded to: 4269702535\n\n===============================================================================\n\nAll tests passed (8 assertions in 1 test case)\n\n\n\n",
+      "1-unpolled-owner.log": "Filters: [native-owner-unpolled]\n\nRandomness seeded to: 930463675\n\n===============================================================================\n\nAll tests passed (5 assertions in 1 test case)\n\n\n\n",
+      "2-forbidden-gpu.log": "Filters: [native-owner-forbidden-gpu]\n\nRandomness seeded to: 3072605618\n\nCITRON TERMINAL FAIL-STOP stage=restricted_owner.renderer reason=submission_forbidden vk_result=unavailable\n",
+      "2-foreign-cohort-release.log": "Filters: [native-cohort-terminal]\n\nRandomness seeded to: 3252723542\n\nCITRON TERMINAL FAIL-STOP stage=restricted_owner.cohort_release reason=wrong_thread vk_result=unavailable\n",
+      "2-foreign-owner-release.log": "Filters: [native-owner-terminal]\n\nRandomness seeded to: 2543514068\n\nCITRON TERMINAL FAIL-STOP stage=restricted_owner.release reason=wrong_thread vk_result=unavailable\n",
+      "2-missing-foundation.log": "Filters: [native-restricted-owner]\n\nRandomness seeded to: 3006140197\n\nNATIVE OWNER WITNESS: cohort foundation retired early\n\n",
+      "2-native-owner.log": "Filters: [native-restricted-owner]\n\nRandomness seeded to: 2286907262\n\n===============================================================================\n\nAll tests passed (35 assertions in 1 test case)\n\n\n\n",
+      "2-unknown-owner.log": "Filters: [native-owner-unknown]\n\nRandomness seeded to: 2874349916\n\n===============================================================================\n\nAll tests passed (8 assertions in 1 test case)\n\n\n\n",
+      "2-unpolled-owner.log": "Filters: [native-owner-unpolled]\n\nRandomness seeded to: 3755707512\n\n===============================================================================\n\nAll tests passed (5 assertions in 1 test case)\n\n\n\n"
+    }
+  },
+  "nvhost_owner_final": {
+    "baseline": false,
+    "candidate": false,
+    "revision": null,
+    "repeat": 1,
+    "cases": [
+      "queued",
+      "active",
+      "multi-events-active",
+      "clear-active",
+      "immediate",
+      "completed",
+      "closed-deferred",
+      "multiple",
+      "callback-failure",
+      "fd-close",
+      "repeat-clear-rearm",
+      "concurrent-clear-active",
+      "last-owner-complete",
+      "last-owner-cancel",
+      "retirement-close-active",
+      "closed-active"
+    ],
+    "compiler": "g++ (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+    "instrumentation": [
+      "ObservedHostGuard scope inside each actual unique_lock; no replacement mutex or changed callback locking",
+      "Module destruction asserts guard is not held on that thread before possible reentry",
+      "Two owner controls shadow only the real OwnedRetirementQueue header with early-entry-release mutations"
+    ],
+    "observations": [
+      {
+        "variant": "production",
+        "case": "queued",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner queued\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "active",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner active\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "multi-events-active",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner multi-events-active\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "clear-active",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner clear-active\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "immediate",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner immediate\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "completed",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner completed\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "closed-deferred",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner closed-deferred\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "multiple",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner multiple\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "callback-failure",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner callback-failure\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "fd-close",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner fd-close\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "repeat-clear-rearm",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner repeat-clear-rearm\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "concurrent-clear-active",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner concurrent-clear-active\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "last-owner-complete",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner last-owner-complete\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "last-owner-cancel",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner last-owner-cancel\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "retirement-close-active",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "PASS nvhost-owner retirement-close-active\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "production",
+        "case": "closed-active",
+        "repeat": 0,
+        "exit_code": 0,
+        "log": "WITNESS dispatch DrainedSubset with active Host1x callback; admission Unknown\nPASS nvhost-owner closed-active\nMODULE_DESTROYED\nCONTEXT_DESTROYED\nATEXIT\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "cancel-failure",
+        "case": "cancel-failure",
+        "repeat": 0,
+        "exit_code": 86,
+        "log": "CITRON TERMINAL FAIL-STOP stage=nvhost_ctrl.callback_join reason=host_exception vk_result=unavailable\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "omit-cancel",
+        "case": "queued",
+        "repeat": 0,
+        "exit_code": 91,
+        "log": "MODULE_DESTROYED\nCONTEXT_DESTROYED\nFAIL queued callback used retired target\n",
+        "generated_sha256": "ee9a4896b24323bafe18b97e9d54bc3bafce15128fd0db325752e79226565569",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "free-before-cancel",
+        "case": "active",
+        "repeat": 0,
+        "exit_code": 91,
+        "log": "FAIL event freed during active Host1x callback\n",
+        "generated_sha256": "3ae5f4bc526ec6c2123b727f323661ade6a720f08daf71db07a223949186ad34",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "borrow-retirement-module",
+        "case": "closed-deferred",
+        "repeat": 0,
+        "exit_code": 91,
+        "log": "MODULE_DESTROYED\nCONTEXT_DESTROYED\nFAIL deferred retirement lost Module owner\n",
+        "generated_sha256": "bac976be302577bcaf35866285e4291ed4376147649db0487d1d426ec0f0542a",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "omit-clear-join",
+        "case": "clear-active",
+        "repeat": 0,
+        "exit_code": 91,
+        "log": "FAIL clear overtook active callback\n",
+        "generated_sha256": "073495560dbc3c4278d43378eb43de99262c89d8505028516faf9dd32c1ebc6b",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "retain-cancelled-handle",
+        "case": "repeat-clear-rearm",
+        "repeat": 0,
+        "exit_code": 91,
+        "log": "FAIL repeated clear retained cancelled handle\n",
+        "generated_sha256": "cf5a1c657530b85e3cd1260cd9cd728096e8f752645be7093748fa6f64d33b1b",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "release-final-completed-under-guard",
+        "case": "last-owner-complete",
+        "repeat": 0,
+        "exit_code": 91,
+        "log": "FAIL final Module owner released under Host1x guard\n",
+        "generated_sha256": "66325f539d36fecac81a958da22e56c4fece7d615f58ac27a8f323f14d0c6341",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "release-final-cancelled-under-guard",
+        "case": "last-owner-cancel",
+        "repeat": 0,
+        "exit_code": 91,
+        "log": "FAIL final Module owner released under Host1x guard\n",
+        "generated_sha256": "90af0557d584fe30f957025f2db0375efa8f7db8715cf7aa698119f2f9af2319",
+        "generated_headers_sha256": {}
+      },
+      {
+        "variant": "release-retire-entry-first",
+        "case": "retirement-close-active",
+        "repeat": 0,
+        "exit_code": 91,
+        "log": "FAIL final retirement release escaped dispatch closure\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {
+          "common/owned_retirement.h": "bc72e0525129ecc90a5493b71ed886e829567804ed4d77dd45379e0d05be3021"
+        }
+      },
+      {
+        "variant": "release-drain-entry-first",
+        "case": "closed-active",
+        "repeat": 0,
+        "exit_code": 91,
+        "log": "WITNESS dispatch DrainedSubset with active Host1x callback; admission Unknown\nFAIL deferred final release escaped dispatch closure\n",
+        "generated_sha256": "6466b2d9221da4984daf5c207720628431d751617558e32a106be90ca084c3f1",
+        "generated_headers_sha256": {
+          "common/owned_retirement.h": "975eb2f8241820187d26fd170877961412a482ace8e5e584a96a1f72f4aa597a"
+        }
+      }
+    ],
+    "controls": [
+      "omit-cancel",
+      "free-before-cancel",
+      "borrow-retirement-module",
+      "omit-clear-join",
+      "retain-cancelled-handle",
+      "release-final-completed-under-guard",
+      "release-final-cancelled-under-guard",
+      "release-retire-entry-first",
+      "release-drain-entry-first"
+    ],
+    "sha256": {
+      "src/common/owned_retirement.h": "bd1f8cbb8aa4f70d20ec0dbb9ac082b037285549fe76f61ec2195304c51f59ea",
+      "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+      "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+      "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+      "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+      "src/core/hle/service/nvdrv/core/container.cpp": "2e411d1242b67d5ac5ad90caf8437e598a074c7ce52d5ad45d884e6cd9089c55",
+      "src/core/hle/service/nvdrv/core/container.h": "7f7f117669e99242f84506994e2f3af3bb538a962ef0a0c1208d39cfb96bd562",
+      "src/core/hle/service/nvdrv/devices/ioctl_serialization.h": "bece04488995f5b7661b85b5da59b3c3dd2a64986be63610bb2d59b8cb1c9df1",
+      "src/core/hle/service/nvdrv/devices/nvdevice.h": "6e64a83c7fd48dca5cd6d1e5bf31630b916c3e8baaa459efede1e0bca11df19d",
+      "src/core/hle/service/nvdrv/devices/nvhost_ctrl.cpp": "720c4b3d3dd95cad246eb7c06160b26ac56c9265cfb806f3e9b5c8e420707e85",
+      "src/core/hle/service/nvdrv/devices/nvhost_ctrl.h": "757bcaf9cab1a952289073a309495c02813dd9b973bf66081e0ce580490ff43c",
+      "src/core/hle/service/nvdrv/nvdata.h": "c0988980252bba964f006a5656afde05047b0e698fe68307500a99af02af1960",
+      "src/core/hle/service/nvdrv/nvdrv.cpp": "4fab3fd80c82a2bab9235c770af11ffd3490c6d27c05a1b827b2702a13f26916",
+      "src/core/hle/service/nvdrv/nvdrv.h": "7323b096c941c67c72b333f1f619427af36b7ebf2d4a56e70e1ad67dd614870f",
+      "src/core/hle/service/nvdrv/nvdrv_interface.cpp": "e83703e6d8e6e125f61c2d39d3530e44f77311fc4fced9a81c45ce1970bd20b8",
+      "src/video_core/host1x/syncpoint_manager.cpp": "66f8154d5514292a68a5011a5cad011349581199260ff81fe2e9cc4c1621d13e",
+      "src/video_core/host1x/syncpoint_manager.h": "88c080ff6d193bfef4f20a6fb7b23c374551a2ae0a2563a7a8261af9b82735f1",
+      "tools/physical_coherency_tests/nvhost_ctrl_owner_candidate.json": "a086e67bcba9611429f36dd29827bca7b1262e74303b4a4ba527ba981b5c26a4",
+      "tools/physical_coherency_tests/nvhost_ctrl_owner_fixture.cpp.in": "62d10b64f1e530b8a7de6a9e8fda9fe763b723ace05d67b56de4603be6783a30",
+      "tools/physical_coherency_tests/run_nvhost_ctrl_owner_tests.py": "1b521c624abbf16d38aae7cf0c0575b48cc8390571bed672d8aa8e91475ed4d5"
+    },
+    "actual": [
+      "Complete Module/Container/Session/SessionLifetime/nvhost_ctrl declarations, actual Module constructor/builders/destructor/dispatch/retirement factories",
+      "Actual Container session lifecycle excluding optional application-heap optimization; actual NVDRV destructor",
+      "Complete SyncpointManager header/implementation, actual raw callback registration, ioctl serialization and device destructor",
+      "OwnedRetirementQueue and RetainedBackingStorage actual types"
+    ],
+    "fixtures": [
+      "System/Host1x shell, KProcess/refcount/Memory, HostMemory allocation, SMMU/NvMap, unused device builders, KEvent/context",
+      "No native IPC/KProcess/decoder/GPU command queue or native kernel event acceptance"
+    ],
+    "boundary": "Named Host1x syncpoint action queue and NVDRV owner retirement; synchronous NVDEC Submit is not modeled as an asynchronous GPU queue. Global guest admission remains Unknown."
+  },
+  "rearm_final": {
+    "revision": "working tree",
+    "expect_vulnerable": false,
+    "repeat": 3,
+    "compiler_command": [
+      "g++",
+      "-std=c++20",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-pthread",
+      "-I",
+      "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\rearm-final\\include",
+      "-I",
+      "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+      "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\rearm-final\\tests.cpp",
+      "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\rearm-final\\syncpoint_manager.cpp",
+      "-o",
+      "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\rearm-final\\tests.exe"
+    ],
+    "sources": {
+      "src/core/hle/service/nvdrv/devices/nvhost_ctrl.h": "e1663126416e4f0b7c00d2735dcbd08be516eabee8a28b65f20aba99adc52979",
+      "src/core/hle/service/nvdrv/devices/nvhost_ctrl.cpp": "be245aabdf66c399d8dc30fb66dc411afe0655df76658293c3cfd5af88cd2611",
+      "src/core/hle/service/nvdrv/core/syncpoint_manager.cpp": "3008a777940ba489e2c4d575e686d2acb29903d9e72def422d4a3fa19d6c97a5",
+      "src/core/hle/service/nvdrv/core/syncpoint_manager.h": "6deefdbb21cc984f9df0ebce53762da3bccd4d31550aab393a4b271b000dce09",
+      "src/video_core/host1x/syncpoint_manager.h": "88c080ff6d193bfef4f20a6fb7b23c374551a2ae0a2563a7a8261af9b82735f1",
+      "src/video_core/host1x/syncpoint_manager.cpp": "ce1a6d0bf0fe681cc2da4d80a957b37397268261cd55fe4e30244825117bb0b9"
+    },
+    "exit": 0
+  },
+  "rearm_output": "PASS x3 post-wake rearm joins old callback\nPASS completed/zero-timeout/live-wait controls, exact target completion, duplicate clear\n",
+  "production_final": [
+    {
+      "platform": "Windows-11-10.0.26300-SP0",
+      "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+      "opus_evidence": null,
+      "compiler": "g++ (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+      "boost_root": "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+      "boost_version_header": "//  Boost version.hpp configuration header file  ------------------------------//\n\n//  (C) Copyright John maddock 1999. Distributed under the Boost\n//  Software License, Version 1.0. (See accompanying file\n//  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)\n\n//  See http://www.boost.org/libs/config for documentation\n\n#ifndef BOOST_VERSION_HPP\n#define BOOST_VERSION_HPP\n\n//\n//  Caution: this is the only Boost header that is guaranteed\n//  to change with every Boost release. Including this header\n//  will cause a recompile every time a new Boost version is\n//  used.\n//\n//  BOOST_VERSION % 100 is the patch level\n//  BOOST_VERSION / 100 % 1000 is the minor version\n//  BOOST_VERSION / 100000 is the major version\n\n#define BOOST_VERSION 108700\n\n//\n//  BOOST_LIB_VERSION must be defined to be the same as BOOST_VERSION\n//  but as a *string* in the form \"x_y[_z]\" where x is the major version\n//  number, y is the minor version number, and z is the patch level if not 0.\n//  This is used by <config/auto_link.hpp> to select which library version to link to.\n\n#define BOOST_LIB_VERSION \"1_87\"\n\n#endif\n",
+      "boost_official_archive_sha256": null,
+      "sha256": {
+        "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+        "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+        "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+        "src/core/core.cpp": "123964d78872528a90a99df018a961a2bbde96772bdb9f35b6e04b4122bb2096",
+        "src/core/device_memory.cpp": "5c67e6a2b019b08bb070e7f54f8de5670bb4816755b9608d70950bdf195ce615",
+        "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+        "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+        "src/core/hle/kernel/kernel.cpp": "88e32eed4339b321a75a9ca72072a4ae2adaaa837bf09c6f40227585b667790f",
+        "src/core/hle/service/nvdrv/core/container.h": "7f7f117669e99242f84506994e2f3af3bb538a962ef0a0c1208d39cfb96bd562",
+        "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+        "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+        "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+        "src/core/restricted_process_owner.cpp": "c0435921dfc3c7586a0c2e399fabb61385546ff99c752bdd62352cd712b81d54",
+        "src/core/restricted_process_renderer.cpp": "823f98202bb48650b6c04fd6c80d5456e9ba185026fe4017017d88a2f0620256",
+        "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+        "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+        "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+        "src/video_core/gpu.cpp": "e90eb0147d4069e325789a6fe362e25df57fc8ce804fb589d1bc115680cdf893",
+        "src/video_core/gpu.h": "b55625f616af2deb74407ec05104babd5712211c56dce28bad5c3b9f73b68786",
+        "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+        "src/video_core/memory_manager.h": "85146d67f5eafb4bd458132a9599f7b74722b3c511155fb830b74983da78fcb8",
+        "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+        "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+        "src/video_core/renderer_vulkan/present/layer.h": "a5ae6c6c6523f43de2bc0a7ed2c462c66daf489748f831a3805aae75d706878d",
+        "src/video_core/renderer_vulkan/vk_blit_screen.h": "aeebb35ff8bfedf20438c207d102175042680fb482b45baa5088c2fbbe9f01a6",
+        "src/video_core/renderer_vulkan/vk_master_semaphore.h": "33584679044080c5defd0ab256d879788736382ce825bcb86260013fc602c5b6",
+        "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+        "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+        "src/video_core/renderer_vulkan/vk_rasterizer.h": "d59ccb65cbbe53264bc1b00472c96518b8d4a17f3e25d8ad663cea05b06be357",
+        "src/video_core/renderer_vulkan/vk_scheduler.h": "6da3dbbc5741a059fab77f1e876c9c00fcf3fbf37efbe46841bc7cf50d081dc6",
+        "src/video_core/renderer_vulkan/vk_texture_cache.h": "02e5863edc34eed1c5f2d46f8c3f4f1c141821beffa393949bd76f321ff71125",
+        "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+        "tools/physical_coherency_tests/run_windows_production_checks.py": "69d52b57680415a9a85eb6a1e254cf6ab2cd970e482db676088f6f22913c6b8d"
+      },
+      "objects": [
+        {
+          "source": "src/common/host_memory.cpp",
+          "sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+          "object_sha256": "fa657617b8106907e66153deeaa4331d563027dc60665d86eefcdeeecb42a6de",
+          "object_size": 148739,
+          "command": [
+            "g++",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common\\host_memory.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\production-accepted\\0-host_memory.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/core/device_memory.cpp",
+          "sha256": "5c67e6a2b019b08bb070e7f54f8de5670bb4816755b9608d70950bdf195ce615",
+          "object_sha256": "0a793871f008238319413e26bf9fec172ef71f43768ba701959ddb04ffbf8850",
+          "object_size": 4124,
+          "command": [
+            "g++",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\device_memory.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\production-accepted\\1-device_memory.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/core/restricted_process_owner.cpp",
+          "sha256": "c0435921dfc3c7586a0c2e399fabb61385546ff99c752bdd62352cd712b81d54",
+          "object_sha256": "8dd8e57ba284356b474bca30285a9144597c50377767ccb7ac7552050904ea3e",
+          "object_size": 47623,
+          "command": [
+            "g++",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\restricted_process_owner.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\production-accepted\\2-restricted_process_owner.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/core/restricted_process_renderer.cpp",
+          "sha256": "823f98202bb48650b6c04fd6c80d5456e9ba185026fe4017017d88a2f0620256",
+          "object_sha256": "e72e77b40fafe60e59669b0dbc148588c9fa11cd0e78f7ab7d666c23a4ee330b",
+          "object_size": 15441,
+          "command": [
+            "g++",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\restricted_process_renderer.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\production-accepted\\3-restricted_process_renderer.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/core/core.cpp",
+          "sha256": "123964d78872528a90a99df018a961a2bbde96772bdb9f35b6e04b4122bb2096",
+          "object_sha256": "323f2b58a9f331c4dc868d5731a1057bd820cf2d44f2eb2d91de25fd31d59760",
+          "object_size": 180841,
+          "command": [
+            "g++",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\core.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\production-accepted\\4-core.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/core/hle/kernel/kernel.cpp",
+          "sha256": "88e32eed4339b321a75a9ca72072a4ae2adaaa837bf09c6f40227585b667790f",
+          "object_sha256": "763ca90d51201f36b63a79ef3b74af4dc2f8c91548e8e2a125704caa5f1a2cb2",
+          "object_size": 181859,
+          "command": [
+            "g++",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\kernel\\kernel.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\production-accepted\\5-kernel.o"
+          ],
+          "warnings": ""
+        },
+        {
+          "source": "src/video_core/gpu.cpp",
+          "sha256": "e90eb0147d4069e325789a6fe362e25df57fc8ce804fb589d1bc115680cdf893",
+          "object_sha256": "dd629e178fa4d07447caabffe6a3c29dc6caed56efe61d225421f3eb5e4f3e91",
+          "object_size": 148248,
+          "command": [
+            "g++",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\gpu.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\production-accepted\\6-gpu.o"
+          ],
+          "warnings": ""
+        }
+      ],
+      "shader_evidence": null,
+      "window_shader_evidence": null,
+      "boundary": "Actual production Windows x64 object compilation with real headers. No application link, runtime, native Vulkan or Android claim."
+    },
+    {
+      "platform": "Windows-11-10.0.26300-SP0",
+      "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+      "opus_evidence": null,
+      "compiler": "g++ (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+      "boost_root": "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+      "boost_version_header": "//  Boost version.hpp configuration header file  ------------------------------//\n\n//  (C) Copyright John maddock 1999. Distributed under the Boost\n//  Software License, Version 1.0. (See accompanying file\n//  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)\n\n//  See http://www.boost.org/libs/config for documentation\n\n#ifndef BOOST_VERSION_HPP\n#define BOOST_VERSION_HPP\n\n//\n//  Caution: this is the only Boost header that is guaranteed\n//  to change with every Boost release. Including this header\n//  will cause a recompile every time a new Boost version is\n//  used.\n//\n//  BOOST_VERSION % 100 is the patch level\n//  BOOST_VERSION / 100 % 1000 is the minor version\n//  BOOST_VERSION / 100000 is the major version\n\n#define BOOST_VERSION 108700\n\n//\n//  BOOST_LIB_VERSION must be defined to be the same as BOOST_VERSION\n//  but as a *string* in the form \"x_y[_z]\" where x is the major version\n//  number, y is the minor version number, and z is the patch level if not 0.\n//  This is used by <config/auto_link.hpp> to select which library version to link to.\n\n#define BOOST_LIB_VERSION \"1_87\"\n\n#endif\n",
+      "boost_official_archive_sha256": null,
+      "sha256": {
+        "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+        "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+        "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+        "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+        "src/core/hle/service/nvdrv/core/container.h": "7f7f117669e99242f84506994e2f3af3bb538a962ef0a0c1208d39cfb96bd562",
+        "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+        "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+        "src/core/hle/service/nvdrv/devices/nvhost_gpu.cpp": "b53f767c74896a811784252a4e01b9101dcf34fe1f4f7bae386ff1892dcd2f38",
+        "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+        "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+        "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+        "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+        "src/video_core/gpu.h": "b55625f616af2deb74407ec05104babd5712211c56dce28bad5c3b9f73b68786",
+        "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+        "src/video_core/memory_manager.h": "85146d67f5eafb4bd458132a9599f7b74722b3c511155fb830b74983da78fcb8",
+        "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+        "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+        "src/video_core/renderer_vulkan/present/layer.h": "a5ae6c6c6523f43de2bc0a7ed2c462c66daf489748f831a3805aae75d706878d",
+        "src/video_core/renderer_vulkan/vk_blit_screen.h": "aeebb35ff8bfedf20438c207d102175042680fb482b45baa5088c2fbbe9f01a6",
+        "src/video_core/renderer_vulkan/vk_master_semaphore.h": "33584679044080c5defd0ab256d879788736382ce825bcb86260013fc602c5b6",
+        "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+        "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+        "src/video_core/renderer_vulkan/vk_rasterizer.h": "d59ccb65cbbe53264bc1b00472c96518b8d4a17f3e25d8ad663cea05b06be357",
+        "src/video_core/renderer_vulkan/vk_scheduler.h": "6da3dbbc5741a059fab77f1e876c9c00fcf3fbf37efbe46841bc7cf50d081dc6",
+        "src/video_core/renderer_vulkan/vk_texture_cache.h": "02e5863edc34eed1c5f2d46f8c3f4f1c141821beffa393949bd76f321ff71125",
+        "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+        "tools/physical_coherency_tests/run_windows_production_checks.py": "69d52b57680415a9a85eb6a1e254cf6ab2cd970e482db676088f6f22913c6b8d"
+      },
+      "objects": [
+        {
+          "source": "src/core/hle/service/nvdrv/devices/nvhost_gpu.cpp",
+          "sha256": "b53f767c74896a811784252a4e01b9101dcf34fe1f4f7bae386ff1892dcd2f38",
+          "object_sha256": "098695de33be9f2db5b393335071e9214591f3f43a9963be76d66618b34a82e2",
+          "object_size": 82428,
+          "command": [
+            "g++",
+            "-std=c++23",
+            "-O1",
+            "-DNDEBUG",
+            "-DARCHITECTURE_x86_64",
+            "-DBOOST_ASIO_DISABLE_CONCEPTS",
+            "-fno-strict-aliasing",
+            "-Werror=conversion",
+            "-Wno-sign-conversion",
+            "-I",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-native-owner\\vcpkg-installed\\x64-windows\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+            "-isystem",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\opus\\include",
+            "-c",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\nvdrv\\devices\\nvhost_gpu.cpp",
+            "-o",
+            "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\production-channel\\0-nvhost_gpu.o"
+          ],
+          "warnings": ""
+        }
+      ],
+      "shader_evidence": null,
+      "window_shader_evidence": null,
+      "boundary": "Actual production Windows x64 object compilation with real headers. No application link, runtime, native Vulkan or Android claim."
+    }
+  ],
+  "mapping_controls": {
+    "controls": [
+      {
+        "name": "backing_mutable",
+        "marker": "[[nodiscard]] u8* BackingBasePointer() noexcept {",
+        "original_sha256": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+        "changed_sha256": "fd92292c5b0280179af932089ee40547d0cd3c03f5847a65e160402558a7d444",
+        "expected": "moved-from-pointer"
+      },
+      {
+        "name": "backing_const",
+        "marker": "[[nodiscard]] const u8* BackingBasePointer() const noexcept {",
+        "original_sha256": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+        "changed_sha256": "cdd29f0100f5ebd98abc47ffb82577f6dd961b49680282092762691e213e85e1",
+        "expected": "moved-from-pointer"
+      },
+      {
+        "name": "virtual_mutable",
+        "marker": "[[nodiscard]] u8* VirtualBasePointer() noexcept {",
+        "original_sha256": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+        "changed_sha256": "3f50c0925d32da8a8c28ffcde19bcf1d834f2a748762120c39a7a1b7249aebcd",
+        "expected": "moved-from-pointer"
+      },
+      {
+        "name": "virtual_const",
+        "marker": "[[nodiscard]] const u8* VirtualBasePointer() const noexcept {",
+        "original_sha256": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+        "changed_sha256": "bfa8b150d26fbd64d743ae01cb1f374f40ed1ad2e92902ba932d109f14f1d50d",
+        "expected": "moved-from-pointer"
+      },
+      {
+        "name": "windows_enrollment",
+        "original_sha256": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+        "changed_sha256": "b8403afa1908b0bf6a10f60145ac3037cf32a97e9e1cc82f6c5230417ad2c592",
+        "expected": "unsupported-windows-freeze-refusal"
+      }
+    ],
+    "overlay_sha256": "a51b7795f7870d276d3fe30457b2519cb44a430e73bad6625513f38702641256",
+    "boundary": "Actual HostMemory.cpp and common library/native OS; one omitted getter guard or constructor support counterfactual"
+  },
+  "native_owner_controls": {
+    "control.json": {
+      "source": "src/core/restricted_process_owner.cpp",
+      "original_sha256": "c0435921dfc3c7586a0c2e399fabb61385546ff99c752bdd62352cd712b81d54",
+      "replacement": "    cancelled = closure->CancelNoEffects();\n    if (cancelled) owner.reset();",
+      "mutant_sha256": "2bc253c2df466c2e937b8430234fed67953cf989e8b30410e5dfcf1acfd447d2",
+      "cmake_overlay_sha256": "5f0e4cbe2d0354662d7daf8cc418a5043869793a664ddc7f847c635e6949ddcb",
+      "expected_exit": 91,
+      "required_marker": "NATIVE OWNER WITNESS: cohort foundation retired early",
+      "boundary": "Full native kernel/System link; no extracted bodies or replacement kernel types",
+      "local_build_exceptions": [
+        "Remove inherited /std:c++20 from src targets to honor the root C++23 requirement",
+        "Disable C4242/C4244 only in vk_rasterizer.cpp for existing make_shared<const u8>(0); Null runtime only"
+      ]
+    }
+  },
+  "failed_incremental_mapping": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "revision": "e32d9d5f1a9d2e5f77bd69883dad8e69a1b57666",
+    "baseline": false,
+    "records": [
+      {
+        "name": "positive",
+        "repeat": 0,
+        "command": [
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\native-build\\bin\\windows_mapping_owner_tests.exe"
+        ],
+        "expected_exit": 0,
+        "actual_exit": 91,
+        "marker": "COMPLETE native mapping teardown",
+        "passed": false,
+        "log": "positive-0.log",
+        "binary_sha256": "ae586ef11037832290866898540e31c453dd157c3fd9bb57b198d98960e6c2bf"
+      }
+    ],
+    "passed": false,
+    "sha256": {
+      "src/common/host_memory.h": "2b6d90cc145cfcb88d3ef98e5d5c49d52a579db68d6143e8be38113b002e133e",
+      "src/common/host_memory.cpp": "db6b819e59c487ed5f54357cabca7fb686448f1c7c81d3559022bf6c4a0dee53",
+      "src/common/host_mapping_domain.h": "979b9ee6c9780f82cf82cb90a235cdd4ca9ae7f40654d6a33d3245cdc6b79694",
+      "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+      "src/common/pinned_physical_memory.h": "b39399eec2de2703433acad85ec84e790ffa2c46978f5902b3936483733c9071",
+      "src/tests/common/windows_mapping_owner.cpp": "7ea6385f4c9485f9eaa2f3e86c896831429f96ab2424126f13931610735ceef6",
+      "src/tests/CMakeLists.txt": "30aa3940996a976cc09c7a9ead14187aead02184c0d66465a93fe9c14a58956d",
+      "tools/physical_coherency_tests/run_windows_mapping_owner_tests.py": "7eaf52d1cbed0ce9900e2a650ed005b22886286007cf4292f2e23cd6ec5ef4c1",
+      "tools/physical_coherency_tests/prepare_windows_mapping_owner_controls.py": "c4b047253be1b7b8ac1193c3479090360eae0b5aa93b986b2bde57aea460ca80"
+    },
+    "boundary": "Actual common library and Windows Kernelbase maps; Windows freeze remains unsupported/refused; no physical isolation, GPU or guest admission"
+  },
+  "local_build_attempts": {
+    "build-baseline-xbyak.log": {
+      "sha256": "f6aba4d8faee056231f7d2da4595a10a73c8f0fc5bf4cad9744ebec8a480b808",
+      "bytes": 456669,
+      "diagnostics": [],
+      "last_lines": [
+        "注意: 包含文件:  C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common/time_zone.h",
+        "[48/49] Linking CXX static library src\\common\\common.lib",
+        "[49/49] Linking CXX executable bin\\windows_mapping_owner_tests.exe"
+      ]
+    },
+    "build-baseline.log": {
+      "sha256": "e443c99c96b05c0e0dd975771711e6b4cb3160ad6a78fe703379b66948cfffe7",
+      "bytes": 21614,
+      "diagnostics": [],
+      "last_lines": [
+        "",
+        "-- Generating done (1.0s)",
+        "CMake Generate step failed.  Build files cannot be regenerated correctly."
+      ]
+    },
+    "build-english.log": {
+      "sha256": "dd5bd2726bf571f81c911b95d3b3a6e7de3b2b6f0deef31f92138ee1422b5ffb",
+      "bytes": 1253104,
+      "diagnostics": [],
+      "last_lines": [
+        "注意: 包含文件:   C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common/virtual_buffer.h",
+        "[63/64] Linking CXX executable bin\\mapping_owner_windows_enrollment.exe",
+        "[64/64] Linking CXX executable bin\\windows_mapping_owner_tests.exe"
+      ]
+    },
+    "build-fixed.log": {
+      "sha256": "a3551380686dc29b73102b198d528b0045ad919fba4648f170c944151eb106f2",
+      "bytes": 812012,
+      "diagnostics": [],
+      "last_lines": [
+        "注意: 包含文件:  C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common/polyfill_thread.h",
+        "[17/18] Linking CXX executable bin\\mapping_owner_virtual_const.exe",
+        "[18/18] Linking CXX executable bin\\mapping_owner_windows_enrollment.exe"
+      ]
+    },
+    "build-full-clean.log": {
+      "sha256": "1d908a98f9974bc68adfebefc18fd52392214c1ffac8ba78faf4d22691b70948",
+      "bytes": 12302491,
+      "diagnostics": [
+        "FAILED: src/video_core/CMakeFiles/video_core.dir/gpu.cpp.obj ",
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\gpu.cpp(112): error C3861: “ASSERT”: 找不到标识符",
+        "ninja: build stopped: subcommand failed."
+      ],
+      "last_lines": [
+        "注意: 包含文件:  C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core/arm64_register_guard.h",
+        "注意: 包含文件:  C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common/x64/xbyak_util.h",
+        "ninja: build stopped: subcommand failed."
+      ]
+    },
+    "build-owner-final.log": {
+      "sha256": "6ab9846d2498f8d42501455bfbe5a7990baa6bf2ebd61498e76edd9797cb0377",
+      "bytes": 13748507,
+      "diagnostics": [
+        "FAILED: src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/renderer_vulkan.cpp.obj ",
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\renderer_vulkan.cpp(119): error C2280: “std::optional<Vulkan::Swapchain>::optional(const std::optional<Vulkan::Swapchain> &)”: 尝试引用已删除的函数",
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\renderer_vulkan.cpp(123): error C2280: “std::optional<Vulkan::PresentManager>::optional(const std::optional<Vulkan::PresentManager> &)”: 尝试引用已删除的函数",
+        "ninja: build stopped: subcommand failed."
+      ],
+      "last_lines": [
+        "注意: 包含文件:    C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core/shader_environment.h",
+        "注意: 包含文件:  C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core/shader_notify.h",
+        "ninja: build stopped: subcommand failed."
+      ]
+    },
+    "build-owner-integration.log": {
+      "sha256": "c741c610b0525e2958f17df593d3d460426f2d57cc69d116d9a82412ce73602f",
+      "bytes": 12303012,
+      "diagnostics": [
+        "FAILED: src/video_core/CMakeFiles/video_core.dir/gpu.cpp.obj ",
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\gpu.cpp(112): error C3861: “ASSERT”: 找不到标识符",
+        "ninja: build stopped: subcommand failed."
+      ],
+      "last_lines": [
+        "注意: 包含文件:  C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core/arm64_register_guard.h",
+        "注意: 包含文件:  C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\common/x64/xbyak_util.h",
+        "ninja: build stopped: subcommand failed."
+      ]
+    },
+    "build-owner-retry-channel.log": {
+      "sha256": "9824ac2e64facf0851ee6107eb055b1fcd95f10118c2e85e252b89076b6df5bf",
+      "bytes": 2571435,
+      "diagnostics": [],
+      "last_lines": [
+        "注意: 包含文件:    C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core/query_cache/types.h",
+        "[169/170] Linking CXX executable bin\\restricted_owner_missing_foundation.exe",
+        "[170/170] Linking CXX executable bin\\restricted_process_owner_tests.exe"
+      ]
+    },
+    "build-owner-retry-lambda.log": {
+      "sha256": "91ac34992b1be8d0a144a6c0ba0e8c9c2297844c9c6daa8b371ffe30198ef6c5",
+      "bytes": 6166881,
+      "diagnostics": [
+        "FAILED: src/core/CMakeFiles/core.dir/hle/service/nvdrv/devices/nvhost_gpu.cpp.obj ",
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\nvdrv\\devices\\nvhost_gpu.cpp(40): error C3861: “ASSERT”: 找不到标识符",
+        "ninja: build stopped: subcommand failed."
+      ],
+      "last_lines": [
+        "注意: 包含文件:   C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core/engines/fermi_2d.h",
+        "注意: 包含文件:   C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core/query_cache/types.h",
+        "ninja: build stopped: subcommand failed."
+      ]
+    },
+    "build-owner-retry.log": {
+      "sha256": "f6fbc4964676cd6bbc8270d5ab954fed4e95d93384d698d94ac85cbc1aaacaab",
+      "bytes": 4020558,
+      "diagnostics": [
+        "FAILED: src/video_core/CMakeFiles/video_core.dir/__/__/.diagnostics/m4-physical-e32/renderer_vulkan_acceptance.cpp.obj ",
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\renderer_vulkan_acceptance.cpp(119): error C2280: “std::optional<Vulkan::Swapchain>::optional(const std::optional<Vulkan::Swapchain> &)”: 尝试引用已删除的函数",
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\renderer_vulkan_acceptance.cpp(123): error C2280: “std::optional<Vulkan::PresentManager>::optional(const std::optional<Vulkan::PresentManager> &)”: 尝试引用已删除的函数",
+        "ninja: build stopped: subcommand failed."
+      ],
+      "last_lines": [
+        "注意: 包含文件:   C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core/hle/kernel/process_execution_stop.h",
+        "注意: 包含文件:   C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core/hle/kernel/process_cohort_stop.h",
+        "ninja: build stopped: subcommand failed."
+      ]
+    }
+  },
+  "local_build_accommodations": {
+    "no_vulkan_runtime": true,
+    "tracked_vulkan_source_sha256": "b4563ccd643310acf7ba4af65a1efe2db8f9761cb29918ace6731d8c66867db3",
+    "acceptance_copy_sha256": "cb3c6598953cf9a4ddeb8d8b8f5f8f957af8ef61ce80e73c30e11faec9d4c793",
+    "replacement_initializers": "      swapchain([&]() -> std::optional<Swapchain> {\n          if (headless) return std::nullopt;\n          return std::optional<Swapchain>(std::in_place, *surface, device, scheduler,\n                                                    render_window.GetFramebufferLayout().width,\n                                                    render_window.GetFramebufferLayout().height); }()),\n      present_manager([&]() -> std::optional<PresentManager> {\n          if (headless) return std::nullopt;\n          return std::optional<PresentManager>(std::in_place, instance,\n                                                               render_window, device,\n                                                               memory_allocator, scheduler,\n                                                               *swapchain, surface); }()),\n",
+    "cmake_overlay": "function(local_native_renderer_compat)\n    get_target_property(_sources video_core SOURCES)\n    list(REMOVE_ITEM _sources renderer_vulkan/renderer_vulkan.cpp)\n    set_property(TARGET video_core PROPERTY SOURCES \"${_sources}\")\n    target_sources(video_core PRIVATE \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/renderer_vulkan_acceptance.cpp\")\nendfunction()\ncmake_language(DEFER DIRECTORY \"${CMAKE_SOURCE_DIR}\" CALL local_native_renderer_compat)\n",
+    "combined_overlay": "include(\"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/controls/mapping_controls.cmake\")\ninclude(\"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/owner-controls/native_owner_control.cmake\")\n\ninclude(\"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/renderer-compat.cmake\")\n",
+    "native_owner_overlay": {
+      "native_owner_control.cmake": "if(NOT CMAKE_SOURCE_DIR STREQUAL \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator\")\n    return()\nendif()\nget_property(_owner_control_added GLOBAL PROPERTY NATIVE_OWNER_CONTROL_ADDED)\nif(_owner_control_added)\n    return()\nendif()\nset_property(GLOBAL PROPERTY NATIVE_OWNER_CONTROL_ADDED TRUE)\nfunction(native_owner_cpp23 directory)\n    get_property(_options DIRECTORY \"${directory}\" PROPERTY COMPILE_OPTIONS)\n    list(REMOVE_ITEM _options /std:c++20)\n    set_property(DIRECTORY \"${directory}\" PROPERTY COMPILE_OPTIONS \"${_options}\")\n    get_property(_targets DIRECTORY \"${directory}\" PROPERTY BUILDSYSTEM_TARGETS)\n    foreach(_target IN LISTS _targets)\n        get_target_property(_type \"${_target}\" TYPE)\n        if(_type MATCHES \"^(STATIC_LIBRARY|SHARED_LIBRARY|OBJECT_LIBRARY|EXECUTABLE)$\")\n            get_target_property(_options \"${_target}\" COMPILE_OPTIONS)\n            if(_options)\n                list(REMOVE_ITEM _options /std:c++20)\n                set_property(TARGET \"${_target}\" PROPERTY COMPILE_OPTIONS \"${_options}\")\n            endif()\n        endif()\n    endforeach()\n    get_property(_children DIRECTORY \"${directory}\" PROPERTY SUBDIRECTORIES)\n    foreach(_child IN LISTS _children)\n        native_owner_cpp23(\"${_child}\")\n    endforeach()\nendfunction()\nfunction(add_native_owner_control)\n    if(ENABLE_UNITY_BUILD)\n        message(FATAL_ERROR \"Native owner control requires separate production objects\")\n    endif()\n    add_executable(restricted_owner_missing_foundation EXCLUDE_FROM_ALL\n        \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/owner-controls/missing_foundation.cpp\" \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/src/tests/core/restricted_process_owner.cpp\")\n    set_property(TARGET restricted_owner_missing_foundation PROPERTY UNITY_BUILD OFF)\n    foreach(_property COMPILE_DEFINITIONS COMPILE_OPTIONS INCLUDE_DIRECTORIES)\n        get_directory_property(_native_property DIRECTORY \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/src/tests\" ${_property})\n        set_property(TARGET restricted_owner_missing_foundation APPEND PROPERTY\n            ${_property} \"${_native_property}\")\n    endforeach()\n    target_link_libraries(restricted_owner_missing_foundation PRIVATE common core\n        Vulkan::Headers fmt::fmt ${PLATFORM_LIBRARIES} Catch2::Catch2WithMain Threads::Threads)\n    if(MSVC)\n        # The root requests C++23, but src currently appends /std:c++20 after it.\n        # Local acceptance-only correction; no tracked global build rule changes.\n        native_owner_cpp23(\"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/src\")\n        get_target_property(_options restricted_owner_missing_foundation COMPILE_OPTIONS)\n        list(REMOVE_ITEM _options /std:c++20)\n        set_property(TARGET restricted_owner_missing_foundation PROPERTY COMPILE_OPTIONS \"${_options}\")\n        # Existing make_shared<const u8>(0) in vk_rasterizer.h:350 triggers\n        # C4242/C4244 under /WX. Null-owner acceptance never executes this renderer.\n        # Keep this local exception on its instantiating TU, not on core/tests.\n        set_property(SOURCE \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/src/video_core/renderer_vulkan/vk_rasterizer.cpp\"\n            TARGET_DIRECTORY video_core APPEND PROPERTY COMPILE_OPTIONS /wd4242 /wd4244)\n    endif()\nendfunction()\ncmake_language(DEFER DIRECTORY \"${CMAKE_SOURCE_DIR}\" CALL add_native_owner_control)\n"
+    },
+    "build_command": "@echo off\nset GIT_CONFIG_COUNT=1\nset GIT_CONFIG_KEY_0=core.longpaths\nset GIT_CONFIG_VALUE_0=true\nset VCPKG_TOOLCHAIN_FILE=C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-native-owner/vcpkg-root/scripts/buildsystems/vcpkg.cmake\ncall \"C:\\Program Files\\Microsoft Visual Studio\\18\\Professional\\Common7\\Tools\\VsDevCmd.bat\" -no_logo -arch=x64\nif errorlevel 1 exit /b %errorlevel%\nset VSLANG=1033\ncmake -S \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator\" -B \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/native-english\" -G Ninja -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_MAKE_PROGRAM=C:/Strawberry/c/bin/ninja.exe -DCMAKE_BUILD_TYPE=Release -DCITRON_USE_CPM=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF -DVCPKG_MANIFEST_MODE=ON -DVCPKG_MANIFEST_FEATURES=citron-tests -DVCPKG_INSTALLED_DIR=C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-native-owner/vcpkg-installed -DENABLE_QT=OFF -DENABLE_SDL2=OFF -DENABLE_CUBEB=OFF -DENABLE_WEB_SERVICE=OFF -DENABLE_LIBUSB=OFF -DENABLE_OPENSSL=OFF -DCITRON_ROOM=OFF -DCITRON_TESTS=ON -DCITRON_CHECK_SUBMODULES=OFF -DCITRON_USE_PRECOMPILED_HEADERS=ON -DCITRON_USE_BUNDLED_FFMPEG=ON -DCITRON_ENABLE_LTO=OFF -DCITRON_CRASH_DUMPS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_PROJECT_INCLUDE=C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/combined.cmake\n\n\n\nif errorlevel 1 exit /b %errorlevel%\ncmake --build \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/native-english\" --target windows_mapping_owner_tests mapping_owner_backing_mutable mapping_owner_backing_const mapping_owner_virtual_mutable mapping_owner_virtual_const mapping_owner_windows_enrollment restricted_process_owner_tests restricted_owner_missing_foundation --clean-first --parallel 6\nexit /b %errorlevel%\n",
+    "retry_command": "@echo off\nset GIT_CONFIG_COUNT=1\nset GIT_CONFIG_KEY_0=core.longpaths\nset GIT_CONFIG_VALUE_0=true\nset VCPKG_TOOLCHAIN_FILE=C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-native-owner/vcpkg-root/scripts/buildsystems/vcpkg.cmake\ncall \"C:\\Program Files\\Microsoft Visual Studio\\18\\Professional\\Common7\\Tools\\VsDevCmd.bat\" -no_logo -arch=x64\nif errorlevel 1 exit /b %errorlevel%\nset VSLANG=1033\ncmake -S \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator\" -B \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/native-english\" -G Ninja -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_MAKE_PROGRAM=C:/Strawberry/c/bin/ninja.exe -DCMAKE_BUILD_TYPE=Release -DCITRON_USE_CPM=OFF -DCITRON_USE_BUNDLED_VCPKG=OFF -DVCPKG_MANIFEST_MODE=ON -DVCPKG_MANIFEST_FEATURES=citron-tests -DVCPKG_INSTALLED_DIR=C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-native-owner/vcpkg-installed -DENABLE_QT=OFF -DENABLE_SDL2=OFF -DENABLE_CUBEB=OFF -DENABLE_WEB_SERVICE=OFF -DENABLE_LIBUSB=OFF -DENABLE_OPENSSL=OFF -DCITRON_ROOM=OFF -DCITRON_TESTS=ON -DCITRON_CHECK_SUBMODULES=OFF -DCITRON_USE_PRECOMPILED_HEADERS=ON -DCITRON_USE_BUNDLED_FFMPEG=ON -DCITRON_ENABLE_LTO=OFF -DCITRON_CRASH_DUMPS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_PROJECT_INCLUDE=C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/combined.cmake\n\n\n\nif errorlevel 1 exit /b %errorlevel%\ncmake --build \"C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/native-english\" --target windows_mapping_owner_tests mapping_owner_backing_mutable mapping_owner_backing_const mapping_owner_virtual_mutable mapping_owner_virtual_const mapping_owner_windows_enrollment restricted_process_owner_tests restricted_owner_missing_foundation --parallel 6\nexit /b %errorlevel%\n",
+    "dependency_scanning": "Localized include prefix mismatches emitted prefix; clean objects used after all header changes. VSLANG did not fix it.",
+    "other_exception": "vk_rasterizer.cpp only /wd4242 /wd4244 as in previous native owner acceptance; no Vulkan execution"
+  },
+  "cleanup": {
+    "status": "complete",
+    "inventory_sha256": "518579f3d71877d0abbde7ff3f03dd657295a137d44ca995e4375e8b7bf952fb",
+    "inventory_local_path": "C:/Users/BDM11/.codex/worktrees/issue-372-fixes/emulator/.diagnostics/m4-physical-e32/cleanup-inventory.json",
+    "planned_files": 1470,
+    "planned_bytes": 3646124949,
+    "dependency_caches": "Existing vcpkg runtime/tool and source caches retained outside this task directory",
+    "removed_files": 1470,
+    "removed_bytes": 3646124949,
+    "remaining_temporary_binaries_and_fixtures": [],
+    "method": "Resolved in-task paths, per-leaf size and SHA256 verified, individual file unlink; no recursive directory removal. Logs, manifests and build/config commands retained."
+  },
+  "additional_failed_attempts": {
+    "deleted-null-renderer-failure.log": {
+      "sha256": "4d8057689bffe05151d49182429a31b429a88ecdb4b46d29ae7d351b9e28193c",
+      "diagnostics": [
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\core.cpp:99:10: fatal error: video_core/renderer_null/renderer_null.h: No such file or directory"
+      ]
+    },
+    "production-final/5-kernel.log": {
+      "sha256": "63e9148b457ff76e70896cad8687e1c0fa03c6b7b1696d98c6c53d5432584693",
+      "diagnostics": [
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\kernel\\kernel.cpp:936:20: error: redefinition of 'struct Kernel::KernelCore::SlabHeapContainer'",
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\kernel\\kernel.cpp:54:20: note: previous definition of 'struct Kernel::KernelCore::SlabHeapContainer'"
+      ]
+    },
+    "nvhost-regression/production-compile.log": {
+      "sha256": "b54259f6416a22fba388d712b96320df81175d10849d325012dd604bea25eda8",
+      "diagnostics": [
+        "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-physical-e32\\nvhost-regression\\production.cpp:21:10: fatal error: fmt/format.h: No such file or directory"
+      ]
+    }
+  }
+}

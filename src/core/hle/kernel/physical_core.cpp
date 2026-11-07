@@ -26,7 +26,11 @@ void PhysicalCore::RunThread(Kernel::KThread* thread) {
     auto& system = m_kernel.System();
     auto* interface = process->GetArmInterface(m_core_index);
 
-    interface->Initialize();
+    {
+        const auto initialization = guest_execution.TryEnter();
+        if (!initialization) return;
+        interface->Initialize();
+    }
 
     const auto EnterContext = [&]() {
         // Lock the core context.
@@ -77,10 +81,16 @@ void PhysicalCore::RunThread(Kernel::KThread* thread) {
         // Otherwise, run the thread.
         Core::HaltReason hr{};
         {
+            // Count actual backend execution, including Lock/UnlockThread. A SVC
+            // can yield its fiber indefinitely after this scope and is a separate
+            // CPU/service producer; it must not masquerade as a running backend.
+            const auto execution = guest_execution.TryEnter();
+            if (!execution) return;
             // If we were interrupted, exit immediately.
             if (!EnterContext()) {
                 return;
             }
+            const auto exit_context = SCOPE_GUARD { ExitContext(); };
 
             if (thread->GetStepState() == StepState::StepPending) {
                 hr = interface->StepThread(thread);
@@ -93,7 +103,6 @@ void PhysicalCore::RunThread(Kernel::KThread* thread) {
                 hr = interface->RunThread(thread);
             }
 
-            ExitContext();
         }
 
         // Determine why we stopped.
@@ -242,6 +251,24 @@ void PhysicalCore::Interrupt() {
 
     // Interrupt the CPU.
     arm_interface->SignalInterrupt(thread);
+}
+
+PhysicalCore::StopRequest PhysicalCore::TryRequestGuestStop(
+    KScopedAutoObject<KProcess>& running_owner) {
+    std::unique_lock lock{m_guard, std::try_to_lock};
+    if (!lock.owns_lock()) return StopRequest::Contended;
+    // Never replace/drop another owner reference under the core context lock.
+    if (running_owner.GetPointerUnsafe() != nullptr) return StopRequest::Unsupported;
+    m_is_interrupted = true;
+    m_on_interrupt.notify_one();
+    if (m_arm_interface == nullptr) return StopRequest::Requested;
+    if (m_current_thread == nullptr || m_current_thread->GetOwnerProcess() == nullptr)
+        return StopRequest::Unsupported;
+    // All execution entries are already closed. Capture while the core context
+    // still identifies this owner; a post-halt snapshot could miss its final exit.
+    running_owner.Reset(m_current_thread->GetOwnerProcess());
+    return m_arm_interface->RequestNonblockingGuestStop(m_current_thread)
+        ? StopRequest::Requested : StopRequest::Unsupported;
 }
 
 void PhysicalCore::ClearInterrupt() {

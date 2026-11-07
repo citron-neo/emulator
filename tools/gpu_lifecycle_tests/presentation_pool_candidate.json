@@ -1,0 +1,54 @@
+{
+  "swapchain_replacements": [
+    [
+      "#include \"common/settings.h\"",
+      "#include \"common/settings.h\"\n#include \"common/terminal_fail_stop.h\""
+    ],
+    [
+      "    Create(surface_, width_, height_);",
+      "    if (!Create(surface_, width_, height_)) throw vk::Exception{VK_ERROR_OUT_OF_DATE_KHR};"
+    ],
+    [
+      "void Swapchain::Create(VkSurfaceKHR surface_, u32 width_, u32 height_) {\n    is_outdated = false;\n    is_suboptimal = false;\n    width = width_;\n    height = height_;\n    surface = surface_;\n\n    const auto physical_device = device.GetPhysical();\n    const auto capabilities{physical_device.GetSurfaceCapabilitiesKHR(surface)};\n    if (capabilities.maxImageExtent.width == 0 || capabilities.maxImageExtent.height == 0) {\n        return;\n    }\n\n    {\n        std::scoped_lock lock{scheduler.submit_mutex};\n        device.GetLogical().WaitIdle();\n    }\n\n    Destroy();\n\n    CreateSwapchain(capabilities);\n    CreateSemaphores();\n\n    resource_ticks.clear();\n    resource_ticks.resize(image_count);\n}",
+      "bool Swapchain::Create(VkSurfaceKHR surface_, u32 width_, u32 height_) {\n    const auto physical_device = device.GetPhysical();\n    const auto capabilities{physical_device.GetSurfaceCapabilitiesKHR(surface_)};\n    if (capabilities.maxImageExtent.width == 0 || capabilities.maxImageExtent.height == 0) {\n        return false; // No new swapchain owns surface_; preserve the old publication.\n    }\n    try {\n        {\n            std::scoped_lock lock{scheduler.submit_mutex};\n            const auto idle = device.GetLogical().WaitIdle();\n            if (idle != VK_SUCCESS) {\n                Common::TerminalFailStop(\"swapchain.retirement\", \"vulkan_result\",\n                                         static_cast<int>(idle));\n            }\n        }\n        Destroy();\n        width = width_;\n        height = height_;\n        surface = surface_;\n        is_outdated = false;\n        is_suboptimal = false;\n        CreateSwapchain(capabilities);\n        CreateSemaphores();\n        resource_ticks.resize(image_count);\n        if (!image_count || images.size() != image_count ||\n            present_semaphores.size() != image_count || render_semaphores.size() != image_count) {\n            Common::TerminalFailStop(\"swapchain.create\", \"incomplete_resources\");\n        }\n        return true;\n    } catch (const vk::Exception& error) {\n        Common::TerminalFailStop(\"swapchain.create\", \"vulkan_exception\",\n                                 static_cast<int>(error.GetResult()));\n    } catch (...) {\n        Common::TerminalFailStop(\"swapchain.create\", \"host_exception\");\n    }\n}"
+    ],
+    [
+      "bool Swapchain::AcquireNextImage() {\n    const VkResult result = device.GetLogical().AcquireNextImageKHR(\n        *swapchain, std::numeric_limits<u64>::max(), *present_semaphores[frame_index],\n        VK_NULL_HANDLE, &image_index);\n    switch (result) {\n    case VK_SUCCESS:\n        break;\n    case VK_SUBOPTIMAL_KHR:\n        is_suboptimal = true;\n        break;\n    case VK_ERROR_OUT_OF_DATE_KHR:\n        is_outdated = true;\n        break;\n    case VK_ERROR_SURFACE_LOST_KHR:\n        vk::Check(result);\n        break;\n    default:\n        LOG_ERROR(Render_Vulkan, \"vkAcquireNextImageKHR returned {}\", string_VkResult(result));\n        break;\n    }\n\n    scheduler.Wait(resource_ticks[image_index]);\n    resource_ticks[image_index] = scheduler.CurrentTick();\n\n    return is_outdated;\n}",
+      "bool Swapchain::AcquireNextImage() {\n    if (!image_count || frame_index >= present_semaphores.size()) {\n        Common::TerminalFailStop(\"swapchain.acquire\", \"invalid_frame_index\");\n    }\n    const VkResult result = device.GetLogical().AcquireNextImageKHR(\n        *swapchain, std::numeric_limits<u64>::max(), *present_semaphores[frame_index],\n        VK_NULL_HANDLE, &image_index);\n    switch (result) {\n    case VK_SUCCESS:\n        break;\n    case VK_SUBOPTIMAL_KHR:\n        is_suboptimal = true;\n        break;\n    case VK_ERROR_OUT_OF_DATE_KHR:\n        is_outdated = true;\n        return true; // No image was acquired; image_index is not an output receipt.\n    case VK_ERROR_SURFACE_LOST_KHR:\n        vk::Check(result);\n        break;\n    default:\n        Common::TerminalFailStop(\"swapchain.acquire\", \"vulkan_result\", static_cast<int>(result));\n    }\n    if (image_index >= resource_ticks.size() || image_index >= images.size()) {\n        Common::TerminalFailStop(\"swapchain.acquire\", \"invalid_image_index\");\n    }\n\n    scheduler.Wait(resource_ticks[image_index]);\n    resource_ticks[image_index] = scheduler.CurrentTick();\n\n    return is_outdated;\n}"
+    ],
+    [
+      "void Swapchain::Destroy() {\n    frame_index = 0;\n    present_semaphores.clear();\n    swapchain.reset();\n}",
+      "void Swapchain::Destroy() {\n    frame_index = 0;\n    image_index = 0;\n    present_semaphores.clear();\n    render_semaphores.clear();\n    resource_ticks.clear();\n    images.clear();\n    swapchain.reset();\n    image_count = 0;\n}"
+    ]
+  ],
+  "present_replacements": [
+    [
+      "    swapchain.Create(*surface, frame->width, frame->height);",
+      "    if (!swapchain.Create(*surface, frame->width, frame->height)) {\n        Common::TerminalFailStop(\"present.recreate\", \"surface_unavailable\");\n    }"
+    ],
+    [
+      "void PresentManager::CopyToSwapchain(Frame* frame) {\n    bool requires_recreation = false;\n\n    while (true) {\n        try {\n            // Recreate surface and swapchain if needed.\n            if (requires_recreation) {\n                surface = CreateSurface(instance, render_window.GetWindowInfo());\n                RecreateSwapchain(frame);\n            }\n\n            // Draw to swapchain.\n            return CopyToSwapchainImpl(frame);\n        } catch (const vk::Exception& except) {\n            if (except.GetResult() != VK_ERROR_SURFACE_LOST_KHR) {\n                throw;\n            }\n\n            requires_recreation = true;\n        }\n    }\n}",
+      "void PresentManager::CopyToSwapchain(Frame* frame) {\n    bool requires_recreation = false;\n    bool copy_started = false;\n\n    while (true) {\n        try {\n            // Recreate surface and swapchain if needed.\n            if (requires_recreation) {\n                auto candidate = CreateSurface(instance, render_window.GetWindowInfo());\n                if (!swapchain.Create(*candidate, frame->width, frame->height)) {\n                    Common::TerminalFailStop(\"present.recreate\", \"surface_unavailable\");\n                }\n                // Create retired the old child swapchain before its surface owner.\n                surface = std::move(candidate);\n                UpdateFramePipelineLimit();\n            }\n\n            // Draw to swapchain.\n            return CopyToSwapchainImpl(frame, copy_started);\n        } catch (const vk::Exception& except) {\n            if (except.GetResult() != VK_ERROR_SURFACE_LOST_KHR || copy_started) {\n                Common::TerminalFailStop(\"present.copy\", \"vulkan_exception\",\n                                         static_cast<int>(except.GetResult()));\n            }\n\n            requires_recreation = true;\n        } catch (...) {\n            Common::TerminalFailStop(\"present.copy\", \"host_exception\");\n        }\n    }\n}"
+    ],
+    [
+      "void PresentManager::CopyToSwapchainImpl(Frame* frame) {",
+      "void PresentManager::CopyToSwapchainImpl(Frame* frame, bool& copy_started) {"
+    ],
+    [
+      "    const vk::CommandBuffer cmdbuf{frame->cmdbuf};",
+      "    // Never replay after recording starts: render_ready/fence effects may survive.\n    copy_started = true;\n    const vk::CommandBuffer cmdbuf{frame->cmdbuf};"
+    ]
+  ],
+  "swapchain_header_replacements": [
+    [
+      "    void Create(VkSurfaceKHR surface, u32 width, u32 height);",
+      "    [[nodiscard]] bool Create(VkSurfaceKHR surface, u32 width, u32 height);"
+    ]
+  ],
+  "present_header_replacements": [
+    [
+      "    void CopyToSwapchainImpl(Frame* frame);",
+      "    void CopyToSwapchainImpl(Frame* frame, bool& copy_started);"
+    ]
+  ]
+}

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <optional>
 #include <utility>
@@ -285,7 +286,28 @@ vk::Image MemoryAllocator::CreateImage(const VkImageCreateInfo& ci) const {
     VkImage handle{};
     VmaAllocation allocation{};
 
-    vk::Check(vmaCreateImage(allocator, &ci, &alloc_ci, &handle, &allocation, nullptr));
+    const VkResult result =
+        vmaCreateImage(allocator, &ci, &alloc_ci, &handle, &allocation, nullptr);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR(Render_Vulkan,
+                  "Image allocation failed: result={}, extent={}x{}x{}, layers={}, mips={}, "
+                  "format={}, samples={}, usage={:#x}, flags={:#x}",
+                  static_cast<s32>(result), ci.extent.width, ci.extent.height, ci.extent.depth,
+                  ci.arrayLayers, ci.mipLevels, static_cast<u32>(ci.format),
+                  static_cast<u32>(ci.samples), ci.usage, ci.flags);
+        std::array<VmaBudget, VK_MAX_MEMORY_HEAPS> budgets{};
+        vmaGetHeapBudgets(allocator, budgets.data());
+        const auto memory_props = device.GetPhysical().GetMemoryProperties().memoryProperties;
+        for (u32 index = 0; index < memory_props.memoryHeapCount; ++index) {
+            const auto& budget = budgets[index];
+            LOG_ERROR(Render_Vulkan,
+                      "Image allocation heap {}: size={}, usage={}, budget={}, block_bytes={}, "
+                      "allocation_bytes={}",
+                      index, memory_props.memoryHeaps[index].size, budget.usage, budget.budget,
+                      budget.statistics.blockBytes, budget.statistics.allocationBytes);
+        }
+    }
+    vk::Check(result);
 
     return vk::Image(handle, *device.GetLogical(), allocator, allocation,
                      device.GetDispatchLoader());

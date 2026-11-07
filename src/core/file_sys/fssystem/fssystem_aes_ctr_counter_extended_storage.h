@@ -94,6 +94,7 @@ public:
             m_table.GetOffsets(std::addressof(offsets));
         assert(R_SUCCEEDED(get_offsets_result));
 
+
         return offsets.end_offset;
     }
 

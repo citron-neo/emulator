@@ -421,6 +421,15 @@ abstract class SettingsItem(
             )
             put(
                 SingleChoiceSetting(
+                    IntSetting.BINDLESS_TEXTURE_LIMIT,
+                    titleId = R.string.bindless_texture_limit,
+                    descriptionId = R.string.bindless_texture_limit_description,
+                    choicesId = R.array.bindlessTextureLimitNames,
+                    valuesId = R.array.bindlessTextureLimitValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
                     IntSetting.ASTC_RECOMPRESSION,
                     titleId = R.string.astc_recompression,
                     descriptionId = R.string.astc_recompression_description,

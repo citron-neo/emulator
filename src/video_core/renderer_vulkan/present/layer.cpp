@@ -5,7 +5,11 @@
 #include "video_core/present.h"
 #include "video_core/renderer_vulkan/vk_rasterizer.h"
 
+#include <type_traits>
+#include <utility>
+
 #include "common/settings.h"
+#include "common/terminal_fail_stop.h"
 #include "video_core/framebuffer_config.h"
 #include "video_core/renderer_vulkan/present/fsr.h"
 #include "video_core/renderer_vulkan/present/fsr2.h"
@@ -70,11 +74,14 @@ Layer::~Layer() {
     ReleaseRawImages();
 }
 
-void Layer::ConfigureDraw(PresentPushConstants* out_push_constants,
+bool Layer::ConfigureDraw(PresentPushConstants* out_push_constants,
                           VkDescriptorSet* out_descriptor_set, RasterizerVulkan& rasterizer,
                           VkSampler sampler, size_t image_index,
                           const Tegra::FramebufferConfig& framebuffer,
                           const Layout::FramebufferLayout& layout) {
+    scheduler.RequireNativeBorrowAdmission();
+    if (post_upload_failed) return false;
+
     const auto texture_info = rasterizer.AccelerateDisplay(
         framebuffer, framebuffer.address + framebuffer.offset, framebuffer.stride);
     const u32 texture_width = texture_info ? texture_info->width : framebuffer.width;
@@ -94,44 +101,57 @@ void Layer::ConfigureDraw(PresentPushConstants* out_push_constants,
     };
 
     if (!use_accelerated) {
-        UpdateRawImage(framebuffer, image_index);
+        if (!UpdateRawImage(framebuffer, image_index)) return false;
     }
 
-    VkImage source_image = texture_info ? texture_info->image : *raw_images[image_index];
-    VkImageView source_image_view =
-        texture_info ? texture_info->image_view : *raw_image_views[image_index];
+    // Helpers can initialize every slot or split submissions internally. Retain
+    // the whole Layer on an uncertain prefix; raw-generation reset cannot repair
+    // shared helper state. Only a new Layer may resume this draw path.
+    try {
+        if (texture_info) scheduler.RetainPresentationSource(texture_info->native_owner);
+        VkImage source_image = texture_info ? texture_info->image : *raw_images[image_index];
+        VkImageView source_image_view =
+            texture_info ? texture_info->image_view : *raw_image_views[image_index];
 
-    anti_alias->Draw(scheduler, image_index, &source_image, &source_image_view);
+        anti_alias->Draw(scheduler, image_index, &source_image, &source_image_view);
 
-    auto crop_rect = Tegra::NormalizeCrop(framebuffer, texture_width, texture_height);
-    const VkExtent2D render_extent{
-        .width = scaled_width,
-        .height = scaled_height,
-    };
+        auto crop_rect = Tegra::NormalizeCrop(framebuffer, texture_width, texture_height);
+        const VkExtent2D render_extent{
+            .width = scaled_width,
+            .height = scaled_height,
+        };
 
-    if (fsr) {
-        float sharpening = 0.0f;
-        if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr) {
-            sharpening =
-                static_cast<float>(Settings::values.fsr_sharpening_slider.GetValue()) / 100.0f;
-        } else if (filters.get_scaling_filter() == Settings::ScalingFilter::Cas) {
-            sharpening =
-                static_cast<float>(Settings::values.cas_sharpening_slider.GetValue()) / 100.0f;
+        if (fsr) {
+            float sharpening = 0.0f;
+            if (filters.get_scaling_filter() == Settings::ScalingFilter::Fsr) {
+                sharpening =
+                    static_cast<float>(Settings::values.fsr_sharpening_slider.GetValue()) / 100.0f;
+            } else if (filters.get_scaling_filter() == Settings::ScalingFilter::Cas) {
+                sharpening =
+                    static_cast<float>(Settings::values.cas_sharpening_slider.GetValue()) / 100.0f;
+            }
+            source_image_view = fsr->Draw(scheduler, image_index, source_image, source_image_view,
+                                          render_extent, crop_rect, sharpening);
+            crop_rect = {0, 0, 1, 1};
         }
-        source_image_view = fsr->Draw(scheduler, image_index, source_image, source_image_view,
-                                      render_extent, crop_rect, sharpening);
-        crop_rect = {0, 0, 1, 1};
-    }
-    if (fsr2) {
-        source_image_view = fsr2->Draw(scheduler, image_index, source_image, source_image_view,
-                                       render_extent, crop_rect);
-        crop_rect = {0, 0, 1, 1};
-    }
-    SetMatrixData(*out_push_constants, layout);
-    SetVertexData(*out_push_constants, layout, crop_rect);
+        if (fsr2) {
+            source_image_view = fsr2->Draw(scheduler, image_index, source_image, source_image_view,
+                                           render_extent, crop_rect);
+            crop_rect = {0, 0, 1, 1};
+        }
+        PresentPushConstants candidate_push_constants{};
+        SetMatrixData(candidate_push_constants, layout);
+        SetVertexData(candidate_push_constants, layout, crop_rect);
 
-    UpdateDescriptorSet(source_image_view, sampler, image_index);
-    *out_descriptor_set = descriptor_sets[image_index];
+        UpdateDescriptorSet(source_image_view, sampler, image_index);
+        static_assert(std::is_nothrow_copy_assignable_v<PresentPushConstants>);
+        *out_push_constants = candidate_push_constants;
+        *out_descriptor_set = descriptor_sets[image_index];
+        return true;
+    } catch (...) {
+        post_upload_failed = true;
+        throw;
+    }
 }
 
 void Layer::CreateDescriptorPool() {
@@ -143,7 +163,7 @@ void Layer::CreateDescriptorSets(VkDescriptorSetLayout layout) {
     descriptor_sets = CreateWrappedDescriptorSets(descriptor_pool, layouts);
 }
 
-void Layer::CreateStagingBuffer(const Tegra::FramebufferConfig& framebuffer) {
+vk::Buffer Layer::CreateStagingBuffer(const Tegra::FramebufferConfig& framebuffer) {
     const VkBufferCreateInfo ci{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = nullptr,
@@ -156,20 +176,24 @@ void Layer::CreateStagingBuffer(const Tegra::FramebufferConfig& framebuffer) {
         .pQueueFamilyIndices = nullptr,
     };
 
-    buffer = memory_allocator.CreateBuffer(ci, MemoryUsage::Upload);
+    return memory_allocator.CreateBuffer(ci, MemoryUsage::Upload);
 }
 
-void Layer::CreateRawImages(const Tegra::FramebufferConfig& framebuffer) {
+Layer::RawResources Layer::CreateRawImages(const Tegra::FramebufferConfig& framebuffer) {
+    RawResources candidate{};
+    candidate.buffer = CreateStagingBuffer(framebuffer);
+    candidate.ticks.resize(image_count);
+    candidate.uploads.resize(image_count);
+    candidate.images.resize(image_count);
+    candidate.views.resize(image_count);
     const auto format = GetFormat(framebuffer);
-    resource_ticks.resize(image_count);
-    raw_images.resize(image_count);
-    raw_image_views.resize(image_count);
-
     for (size_t i = 0; i < image_count; ++i) {
-        raw_images[i] =
+        candidate.images[i] =
             CreateWrappedImage(memory_allocator, {framebuffer.width, framebuffer.height}, format);
-        raw_image_views[i] = CreateWrappedImageView(device, raw_images[i], format);
+        candidate.views[i] = CreateWrappedImageView(device, candidate.images[i], format);
     }
+    static_assert(std::is_nothrow_move_constructible_v<RawResources>);
+    return candidate;
 }
 
 void Layer::CreateFSR(VkExtent2D output_size) {
@@ -181,19 +205,32 @@ void Layer::CreateFSR2(VkExtent2D output_size) {
 }
 
 void Layer::RefreshResources(const Tegra::FramebufferConfig& framebuffer) {
+    scheduler.RequireNativeBorrowAdmission();
     if (framebuffer.width == raw_width && framebuffer.height == raw_height &&
-        framebuffer.pixel_format == pixel_format && !raw_images.empty()) {
+        framebuffer.stride == raw_stride && framebuffer.pixel_format == pixel_format &&
+        !raw_images.empty()) {
         return;
     }
 
+    // Creation has no target recording effects. Keep the old publication intact
+    // until the entire new slot set exists and old uses are confirmed complete.
+    auto candidate = CreateRawImages(framebuffer);
+    WaitForResourceUses();
+    anti_alias.reset();
+    static_assert(std::is_nothrow_swappable_v<vk::Buffer>);
+    static_assert(noexcept(raw_images.swap(candidate.images)));
+    static_assert(noexcept(raw_image_views.swap(candidate.views)));
+    static_assert(noexcept(resource_ticks.swap(candidate.ticks)));
+    static_assert(noexcept(raw_upload_states.swap(candidate.uploads)));
+    std::swap(buffer, candidate.buffer);
+    raw_images.swap(candidate.images);
+    raw_image_views.swap(candidate.views);
+    resource_ticks.swap(candidate.ticks);
+    raw_upload_states.swap(candidate.uploads);
     raw_width = framebuffer.width;
     raw_height = framebuffer.height;
+    raw_stride = framebuffer.stride;
     pixel_format = framebuffer.pixel_format;
-    anti_alias.reset();
-
-    ReleaseRawImages();
-    CreateStagingBuffer(framebuffer);
-    CreateRawImages(framebuffer);
 }
 
 void Layer::SetAntiAliasPass() {
@@ -205,14 +242,14 @@ void Layer::SetAntiAliasPass() {
         return;
     }
 
-    anti_alias_setting = effective_aa;
+    if (anti_alias) WaitForResourceUses();
 
     const VkExtent2D render_area{
         .width = Settings::values.resolution_info.ScaleUp(raw_width),
         .height = Settings::values.resolution_info.ScaleUp(raw_height),
     };
 
-    switch (anti_alias_setting) {
+    switch (effective_aa) {
     case Settings::AntiAliasing::Fxaa:
         anti_alias = std::make_unique<FXAA>(device, memory_allocator, image_count, render_area);
         break;
@@ -226,14 +263,34 @@ void Layer::SetAntiAliasPass() {
         anti_alias = std::make_unique<NoAA>();
         break;
     }
+    anti_alias_setting = effective_aa;
+}
+
+void Layer::WaitForResourceUses() {
+    if (!anti_alias && raw_images.empty() && !buffer) return;
+    try {
+        // Slot ticks can precede the final composite after an internal Finish.
+        // Seal and complete the entire graphics prefix while old owners still live.
+        scheduler.FinishNativeBorrow();
+    } catch (const vk::Exception& error) {
+        Common::TerminalFailStop("layer.resource_retirement", "vulkan_exception",
+                                 static_cast<int>(error.GetResult()));
+    } catch (...) {
+        Common::TerminalFailStop("layer.resource_retirement", "host_exception");
+    }
+}
+
+void Layer::ClearRawImages() {
+    raw_image_views.clear();
+    raw_images.clear();
+    buffer.reset();
 }
 
 void Layer::ReleaseRawImages() {
     for (const u64 tick : resource_ticks) {
-        scheduler.Wait(tick);
+        scheduler.WaitForResourceRelease(tick);
     }
-    raw_images.clear();
-    buffer.reset();
+    ClearRawImages();
 }
 
 u64 Layer::CalculateBufferSize(const Tegra::FramebufferConfig& framebuffer) const {
@@ -289,13 +346,18 @@ void Layer::UpdateDescriptorSet(VkImageView image_view, VkSampler sampler, size_
     device.GetLogical().UpdateDescriptorSets(std::array{sampler_write}, {});
 }
 
-void Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t image_index) {
+bool Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t image_index) {
+    scheduler.RequireNativeBorrowAdmission();
+    if (image_index >= raw_upload_states.size() ||
+        raw_upload_states[image_index] == RawUploadState::Recording ||
+        raw_upload_states[image_index] == RawUploadState::Failed) {
+        return false;
+    }
     const std::span<u8> mapped_span = buffer.Mapped();
 
     const u64 image_offset = GetRawImageOffset(framebuffer, image_index);
 
     const DAddr framebuffer_addr = framebuffer.address + framebuffer.offset;
-    const u8* const host_ptr = device_memory.GetPointer<u8>(framebuffer_addr);
 
     // TODO(Rodrigo): Read this from HLE
     constexpr u32 block_height_log2 = 4;
@@ -303,12 +365,19 @@ void Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t i
     const u64 linear_size{GetSizeInBytes(framebuffer)};
     const u64 tiled_size{Tegra::Texture::CalculateSize(
         true, bytes_per_pixel, framebuffer.stride, framebuffer.height, 1, block_height_log2, 0)};
-    if (host_ptr) {
-        Tegra::Texture::UnswizzleTexture(
-            mapped_span.subspan(image_offset, linear_size), std::span(host_ptr, tiled_size),
-            bytes_per_pixel, framebuffer.width, framebuffer.height, 1, block_height_log2, 0);
-        buffer.Flush(); // Ensure host writes are visible before the GPU copy.
-    }
+    if (!framebuffer.source_mapping) return false;
+    const auto& mapping = *framebuffer.source_mapping;
+    if (framebuffer_addr < mapping.address || framebuffer_addr - mapping.address > mapping.size ||
+        tiled_size > mapping.size - (framebuffer_addr - mapping.address)) return false;
+    // Allocate before the bounded mapping-use section; copy canonical physical pages
+    // into owned storage, then unswizzle without any guest pointer or mapping lock.
+    std::vector<u8> source(tiled_size);
+    if (!device_memory.CopyFrameMapping(*framebuffer.source_mapping, framebuffer_addr, source))
+        return false;
+    Tegra::Texture::UnswizzleTexture(
+        mapped_span.subspan(image_offset, linear_size), source,
+        bytes_per_pixel, framebuffer.width, framebuffer.height, 1, block_height_log2, 0);
+    buffer.Flush(); // Ensure host writes are visible before the GPU copy.
 
     const VkBufferImageCopy copy{
         .bufferOffset = image_offset,
@@ -329,46 +398,65 @@ void Layer::UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t i
                 .depth = 1,
             },
     };
-    scheduler.Record([this, copy, index = image_index](vk::CommandBuffer cmdbuf) {
-        const VkImage image = *raw_images[index];
-        const VkImageMemoryBarrier base_barrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext = nullptr,
-            .srcAccessMask = 0,
-            .dstAccessMask = 0,
-            .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = image,
-            .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-        };
-        VkImageMemoryBarrier read_barrier = base_barrier;
-        read_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        read_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        read_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    // Once Record starts, an exception cannot prove that nothing was enqueued.
+    // Preserve this slot until replacement drains old uses; other slots stay usable.
+    raw_upload_states[image_index] = RawUploadState::Recording;
+    try {
+        scheduler.Record([this, copy, index = image_index](vk::CommandBuffer cmdbuf) {
+            try {
+                const VkImage image = *raw_images[index];
+                const VkImageMemoryBarrier base_barrier{
+                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    .pNext = nullptr,
+                    .srcAccessMask = 0,
+                    .dstAccessMask = 0,
+                    .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+                    .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .image = image,
+                    .subresourceRange{
+                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .baseMipLevel = 0,
+                        .levelCount = 1,
+                        .baseArrayLayer = 0,
+                        .layerCount = 1,
+                    },
+                };
+                VkImageMemoryBarrier read_barrier = base_barrier;
+                read_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                read_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                read_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
-        VkImageMemoryBarrier write_barrier = base_barrier;
-        write_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        write_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        write_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        write_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+                VkImageMemoryBarrier write_barrier = base_barrier;
+                write_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                write_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+                write_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                write_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-        // ALL_COMMANDS as well: the previous frame may still be reading this image.
-        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                               VK_PIPELINE_STAGE_TRANSFER_BIT, 0, read_barrier);
-        cmdbuf.CopyBufferToImage(*buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copy);
-        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
-                               VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
-                                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                               0, write_barrier);
-    });
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                                       read_barrier);
+                cmdbuf.CopyBufferToImage(*buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copy);
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                                       0, write_barrier);
+            } catch (const vk::Exception& error) {
+                Common::TerminalFailStop("layer.raw_upload.recording", "vulkan_exception",
+                                         static_cast<int>(error.GetResult()));
+            } catch (...) {
+                Common::TerminalFailStop("layer.raw_upload.recording", "host_exception");
+            }
+        });
+    } catch (...) {
+        raw_upload_states[image_index] = RawUploadState::Failed;
+        throw;
+    }
+    // The callback may still be queued. Same-queue ordering and the existing slot
+    // wait govern consumption/reuse; this is not a host/native completion receipt.
+    raw_upload_states[image_index] = RawUploadState::Recorded;
+    return true;
 }
 
 } // namespace Vulkan

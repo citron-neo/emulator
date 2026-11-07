@@ -12,6 +12,7 @@
 #include "common/polyfill_thread.h"
 
 #include "audio_core/audio_event.h"
+#include "core/managed_host_producer.h"
 
 union Result;
 
@@ -34,7 +35,7 @@ class AudioManager {
     using BufferEventFunc = std::function<void()>;
 
 public:
-    explicit AudioManager();
+    explicit AudioManager(std::shared_ptr<Common::ProducerDrain> callback_domain);
 
     /**
      * Shutdown the audio manager.
@@ -66,6 +67,8 @@ public:
     void SetEvent(Event::Type type, bool signalled);
 
 private:
+    void ThreadFunc(std::stop_token stop_token);
+    Core::ManagedHostProducer callbacks;
 
     /// Is the main thread running?
     std::atomic<bool> running{};

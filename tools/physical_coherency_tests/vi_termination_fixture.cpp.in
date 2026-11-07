@@ -1,0 +1,182 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <atomic>
+#include <array>
+#include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <stop_token>
+#include <string>
+#include <thread>
+#include <type_traits>
+using s32=int;using u32=unsigned;using s64=long long;using u64=unsigned long long;using f32=float;using Result=int;
+constexpr int ResultSuccess=0;
+#define R_UNLESS(c,r) do{if(!(c))return r;}while(false)
+#define R_SUCCEED() return 0
+#define R_RETURN(e) return (e)
+#define LOG_INFO(...) ((void)0)
+#define LOG_DEBUG(...) ((void)0)
+using namespace std::chrono_literals;
+void Require(bool ok,const char* why){if(!ok){std::cerr<<"FAIL "<<why<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Event{std::mutex mutex;std::condition_variable cv;bool ready=false;
+    void Set(){std::scoped_lock l{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{mutex};Require(cv.wait_for(l,5s,[&]{return ready;}),"rendezvous timeout");}};
+template<class T>T Ready(std::future<T>& f){Require(f.wait_for(5s)==std::future_status::ready,"future timeout");return f.get();}
+struct Trace{
+    std::atomic<int> lookups=0,publications=0,conductors=0,manager_calls=0,composes=0;
+    bool gpu_drained=false;std::function<void()> lookup_hook;
+};
+template<class T>using Out=T*;
+template<class T>using OutCopyHandle=T**;
+template<class T,int>using OutLargeData=T*;
+constexpr int BufferAttr_HipcMapAlias=0;
+struct ClientAppletResourceUserId{u64 pid=1;};
+namespace Common{template<class T>struct Rectangle{T left{},top{},right{},bottom{};};}
+namespace Kernel{struct KProcess{};struct KReadableEvent{};}
+namespace Service::android{struct Fence{};}
+namespace Service::VI {struct Container;struct SharedBufferManager;}
+namespace Service::Nvidia{struct Module{};struct NVDRV{std::shared_ptr<Module> module=std::make_shared<Module>();auto GetModule(){return module;}};}
+namespace Service::Nvnflinger {
+struct SurfaceFlinger{std::shared_ptr<Trace> trace;void AddDisplay(u64){++trace->publications;}void RemoveDisplay(u64){}
+    bool ComposeDisplay(s32*,f32*,u64){++trace->composes;return true;}};
+struct IHOSBinderDriver{std::shared_ptr<SurfaceFlinger> surface;auto GetSurfaceFlinger(){return surface;}};
+}
+struct System{
+    std::shared_ptr<Trace> trace=std::make_shared<Trace>();
+    struct Services{
+        std::shared_ptr<Trace> trace;
+        std::shared_ptr<Service::Nvnflinger::IHOSBinderDriver> binder;
+        std::shared_ptr<Service::Nvidia::NVDRV> nvdrv=std::make_shared<Service::Nvidia::NVDRV>();
+        template<class T>std::shared_ptr<T> GetService(const char*,bool){++trace->lookups;if(trace->lookup_hook)trace->lookup_hook();
+            if constexpr(std::is_same_v<T,Service::Nvnflinger::IHOSBinderDriver>)return binder;else return nvdrv;}
+    } services{trace,std::make_shared<Service::Nvnflinger::IHOSBinderDriver>(Service::Nvnflinger::IHOSBinderDriver{
+        std::make_shared<Service::Nvnflinger::SurfaceFlinger>(Service::Nvnflinger::SurfaceFlinger{trace})})};
+    auto& ServiceManager(){return services;}
+};
+namespace Service::VI {
+namespace Nvidia=Service::Nvidia;namespace Nvnflinger=Service::Nvnflinger;
+constexpr int ResultOperationFailed=1;
+constexpr int ResultPermissionDenied=5;
+struct SharedMemoryPoolLayout{};
+struct Display{u64 GetId(){return 1;}};
+struct Displays{template<class F>void ForEachDisplay(F f){Display display;f(display);}};
+struct Layer{u64 GetId(){return 1;}};
+struct Layers{template<class F>void ForEachLayer(F f){Layer layer;f(layer);}};
+struct SharedBufferManager{
+    std::shared_ptr<Trace> trace;std::shared_ptr<Nvidia::Module> module;
+    SharedBufferManager(System& s,Container&,std::shared_ptr<Nvidia::Module> m):trace{s.trace},module{std::move(m)}{}
+    template<class... T>int CreateSession(T&&...){++trace->manager_calls;return 0;}
+    template<class... T>void DestroySession(T&&...){++trace->manager_calls;}
+    template<class... T>int GetSharedBufferMemoryHandleId(T&&...){++trace->manager_calls;return 0;}
+    template<class... T>int AcquireSharedFrameBuffer(T&&...){++trace->manager_calls;return 0;}
+    template<class... T>int PresentSharedFrameBuffer(T&&...){++trace->manager_calls;return 0;}
+    template<class... T>int GetSharedFrameBufferAcquirableEvent(T&&...){++trace->manager_calls;return 0;}
+    template<class... T>int CancelSharedFrameBuffer(T&&...){++trace->manager_calls;return 0;}
+    template<class... T>int WriteAppletCaptureBuffer(T&&...){++trace->manager_calls;return 0;}
+};
+struct Conductor{Conductor(System& s,Container&,Displays&){++s.trace->conductors;}void Stop(){}};
+struct Mutex{std::mutex actual;std::atomic<bool> held=false;std::function<void()> before_lock;
+    void lock(){auto hook=before_lock;if(hook)hook();actual.lock();held=true;}void unlock(){held=false;actual.unlock();}};
+struct Container{
+    std::mutex m_termination_lock;Mutex m_lock;Displays m_displays;Layers m_layers;
+    std::shared_ptr<Nvnflinger::IHOSBinderDriver> m_binder_driver;
+    std::shared_ptr<Nvnflinger::SurfaceFlinger> m_surface_flinger;
+    std::optional<SharedBufferManager> m_shared_buffer_manager;
+    std::optional<Conductor> m_conductor;
+    System& m_system;bool m_is_initialized=false,m_is_shut_down=false;
+    explicit Container(System& s):m_system{s}{}
+    int DestroyLayerLocked(u64){return 0;}
+    // @DECLARATIONS@
+};
+// @METHODS@
+struct IManagerDisplayService{
+    std::shared_ptr<Container> m_container;
+    auto GetContainer(){return m_container;}
+    // @MANAGER_DECLARATIONS@
+};
+struct ISystemDisplayService{
+    std::shared_ptr<Container> m_container;
+    // @SYSTEM_DECLARATIONS@
+};
+// @SERVICE_METHODS@
+}
+namespace Service::AM{
+struct DisplayLayerManager{
+    bool m_buffer_sharing_enabled=true;
+    std::shared_ptr<VI::IManagerDisplayService> m_display_service;
+    Result WriteAppletCaptureBuffer(bool*,s32*);
+};
+// @AM_METHOD@
+}
+using Service::VI::Container;
+template<class C>bool Init(C& c){if constexpr(std::is_same_v<decltype(c.EnsureInitialized()),bool>)return c.EnsureInitialized();else{c.EnsureInitialized();return true;}}
+void Cold(){System system;Container container{system};container.OnTerminate();
+    Require(!Init(container) && system.trace->lookups==0 && system.trace->publications==0 && system.trace->conductors==0,
+            "terminated cold VI published providers");
+    Require(container.GetSharedBufferManager()==nullptr,"terminated VI borrowed shared manager");}
+void Late(){System system;const auto container=std::make_shared<Container>(system);std::stop_source source;auto token=source.get_token();
+    // @STOP_CALLBACK@
+    Event entered,release;std::atomic<int> visits=0;
+    system.trace->lookup_hook=[&]{if(++visits==1){
+        Require(!container->m_lock.held,"VI initialization held publication lock across lookup");
+        entered.Set();release.Wait();}};
+    auto init=std::async(std::launch::async,[&]{return Init(*container);});entered.Wait();
+    source.request_stop();Require(container->m_is_shut_down,"stop callback did not close VI");
+    // Model the owning System's next GPU drain, after synchronous stop callbacks.
+    system.trace->gpu_drained=true;release.Set();const bool initialized=Ready(init);
+    Require(!initialized && system.trace->publications==0 && system.trace->conductors==0 && !container->m_shared_buffer_manager,
+            "late VI initialization published after stop and GPU drain");
+    Require(container->GetSharedBufferManager()==nullptr,"late init exposed shared manager");}
+void Retained(){System system;auto retained=std::make_shared<Container>(system);Require(Init(*retained),"normal setup failed");
+    auto module=retained->m_shared_buffer_manager->module;const int before=system.trace->lookups;
+    retained->OnTerminate();system.trace->gpu_drained=true;
+    Require(!Init(*retained) && retained->GetSharedBufferManager()==nullptr && system.trace->lookups==before,
+            "retained terminated VI lent session entry");
+    Require(module && retained->m_shared_buffer_manager && retained->m_shared_buffer_manager->module==module,
+            "terminal refusal released retained session provider");}
+void Normal(){System system;Container container{system};Require(Init(container) && Init(container),"normal init refused");
+    Require(container.GetSharedBufferManager()!=nullptr && system.trace->conductors==1 && system.trace->publications==1 && system.trace->lookups==2,
+            "normal init lost or duplicated provider");}
+void Concurrent(){System system;Container container{system};Event entered,release;std::atomic<int> visits=0;
+    system.trace->lookup_hook=[&]{if(++visits==1){entered.Set();release.Wait();}};
+    auto first=std::async(std::launch::async,[&]{return Init(container);});entered.Wait();
+    Require(Init(container),"second initializer failed");release.Set();Require(Ready(first),"existing winner not reused");
+    Require(system.trace->conductors==1 && system.trace->publications==1,"competing initializer duplicated worker");}
+void EntryRaces(){for(int route=0;route<3;++route){System system;Container c{system};Require(Init(c),"setup failed");int locks=0;
+    c.m_lock.before_lock=[&]{if(++locks==2)c.OnTerminate();};
+    if(route==0)Require(c.GetSharedBufferManager()==nullptr,"accessor lent manager after termination won second lock");
+    if(route==1){auto before=system.services.binder;auto out=before;Require(c.GetBinderDriver(&out)==1 && out==before,
+        "binder accessor published after termination won second lock");}
+    if(route==2){s32 interval=77;f32 speed=9;Require(!c.ComposeOnDisplay(&interval,&speed,1) && system.trace->composes==0,
+        "composition ran after termination won second lock");}
+}}
+void Unavailable(){System s;Container c{s};auto binder=s.services.binder;s.services.binder.reset();
+    Require(!Init(c) && !c.m_shared_buffer_manager && s.trace->conductors==0,"missing provider fabricated initialization");
+    s.services.binder=binder;Require(Init(c),"no-effect provider refusal prevented retry");}
+void Callers(bool closed){System s;auto c=std::make_shared<Container>(s);Require(Init(*c),"setup failed");if(closed)c->OnTerminate();
+    auto manager=std::make_shared<Service::VI::IManagerDisplayService>();manager->m_container=c;
+    Service::VI::ISystemDisplayService service{c};Service::AM::DisplayLayerManager am;am.m_display_service=manager;
+    Kernel::KProcess process;u64 buffer=77,layer=78,size=79;s32 handle=80;Service::VI::SharedMemoryPoolLayout layout;
+    Service::android::Fence fence;std::array<s32,4> slots{};long long slot=81;Kernel::KReadableEvent* event=nullptr;bool written=false;s32 index=82;
+    const int expected=closed?1:0;
+    Require(manager->CreateSharedLayerSession(&process,&buffer,&layer,1,false)==expected,"create caller mishandled terminal refusal");
+    manager->DestroySharedLayerSession(&process);
+    Require(service.GetSharedBufferMemoryHandleId(&handle,&size,&layout,1,{1})==expected,"handle caller mishandled terminal refusal");
+    Require(service.AcquireSharedFrameBuffer(&fence,&slots,&slot,1)==expected,"acquire caller mishandled terminal refusal");
+    Require(service.PresentSharedFrameBuffer(fence,{},0,1,1,0)==expected,"present caller mishandled terminal refusal");
+    Require(service.GetSharedFrameBufferAcquirableEvent(&event,1)==expected,"event caller mishandled terminal refusal");
+    Require(service.CancelSharedFrameBuffer(1,0)==expected,"cancel caller mishandled terminal refusal");
+    Require(am.WriteAppletCaptureBuffer(&written,&index)==expected,"capture caller mishandled terminal refusal");
+    Require(s.trace->manager_calls==(closed?0:8),"service callers lost or replayed manager operations");
+    if(closed)Require(buffer==77 && layer==78 && size==79 && handle==80 && slot==81 && !written && index==82,
+        "terminal service refusal changed outputs");
+}
+int main(int argc,char** argv){Require(argc==2,"missing case");std::string name=argv[1];
+    if(name=="cold")Cold();else if(name=="late")Late();else if(name=="retained")Retained();else if(name=="normal")Normal();else if(name=="concurrent")Concurrent();
+    else if(name=="entry-races")EntryRaces();else if(name=="unavailable")Unavailable();else if(name=="closed-callers")Callers(true);else if(name=="open-callers")Callers(false);else return 98;
+    std::cout<<"PASS VI terminal publication "<<name<<'\n';}

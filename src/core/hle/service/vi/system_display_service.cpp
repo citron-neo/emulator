@@ -5,6 +5,7 @@
 #include "core/hle/service/cmif_serialization.h"
 #include "core/hle/service/vi/container.h"
 #include "core/hle/service/vi/system_display_service.h"
+#include "core/hle/service/vi/vi_results.h"
 #include "core/hle/service/vi/vi_types.h"
 
 namespace Service::VI {
@@ -123,7 +124,9 @@ Result ISystemDisplayService::GetSharedBufferMemoryHandleId(
     ClientAppletResourceUserId aruid) {
     LOG_INFO(Service_VI, "called. buffer_id={}, aruid={:#x}", buffer_id, aruid.pid);
 
-    R_RETURN(m_container->GetSharedBufferManager()->GetSharedBufferMemoryHandleId(
+    auto* manager = m_container->GetSharedBufferManager();
+    R_UNLESS(manager, VI::ResultOperationFailed);
+    R_RETURN(manager->GetSharedBufferMemoryHandleId(
         out_size, out_nvmap_handle, out_pool_layout, buffer_id, aruid.pid));
 }
 
@@ -141,7 +144,9 @@ Result ISystemDisplayService::AcquireSharedFrameBuffer(Out<android::Fence> out_f
                                                        Out<std::array<s32, 4>> out_slots,
                                                        Out<s64> out_target_slot, u64 layer_id) {
     LOG_DEBUG(Service_VI, "called");
-    R_RETURN(m_container->GetSharedBufferManager()->AcquireSharedFrameBuffer(
+    auto* manager = m_container->GetSharedBufferManager();
+    R_UNLESS(manager, VI::ResultOperationFailed);
+    R_RETURN(manager->AcquireSharedFrameBuffer(
         out_fence, *out_slots, out_target_slot, layer_id));
 }
 
@@ -150,20 +155,26 @@ Result ISystemDisplayService::PresentSharedFrameBuffer(android::Fence fence,
                                                        u32 window_transform, s32 swap_interval,
                                                        u64 layer_id, s64 surface_id) {
     LOG_DEBUG(Service_VI, "called");
-    R_RETURN(m_container->GetSharedBufferManager()->PresentSharedFrameBuffer(
+    auto* manager = m_container->GetSharedBufferManager();
+    R_UNLESS(manager, VI::ResultOperationFailed);
+    R_RETURN(manager->PresentSharedFrameBuffer(
         fence, crop_region, window_transform, swap_interval, layer_id, surface_id));
 }
 
 Result ISystemDisplayService::GetSharedFrameBufferAcquirableEvent(
     OutCopyHandle<Kernel::KReadableEvent> out_event, u64 layer_id) {
     LOG_DEBUG(Service_VI, "called");
-    R_RETURN(m_container->GetSharedBufferManager()->GetSharedFrameBufferAcquirableEvent(out_event,
+    auto* manager = m_container->GetSharedBufferManager();
+    R_UNLESS(manager, VI::ResultOperationFailed);
+    R_RETURN(manager->GetSharedFrameBufferAcquirableEvent(out_event,
                                                                                         layer_id));
 }
 
 Result ISystemDisplayService::CancelSharedFrameBuffer(u64 layer_id, s64 slot) {
     LOG_DEBUG(Service_VI, "called");
-    R_RETURN(m_container->GetSharedBufferManager()->CancelSharedFrameBuffer(layer_id, slot));
+    auto* manager = m_container->GetSharedBufferManager();
+    R_UNLESS(manager, VI::ResultOperationFailed);
+    R_RETURN(manager->CancelSharedFrameBuffer(layer_id, slot));
 }
 
 } // namespace Service::VI

@@ -25,6 +25,7 @@ class Swapchain;
 struct Frame {
     u32 width;
     u32 height;
+    VkFormat image_view_format{VK_FORMAT_UNDEFINED};
     vk::Image image;
     vk::ImageView image_view;
     vk::Framebuffer framebuffer;
@@ -53,12 +54,15 @@ public:
     /// Waits for the present thread to finish presenting all queued frames.
     void WaitPresent();
 
+    /// After scheduler host work is drained, present all queued frames and join the worker.
+    void Shutdown();
+
 private:
     void PresentThread(std::stop_token token);
 
     void CopyToSwapchain(Frame* frame);
 
-    void CopyToSwapchainImpl(Frame* frame);
+    void CopyToSwapchainImpl(Frame* frame, bool& copy_started);
 
     void RecreateSwapchain(Frame* frame);
 

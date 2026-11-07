@@ -1,0 +1,256 @@
+{
+  "date": "2026-10-23",
+  "branch": "codex/issue-372-fixes",
+  "baseline": "cbf9c2599083d014145ead009e2b6503c57cbce7",
+  "main_unchanged": "b6a2ce9488d78efdbbeb0efe14c2ec5c0a263e76",
+  "baseline_witnesses": {
+    "revision": "cbf9c2599083d014145ead009e2b6503c57cbce7",
+    "source_sha256": "c497a42d2d26660afbd30eab43051f8706910e94c76c23371ac476e9195c473d",
+    "witnesses": {
+      "closed": "FAIL closed VI capture performed effects",
+      "callback": "FAIL active VI capture escaped drain",
+      "empty": "FAIL empty capture cleared destination or reported success",
+      "publication": "FAIL capture escaped pool publication"
+    }
+  },
+  "capture": {
+    "sha256": {
+      "src/core/hle/service/vi/shared_buffer_manager.cpp": "f2c6add7b60f3af9219b56e3f57c4b3cbf9cc885fa34d9276e795e3e42ce1e96",
+      "src/core/hle/service/nvdrv/nvdrv.h": "498a18c42d93598156a0f13fd8787ac2fa43f5c1d0cb5f298bdfecfb99367d87",
+      "tools/physical_coherency_tests/vi_capture_fixture.cpp.in": "326eb6d2acf723e0dce40ac110412b3ccf436cf88b7ad1c9353d2ee93f0e6b56",
+      "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+      "src/common/scope_exit.h": "f441cc79b44dd2b6e6b2ae36ae480281f960a176bbff4f2a501ff752581f35f2",
+      "tools/physical_coherency_tests/run_vi_capture_drain_tests.py": "31a02d985a5fded7b91dec6d4c16d9ae8024b98f17b59a6f110ab54cbc5c0d86"
+    },
+    "repetitions": 3,
+    "cases": [
+      "closed",
+      "callback",
+      "raw",
+      "tail",
+      "empty",
+      "missing",
+      "publication",
+      "partial"
+    ],
+    "controls": [
+      "unrelated-admission",
+      "release-before-capture",
+      "release-before-raw",
+      "release-before-projection",
+      "ignore-empty",
+      "omit-exception-seal",
+      "omit-publication-lock",
+      "hold-lock-across-gpu"
+    ],
+    "actual": [
+      "WriteAppletCaptureBuffer body",
+      "Module admission/seal methods",
+      "ProducerDrain/ScopeGuard"
+    ],
+    "fixtures": [
+      "GPU capture result and projection, physical bytes/GetPointer, page-group layout",
+      "publisher holding real underlying mutex, not actual CreateSession"
+    ],
+    "boundary": "Counted synchronous raw-capture subset only; no mapping-use pin, F2 preservation, native visibility or whole Guest admission."
+  },
+  "gpu_lifecycle": {
+    "cases": 10,
+    "repetitions": 3,
+    "controls": [
+      "cancelled CPU-read coverage"
+    ],
+    "extraction": {
+      "methods": {
+        "~Impl()": "edf2a1f2083aea2c8bc5aac7eaccc1e582bd9e9c62e40a55c631805cd556551b",
+        "template <typename Func>\nu64 RequestSyncOperation(Func&& action)": "44c8f98f6ca1ae2fe384b35df9bb66c1ab48a69f05feb250c3060123b1c96983",
+        "u64 CurrentSyncRequestFence() const": "4355be31bad22309577551f9a4eae7a976c6f37f179fc7e0195946620d3949cb",
+        "bool WaitForSyncOperation(const u64 fence)": "205ce695ed3b8ec68f5afbd7ce2b8c86cdd16919a7951dee8a556f2425be6942",
+        "void TickWork()": "d24eff8f22f34e149ad65bbbb037da059d6de1f6e32904c561aa73a86dc5554c",
+        "void NotifyShutdown()": "7a58d51416201fa84966845db0e4e63a0e9ccc02aa8613478fe8bd1e5f66548d",
+        "VideoCore::RasterizerDownloadArea OnCPURead(DAddr addr, u64 size)": "ac759bcfae1ca24866b35ee2003391110016f36ec0d3af6cd60660abbf88d4ce",
+        "void RequestComposite(std::vector<Tegra::FramebufferConfig>&& layers,\n                          std::vector<Service::Nvidia::NvFence>&& fences)": "08d1e575aede4af621ff9525d19b0a11792a42b4b97860653ed3ee38bef4c41d",
+        "std::vector<u8> GetAppletCaptureBuffer()": "ae76e7c0cbb0e596bcac64b22b833712ee1584606da4c9106904806cf84be869",
+        "void Shutdown()": "d56ce58a784578cbb14812c0fbb5b38a838cf1eab8bcc243ff9cab69172e9f44"
+      },
+      "fixtures": [
+        "Core/System",
+        "GPU worker and scheduler",
+        "renderer/Vulkan",
+        "guest syncpoints"
+      ],
+      "instrumentation": [
+        "signal before composite-state mutex acquisition",
+        "signal before sync wait and count after sync wait under its mutex"
+      ],
+      "no_gpu_execution": true
+    }
+  },
+  "production": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "compiler": "g++.exe (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+    "objects": [
+      {
+        "source": "src/core/hle/service/vi/shared_buffer_manager.cpp",
+        "sha256": "f2c6add7b60f3af9219b56e3f57c4b3cbf9cc885fa34d9276e795e3e42ce1e96",
+        "object_sha256": "04825b7ec5a6fbfd68527b793fffd3ebc322cb463a38226774bda291ba71ed3b",
+        "object_size": 42300,
+        "command": [
+          "C:/Strawberry/c/bin/g++.exe",
+          "-std=c++23",
+          "-O1",
+          "-DNDEBUG",
+          "-DARCHITECTURE_x86_64",
+          "-DBOOST_ASIO_DISABLE_CONCEPTS",
+          "-fno-strict-aliasing",
+          "-Werror=conversion",
+          "-Wno-sign-conversion",
+          "-I",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+          "-c",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\vi\\shared_buffer_manager.cpp",
+          "-o",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-vi-capture-production\\0-shared_buffer_manager.o"
+        ],
+        "warnings": ""
+      },
+      {
+        "source": "src/core/hle/service/vi/manager_display_service.cpp",
+        "sha256": "309285ac7aa242ec11fa7d54d60983e333362f6e95576ae4def8ab249891b2d1",
+        "object_sha256": "23ef60814a4876809bf3e82472a2032b0e248d395e4b8473ae58aa82ad9e4998",
+        "object_size": 47717,
+        "command": [
+          "C:/Strawberry/c/bin/g++.exe",
+          "-std=c++23",
+          "-O1",
+          "-DNDEBUG",
+          "-DARCHITECTURE_x86_64",
+          "-DBOOST_ASIO_DISABLE_CONCEPTS",
+          "-fno-strict-aliasing",
+          "-Werror=conversion",
+          "-Wno-sign-conversion",
+          "-I",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+          "-c",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\vi\\manager_display_service.cpp",
+          "-o",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-vi-capture-production\\1-manager_display_service.o"
+        ],
+        "warnings": ""
+      },
+      {
+        "source": "src/core/hle/service/am/display_layer_manager.cpp",
+        "sha256": "d9d678de18746a3317c360e8893185cc265963f2199f1649b5ce0235f40bda73",
+        "object_sha256": "77ea15da90286f09d4dac11c7874a3b448483b7d400b1e83e7d9bb623c28a226",
+        "object_size": 20684,
+        "command": [
+          "C:/Strawberry/c/bin/g++.exe",
+          "-std=c++23",
+          "-O1",
+          "-DNDEBUG",
+          "-DARCHITECTURE_x86_64",
+          "-DBOOST_ASIO_DISABLE_CONCEPTS",
+          "-fno-strict-aliasing",
+          "-Werror=conversion",
+          "-Wno-sign-conversion",
+          "-I",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+          "-isystem",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+          "-c",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\service\\am\\display_layer_manager.cpp",
+          "-o",
+          "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-vi-capture-production\\2-display_layer_manager.o"
+        ],
+        "warnings": ""
+      }
+    ],
+    "boundary": "Actual production Windows x64 object compilation with real headers. No application link, runtime, native Vulkan or Android claim."
+  },
+  "audited_source_sha256": {
+    "src/core/hle/service/vi/shared_buffer_manager.h": "3cac915a499414f534221c39e46f7a5473d75639e6b655364725d5480777bde9",
+    "src/core/hle/service/vi/container.cpp": "0b9ea121ee4fd19980ddb54c27727ef400a06d652d2f6f89c86edcabe5f5dafd",
+    "src/core/hle/service/vi/manager_display_service.cpp": "309285ac7aa242ec11fa7d54d60983e333362f6e95576ae4def8ab249891b2d1",
+    "src/core/hle/service/am/display_layer_manager.cpp": "d9d678de18746a3317c360e8893185cc265963f2199f1649b5ce0235f40bda73",
+    "src/core/hle/kernel/k_page_group.cpp": "943e368a7176dfd027d9309d14c348e7279f989b8a8fa3efa3d0512c8d2140f4",
+    "src/core/hle/kernel/k_page_group.h": "e9d10d8dd7b608cb84ff2c00de28d4f514eb7f07c47fbc7f789b795580cbdea5",
+    "src/core/hle/service/nvdrv/core/container.cpp": "98532f87d11f7ebc75350996c49b51843da6be145624e1e25d4046d3d04ae954",
+    "src/core/hle/service/nvdrv/nvdrv.cpp": "7da95199d55b0ee4a76b02060842718f6c729b567dca0138529e5cac944b1e03",
+    "src/core/hle/service/nvdrv/devices/nvmap.cpp": "31c7a177f99a80b2f7970a7aba0a17bc77591aacb2d467d05295d1528ef83dc2",
+    "src/core/hle/kernel/process_cohort_stop.cpp": "4a82749d5c8d4d4250285317c06c0667bdd4ca41daf98ad805b422bd4102bea2",
+    "src/video_core/gpu.cpp": "e0ac6ced278e3c3c7f9338066fe54786c86837f1ca5f7d08428822d6b4da23ee"
+  },
+  "boundary": "Synchronous capture subset only. Creation/raw initialization/retirement, mapping-use leases, F1/F2 content publication, parallel raw aliases and native GPU proof remain open. M4 incomplete, GuestBackingAdmission Unknown.",
+  "workflow": "Existing workflow updated; no manual dispatch or current-head CI success claimed.",
+  "cleanup": {
+    "removed_executables": 12,
+    "removed_files": 117,
+    "preserved_local_results": ".diagnostics/m4-vi-capture-results",
+    "removed_objects": 3,
+    "scope": "Only four explicitly named current-run directories; old results and dependency caches retained."
+  }
+}

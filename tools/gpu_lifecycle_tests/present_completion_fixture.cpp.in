@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <atomic>
+#include <condition_variable>
+#include <cstdlib>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <limits>
+#include <mutex>
+#include <queue>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <utility>
+#include <vector>
+#include "common/common_types.h"
+#include "common/terminal_fail_stop.h"
+using VkResult=int;constexpr int VK_SUCCESS=0;
+void Check(bool ok,const char* message){if(!ok){std::cerr<<"FAIL "<<message<<'\n';std::cerr.flush();std::_Exit(91);}}
+struct Gate {std::mutex mutex;std::condition_variable cv;bool ready{};
+    void Set(){std::scoped_lock l{mutex};ready=true;cv.notify_all();}
+    void Wait(){std::unique_lock l{mutex};Check(cv.wait_for(l,std::chrono::seconds(5),[&]{return ready;}),"gate timeout");}};
+struct CV {std::condition_variable cv;std::function<void()> entered;
+    template<class L,class P>void wait(L& l,P p){if(entered)entered();cv.wait(l,p);}
+    void notify_one(){cv.notify_one();}void notify_all(){cv.notify_all();}};
+struct Trace {int wait_result{},reset_result{},waits{},resets{},copies{},record_drains{};
+    u64 waited_fence{};bool confirmed{},gate_wait{};Gate entered,release;};
+struct Dispatch {
+    Trace& trace;
+    VkResult vkWaitForFences(u64,u32,const u64* fence,bool,u64){
+        trace.waited_fence=*fence;
+        ++trace.waits;if(trace.gate_wait){trace.entered.Set();trace.release.Wait();}
+        trace.confirmed=trace.wait_result==VK_SUCCESS;return trace.wait_result;
+    }
+    VkResult vkResetFences(u64,u32,const u64* fence){
+        Check(trace.confirmed&&trace.waited_fence==*fence,"unconfirmed native completion reached fence reset");
+        ++trace.resets;return trace.reset_result;
+    }
+};
+namespace vk {
+struct Exception:std::exception {VkResult result;explicit Exception(VkResult r):result{r}{}int GetResult()const{return result;}};
+void Check(VkResult r){if(r<0)throw Exception{r};}
+struct Fence {u64 owner{},handle{1};Dispatch* dld;
+    @WAIT@
+    @RESET@
+};
+struct CommandBuffer{};
+}
+namespace Common {
+void SetCurrentThreadName(const char*){}
+template<class C,class L,class P>void CondvarWait(C& cv,L& lock,std::stop_token token,P pred){cv.wait(lock,token,pred);}
+}
+namespace Vulkan {
+struct Probe {const char* name;~Probe(){std::cerr<<"DESTROY "<<name<<'\n';}};
+struct Frame {Probe image{"frame-image"},view{"frame-view"};vk::Fence present_done;};
+struct Scheduler {
+    Trace& trace;std::vector<std::function<void(vk::CommandBuffer)>> commands;
+    explicit Scheduler(Trace& t):trace{t}{}
+    template<class F>void Record(F f){commands.emplace_back(std::move(f));}
+    void WaitWorker(){++trace.record_drains;auto pending=std::move(commands);commands.clear();for(auto& c:pending)c({});}
+};
+struct PresentManager {
+    Trace& trace;Scheduler scheduler{trace};
+    std::queue<Frame*> free_queue,present_queue;CV free_cv;std::condition_variable_any frame_cv;
+    std::mutex free_mutex,queue_mutex,swapchain_mutex;std::jthread present_thread;
+    bool use_present_thread{},limit_mailbox_frames{};size_t frames_in_flight{};
+    static constexpr size_t MAX_MAILBOX_FRAMES_IN_FLIGHT=2;
+    explicit PresentManager(Trace& t):trace{t}{}
+    ~PresentManager(){Shutdown();}
+    void CopyToSwapchain(Frame*){++trace.copies;}
+    Frame* GetRenderFrame();void Present(Frame*);void WaitPresent();void PresentThread(std::stop_token);
+    void ReleaseRenderFrame(Frame*);void Shutdown();
+};
+@METHODS@
+}
+void AtExit(){std::cerr<<"ATEXIT_HANDLER\n";}
+int main(int argc,char** argv){
+    Check(argc==2,"missing mode");std::string mode=argv[1];Trace trace;
+    if(mode.starts_with("wait-"))trace.wait_result=std::stoi(mode.substr(5));
+    if(mode.starts_with("reset-"))trace.reset_result=std::stoi(mode.substr(6));
+    Dispatch dispatch{trace};Vulkan::Frame frame{{"frame-image"},{"frame-view"},{0,1,&dispatch}};
+    Vulkan::Frame other{{"other-image"},{"other-view"},{0,2,&dispatch}};
+    Vulkan::PresentManager manager{trace};std::atexit(AtExit);
+    if(mode=="async"||mode=="sync"||mode=="host-drain"){
+        manager.use_present_thread=mode!="sync";manager.frames_in_flight=1;trace.gate_wait=true;
+        if(manager.use_present_thread)manager.present_thread=std::jthread([&](std::stop_token s){manager.PresentThread(s);});
+        manager.Present(&frame);manager.scheduler.WaitWorker();manager.WaitPresent();
+        Check(trace.copies==1&&!trace.confirmed,"host presentation drain falsely completed native work");
+        if(mode=="host-drain"){
+            manager.Shutdown();Check(!trace.confirmed,"presentation join falsely completed native work");
+            // Complete the controlled native fence before positive-test teardown.
+            trace.release.Set();trace.gate_wait=false;
+            Check(frame.present_done.Wait()==VK_SUCCESS,"fixture final completion failed");frame.present_done.Reset();
+            std::cout<<"PASS present completion "<<mode<<'\n';return 0;
+        }
+    }else if(mode!="empty")manager.free_queue.push(&frame);
+    if(mode=="pending")trace.gate_wait=true;
+    if(mode=="limit"){manager.limit_mailbox_frames=true;manager.frames_in_flight=2;}
+    if(mode=="empty"||mode=="limit"){
+        Gate entered;manager.free_cv.entered=[&]{entered.Set();};
+        if(mode=="empty")manager.frames_in_flight=1;
+        auto reader=std::async(std::launch::async,[&]{return manager.GetRenderFrame();});entered.Wait();
+        manager.ReleaseRenderFrame(mode=="empty"?&frame:&other);
+        Check(reader.get()==&frame,"queue/limit selected wrong frame");
+    }else if(trace.gate_wait){
+        auto reader=std::async(std::launch::async,[&]{return manager.GetRenderFrame();});trace.entered.Wait();
+        Check(!trace.confirmed,"pending fence reported native completion");trace.release.Set();
+        Check(reader.get()==&frame,"native wait selected wrong frame");
+    }else {
+        auto* returned=manager.GetRenderFrame();
+        Check(returned==&frame&&trace.waits==1&&trace.confirmed,"frame returned without checked completion");
+        if(mode.starts_with("wait-")||mode.starts_with("reset-"))std::cerr<<"FRAME_RETURNED\n";
+        Check(trace.resets==1,"confirmed frame did not reset exactly once");
+        if(mode=="repeat"){
+            manager.ReleaseRenderFrame(returned);trace.confirmed=false;
+            Check(manager.GetRenderFrame()==&frame&&trace.waits==2&&trace.resets==2,"repeat reuse lost completion check");
+        }
+    }
+    Check(trace.waits>=1&&trace.resets==trace.waits,"confirmed frame did not reset exactly once");
+    manager.Shutdown();std::cout<<"PASS present completion "<<mode<<'\n';
+}

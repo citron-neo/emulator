@@ -1503,6 +1503,21 @@ U32U64 IREmitter::GlobalAtomicXor(const U64& pointer_offset, const U32U64& value
     }
 }
 
+U32U64 IREmitter::GlobalAtomicCompareExchange(const U64& address, const U32U64& compare,
+                                             const U32U64& value) {
+    if (compare.Type() != value.Type()) {
+        throw InvalidArgument("Atomic compare and replacement widths differ");
+    }
+    switch (value.Type()) {
+    case Type::U32:
+        return Inst<U32>(Opcode::GlobalAtomicCompareExchange32, address, compare, value);
+    case Type::U64:
+        return Inst<U64>(Opcode::GlobalAtomicCompareExchange64, address, compare, value);
+    default:
+        ThrowInvalidType(value.Type());
+    }
+}
+
 U32U64 IREmitter::GlobalAtomicExchange(const U64& pointer_offset, const U32U64& value) {
     switch (value.Type()) {
     case Type::U32:

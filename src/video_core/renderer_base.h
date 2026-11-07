@@ -37,6 +37,11 @@ public:
                           std::unique_ptr<Core::Frontend::GraphicsContext> context);
     virtual ~RendererBase();
 
+    /// Owner-thread teardown after GPU emulation and external composite callbacks stop.
+    /// Return only when backend workers/native work can no longer access owners.
+    /// An uncertain terminal failure must fail-stop, never permit member teardown.
+    virtual void Shutdown();
+
     /// Finalize rendering the guest frame and draw into the presentation texture
     virtual void Composite(std::span<const Tegra::FramebufferConfig> layers) = 0;
 

@@ -296,4 +296,5 @@ Q_DECLARE_METATYPE(Settings::ScalingFilter);
 Q_DECLARE_METATYPE(Settings::AntiAliasing);
 Q_DECLARE_METATYPE(Settings::RendererBackend);
 Q_DECLARE_METATYPE(Settings::AstcRecompression);
+Q_DECLARE_METATYPE(Settings::BindlessTextureLimit);
 Q_DECLARE_METATYPE(Settings::AstcDecodeMode);

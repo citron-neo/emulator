@@ -466,4 +466,22 @@
         <item>2</item>
     </integer-array>
 
+    <string-array name="bindlessTextureLimitNames">
+        <item>Default</item>
+        <item>256</item>
+        <item>128</item>
+        <item>64</item>
+        <item>32</item>
+        <item>16</item>
+        <item>8</item>
+    </string-array>
+    <integer-array name="bindlessTextureLimitValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+    </integer-array>
 </resources>

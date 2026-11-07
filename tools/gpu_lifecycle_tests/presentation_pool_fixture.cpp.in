@@ -1,0 +1,163 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <condition_variable>
+#include <cstdio>
+#include <cstdlib>
+#include <deque>
+#include <functional>
+#include <limits>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <semaphore>
+#include <set>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <utility>
+#include <vector>
+#include <vulkan/vulkan.h>
+#include "common/common_types.h"
+#include "common/terminal_fail_stop.h"
+static void event(const char*s){std::fprintf(stderr,"EVENT %s\n",s);std::fflush(stderr);}
+static void Check(bool b,const char*s){if(!b){std::fprintf(stderr,"FAIL %s\n",s);std::fflush(stderr);std::_Exit(91);}}
+#define CITRON_PROFILE_SCOPE(...)
+#define LOG_ERROR(...)
+#define LOG_DEBUG(...)
+#define LOG_CRITICAL(...)
+namespace Common {static void SetCurrentThreadName(const char*){}template<class C,class L,class P>void CondvarWait(C&c,L&l,std::stop_token t,P p){c.wait(l,t,p);}}
+struct Root{uintptr_t id;int kind;bool live=true,signal=true;int uses{},children{};std::shared_ptr<Root>parent,source;};
+static uintptr_t next_id=1;static std::map<uintptr_t,std::shared_ptr<Root>>roots;
+static std::mutex native_mutex;
+static std::binary_semaphore entered{0},resume{0},join_waiting{0};static bool gate_copy{},gate_wait{},gate_acquire{};
+static std::string fault;static bool zero_extent{};static size_t next_count=3;static int copies{},presents{},acquires{},native_idles{};
+static VkResult idle_result=VK_SUCCESS,present_result=VK_SUCCESS;
+static std::deque<std::pair<VkResult,u32>>acquire_results;
+static std::vector<std::function<void()>>gfx,display;
+static std::shared_ptr<Root>current_chain;
+static auto Make(int kind,std::shared_ptr<Root>parent={}){if(parent)++parent->children;auto r=std::make_shared<Root>(Root{next_id++,kind,true,true,0,0,std::move(parent),{}});roots[r->id]=r;return r;}
+static auto Lookup(auto handle){return roots.at(reinterpret_cast<uintptr_t>(handle));}
+static void CompleteGraphics(){for(auto&f:gfx)f();gfx.clear();}
+static void CompleteNative(){CompleteGraphics();for(auto&f:display)f();display.clear();}
+namespace vk{
+struct Exception:std::exception{VkResult result;explicit Exception(VkResult r):result{r}{}VkResult GetResult()const{return result;}};
+static void Check(VkResult r){if(r<0)throw Exception{r};}
+template<class H,int Kind>struct Native{
+ std::shared_ptr<Root>root;H raw{};
+ Native()=default;explicit Native(std::shared_ptr<Root>r):root{std::move(r)},raw{reinterpret_cast<H>(root->id)}{}
+ Native(const Native&)=delete;Native&operator=(const Native&)=delete;
+ Native(Native&&r)noexcept:root{std::move(r.root)},raw{std::exchange(r.raw,{})}{}
+ Native&operator=(Native&&r)noexcept{Reset();root=std::move(r.root);raw=std::exchange(r.raw,{});return *this;}
+ ~Native(){Reset();}
+ void Reset()noexcept{if(root){::Check(root->uses==0,"swapchain owner destroyed with pending use");::Check(root->children==0,"surface destroyed before child swapchain");if(root->parent)--root->parent->children;root->live=false;root.reset();raw={};}}
+ void reset(){Reset();}H operator*()const{return raw;}const H*address()const{return &raw;}
+ explicit operator bool()const{return bool(root);}
+ VkResult Wait()const{if(gate_wait){entered.release();resume.acquire();}std::scoped_lock l{native_mutex};CompleteGraphics();::Check(root->signal,"borrowed Frame has no completing submission");return VK_SUCCESS;}
+};
+// Fence needs the checked reset operation; other resources use reset/destruction.
+struct Fence:Native<VkFence,5>{using Native::Native;void Reset(){std::scoped_lock l{native_mutex};::Check(root->signal,"fence reset before completion");root->signal=false;}};
+using SurfaceKHR=Native<VkSurfaceKHR,0>;using SwapchainKHR=Native<VkSwapchainKHR,1>;using Semaphore=Native<VkSemaphore,2>;
+using Image=Native<VkImage,3>;using ImageView=Native<VkImageView,3>;using Framebuffer=Native<VkFramebuffer,3>;
+struct CommandBuffer{VkCommandBuffer raw{};const VkCommandBuffer*address()const{return &raw;}};
+}
+template<class T>struct ObservedVector:std::vector<T>{using std::vector<T>::vector;T&operator[](size_t i){Check(i<this->size(),"acquire used invalid image index");return std::vector<T>::operator[](i);}const T&operator[](size_t i)const{Check(i<this->size(),"acquire used invalid image index");return std::vector<T>::operator[](i);}};
+static void ObservePresentJoin(std::mutex&m){if(gate_copy){Check(!m.try_lock(),"active copy did not hold swapchain mutex");join_waiting.release();}}
+namespace Vulkan{
+@FRAME@
+struct Scheduler{
+ std::mutex submit_mutex;std::vector<std::function<void(vk::CommandBuffer)>>commands;int waits{};u64 tick=1;
+ template<class F>void Record(F f){commands.emplace_back(std::move(f));}
+ void WaitWorker(){auto c=std::move(commands);commands.clear();for(auto&f:c)f({});}
+ void Wait(u64){++waits;}u64 CurrentTick()const{return tick;}
+};
+struct Physical{VkSurfaceCapabilitiesKHR GetSurfaceCapabilitiesKHR(VkSurfaceKHR)const{VkSurfaceCapabilitiesKHR c{};c.maxImageExtent=zero_extent?VkExtent2D{}:VkExtent2D{4096,4096};return c;}};
+struct Queue{
+ VkResult Submit(const VkSubmitInfo&i,VkFence fence)const{
+  std::scoped_lock l{native_mutex};auto done=Lookup(fence);
+  for(u32 n=0;n<i.waitSemaphoreCount;++n){auto sem=Lookup(i.pWaitSemaphores[n]);Check(sem->signal,"render_ready consumed twice");sem->signal=false;}
+  Check(!done->signal,"submitted with an already signaled fence");++copies;
+  ++done->source->uses;++current_chain->uses;auto chain=current_chain;
+  gfx.push_back([done,chain]{--done->source->uses;--chain->uses;done->signal=true;});
+  for(u32 n=0;n<i.signalSemaphoreCount;++n)Lookup(i.pSignalSemaphores[n])->signal=true;
+  return VK_SUCCESS;
+ }
+ VkResult Present(const VkPresentInfoKHR&i)const{
+  std::scoped_lock l{native_mutex};++presents;for(u32 n=0;n<i.waitSemaphoreCount;++n){auto sem=Lookup(i.pWaitSemaphores[n]);Check(sem->signal,"present missing signal obligation");sem->signal=false;}
+  ++current_chain->uses;auto c=current_chain;display.push_back([c]{--c->uses;});return present_result;
+ }
+};
+struct Logical{
+ VkResult WaitIdle()const{std::scoped_lock l{native_mutex};++native_idles;if(idle_result==VK_SUCCESS)CompleteNative();return idle_result;}
+ VkResult AcquireNextImageKHR(VkSwapchainKHR,u64,VkSemaphore semaphore,VkFence,u32*out)const{
+  if(gate_acquire){entered.release();resume.acquire();}std::scoped_lock l{native_mutex};++acquires;
+  auto r=acquire_results.empty()?std::pair{VK_SUCCESS,0u}:acquire_results.front();if(!acquire_results.empty())acquire_results.pop_front();
+  if(r.first==VK_SUCCESS||r.first==VK_SUBOPTIMAL_KHR){*out=r.second;Lookup(semaphore)->signal=true;}return r.first;
+ }
+};
+struct Device{Physical GetPhysical()const{return {};}const Logical&GetLogical()const{static Logical l;return l;}Queue GetPresentQueue()const{return {};}Queue GetGraphicsQueue()const{return {};}void ReportLoss()const{}};
+struct Swapchain{
+ const Device&device;Scheduler&scheduler;VkSurfaceKHR surface{};vk::SwapchainKHR swapchain;
+ size_t image_count{};ObservedVector<VkImage>images;ObservedVector<u64>resource_ticks;ObservedVector<vk::Semaphore>present_semaphores,render_semaphores;
+ u32 width=8,height=8,image_index{},frame_index{};VkExtent2D extent{8,8};bool is_outdated{},is_suboptimal{};
+ Swapchain(const Device&d,Scheduler&s):device{d},scheduler{s}{}
+ @CREATE_DECL@
+ bool Rebuild(VkSurfaceKHR s,u32 w,u32 h){@REBUILD@}
+ bool AcquireNextImage();void Present(VkSemaphore);void Destroy();
+ bool NeedsRecreation()const{return is_outdated||is_suboptimal;}
+ size_t GetImageCount()const{return image_count;}bool IsMailbox()const{return false;}
+ u32 GetWidth()const{return width;}u32 GetHeight()const{return height;}
+ VkImage CurrentImage()const{return images[image_index];}
+ VkSemaphore CurrentPresentSemaphore()const{return *present_semaphores[frame_index];}
+ VkSemaphore CurrentRenderSemaphore()const{return *render_semaphores[frame_index];}
+ void CreateSwapchain(const VkSurfaceCapabilitiesKHR&){if(fault=="create")throw vk::Exception{VK_ERROR_OUT_OF_HOST_MEMORY};swapchain=vk::SwapchainKHR{Make(1,Lookup(surface))};current_chain=swapchain.root;image_count=next_count;images.resize(image_count);for(size_t n=0;n<image_count;++n)images[n]=reinterpret_cast<VkImage>(swapchain.root->id);}
+ void CreateSemaphores(){if(fault=="semaphore")throw std::bad_alloc();present_semaphores.clear();render_semaphores.clear();for(size_t n=0;n<image_count;++n){present_semaphores.emplace_back(Make(2));render_semaphores.emplace_back(Make(2));}}
+};
+@SWAPCHAIN@
+static vk::SurfaceKHR CreateSurface(int,int){return vk::SurfaceKHR{Make(0)};}
+struct Window{int GetWindowInfo()const{return 0;}};
+struct PresentManager{
+ const Device&device;Scheduler&scheduler;Swapchain&swapchain;vk::SurfaceKHR&surface;int instance{};Window render_window;
+ std::vector<Frame>frames;std::queue<Frame*>free_queue,present_queue;
+ std::mutex free_mutex,queue_mutex,swapchain_mutex;std::condition_variable free_cv;std::condition_variable_any frame_cv;std::jthread present_thread;
+ bool use_present_thread{},limit_mailbox_frames{};size_t image_count{},frames_in_flight{};static constexpr size_t MAX_MAILBOX_FRAMES_IN_FLIGHT=2;
+ PresentManager(const Device&d,Scheduler&s,Swapchain&sc,vk::SurfaceKHR&sf,bool async):device{d},scheduler{s},swapchain{sc},surface{sf},use_present_thread{async}{SetImageCount();frames.resize(image_count);for(auto&f:frames){f.width=8;f.height=8;f.image=vk::Image{Make(3)};f.render_ready=vk::Semaphore{Make(2)};f.present_done=vk::Fence{Make(5)};f.present_done.root->source=f.image.root;free_queue.push(&f);}if(async)present_thread=std::jthread([this](std::stop_token t){PresentThread(t);});}
+ ~PresentManager(){Shutdown();}
+ Frame*GetRenderFrame();void Present(Frame*);void ReleaseRenderFrame(Frame*);void PresentThread(std::stop_token);void Shutdown();void WaitPresent();void SetImageCount();void UpdateFramePipelineLimit(){limit_mailbox_frames=false;}
+ void RecreateSwapchain(Frame*);void CopyToSwapchain(Frame*);@COPY_DECL@
+};
+static void RecordCopy(PresentManager&m,Frame*){Check(Lookup(m.swapchain.CurrentImage())->live,"copy used retired swapchain image");if(gate_copy){entered.release();resume.acquire();}}
+@PRESENT@
+}
+int main(int argc,char**argv){
+ if(argc!=2)return 2;std::string mode=argv[1];std::atexit([]{event("ATEXIT");});
+ Vulkan::Scheduler scheduler;Vulkan::Device device;next_count=mode=="pending-fence"?1:3;auto surface=Vulkan::CreateSurface(0,0);Vulkan::Swapchain swapchain{device,scheduler};Check(swapchain.Rebuild(*surface,8,8),"initial Create failed");
+ const bool async=mode=="async"||mode=="active-rebuild"||mode=="shutdown";
+ {Vulkan::PresentManager manager{device,scheduler,swapchain,surface,async};auto*base=manager.frames.data();const auto count=manager.frames.size();
+ auto present=[&](Vulkan::Frame*f){f->render_ready.root->signal=true;manager.Present(f);scheduler.WaitWorker();};
+ auto invariant=[&]{std::scoped_lock l{manager.free_mutex};Check(manager.frames.data()==base&&manager.frames.size()==count,"swapchain recreation moved Frame owners");Check(manager.free_queue.size()+manager.frames_in_flight==count,"pool lost Frame accounting");auto q=manager.free_queue;std::set<Vulkan::Frame*>unique;while(!q.empty()){Check(q.front()>=base&&q.front()<base+count&&unique.insert(q.front()).second,"pool duplicated or lost Frame owner");q.pop();}};
+ if(mode=="stale-outdated"||mode=="outdated-valid-index"){
+  swapchain.image_index=2;next_count=1;Check(swapchain.Rebuild(*surface,8,8),"shrink failed");swapchain.image_index=mode=="stale-outdated"?2:0;acquire_results.push_back({VK_ERROR_OUT_OF_DATE_KHR,0});const int waits=scheduler.waits;Check(swapchain.AcquireNextImage(),"outdated did not request recreation");Check(scheduler.waits==waits,"failed acquire touched resource ticks");
+ }else if(mode=="failed-idle"){
+  ++swapchain.swapchain.root->uses;idle_result=VK_ERROR_DEVICE_LOST;swapchain.Rebuild(*surface,8,8);Check(false,"failed idle allowed Create");
+ }else if(mode=="surface-lost"||mode=="present-lost"||mode=="zero-surface"||mode=="create-fail"||mode=="semaphore-fail"){
+  auto*f=manager.GetRenderFrame();if(mode=="present-lost")present_result=VK_ERROR_SURFACE_LOST_KHR;else acquire_results.push_back({VK_ERROR_SURFACE_LOST_KHR,0});
+  if(mode=="zero-surface")zero_extent=true;if(mode=="create-fail")fault="create";if(mode=="semaphore-fail")fault="semaphore";
+  present(f);manager.WaitPresent();invariant();
+ }else if(mode=="bad-acquire"||mode=="bad-index"){
+  auto*f=manager.GetRenderFrame();acquire_results.push_back(mode=="bad-index"?std::pair{VK_SUCCESS,99u}:std::pair{VK_TIMEOUT,0u});present(f);Check(false,"invalid acquire returned Frame");
+ }else if(mode=="active-rebuild"||mode=="shutdown"){
+  auto*f=manager.GetRenderFrame();swapchain.is_suboptimal=true;next_count=1;gate_copy=true;present(f);entered.acquire();
+  Check(manager.frames_in_flight==1&&f->image.root->live,"active present lost Frame owner");
+  std::atomic<bool>closed{};std::jthread closer([&]{manager.Shutdown();closed=true;});join_waiting.acquire();Check(!closed,"shutdown returned before active copy");resume.release();closer.join();Check(closed,"shutdown did not finish");gate_copy=false;invariant();
+ }else{
+  for(auto n:{1u,4u,2u,3u}){next_count=n;swapchain.is_suboptimal=true;std::set<Vulkan::Frame*>borrowed;for(size_t j=0;j<count;++j){auto*f=manager.GetRenderFrame();Check(borrowed.insert(f).second,"same Frame borrowed twice in cohort");present(f);}manager.WaitPresent();invariant();}
+  if(mode=="pending-fence"){auto*f=manager.GetRenderFrame();present(f);manager.WaitPresent();Check(!f->present_done.root->signal,"pending test had no native use");gate_wait=true;Vulkan::Frame*got{};std::jthread waiter([&]{got=manager.GetRenderFrame();});entered.acquire();resume.release();waiter.join();gate_wait=false;Check(got!=nullptr,"pending fence lost Frame");present(got);manager.WaitPresent();invariant();}
+ }
+ manager.Shutdown();{std::scoped_lock l{scheduler.submit_mutex};Check(device.GetLogical().WaitIdle()==VK_SUCCESS,"final native idle failed");}
+ }
+ swapchain.Destroy();event("OWNERS_RELEASED");std::fprintf(stderr,"PASS pool %s\n",argv[1]);
+}

@@ -14,6 +14,7 @@
 #include "core/hle/kernel/memory_types.h"
 #include "core/hle/kernel/slab_helpers.h"
 #include "core/hle/result.h"
+#include "core/controlled_mapping_publication.h"
 
 namespace Kernel {
 
@@ -37,7 +38,7 @@ public:
     }
 
     Result Initialize(KernelCore& kernel, KProcess* process);
-    Result Finalize();
+    Result Finalize(const Core::Memory::ControlledMappingPublication::Teardown* teardown = nullptr);
 
     KProcessAddress Reserve();
     void Release(KProcessAddress addr);

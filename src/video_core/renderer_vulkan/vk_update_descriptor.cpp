@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <stdexcept>
 #include <variant>
 #include <boost/container/static_vector.hpp>
 
@@ -56,12 +57,20 @@ void UpdateDescriptorQueue::Acquire() {
 }
 
 void UpdateDescriptorQueue::EnsureCapacity(size_t required_entries) {
-    if (std::distance(payload_start, payload_cursor) + required_entries >= FRAME_PAYLOAD_SIZE) {
-        HandleOverflow();
+    if (!CanAdd(required_entries)) {
+        HandleOverflow(required_entries);
     }
 }
 
-void UpdateDescriptorQueue::HandleOverflow() {
+void UpdateDescriptorQueue::HandleOverflow(size_t required_entries) {
+    size_t pending = 0;
+    if (upload_start && upload_start >= payload_start && upload_start <= payload_cursor) {
+        pending = static_cast<size_t>(payload_cursor - upload_start);
+    }
+    if (pending > FRAME_PAYLOAD_SIZE || required_entries > FRAME_PAYLOAD_SIZE - pending) {
+        throw std::length_error("Descriptor upload exceeds one frame payload slice");
+    }
+
     overflow_count.fetch_add(1, std::memory_order_relaxed);
     overflow_events++;
 
@@ -73,9 +82,7 @@ void UpdateDescriptorQueue::HandleOverflow() {
     // An overflow can happen in the middle of an upload (between Acquire() and the draw that
     // consumes it). Move the entries written so far to the start of the frame slice, so that
     // upload_start stays valid and GetUploadSize() cannot underflow.
-    size_t pending = 0;
     if (upload_start && upload_start >= payload_start && upload_start <= payload_cursor) {
-        pending = static_cast<size_t>(payload_cursor - upload_start);
         std::copy(upload_start, static_cast<const DescriptorUpdateEntry*>(payload_cursor), payload_start);
         upload_start = payload_start;
     }

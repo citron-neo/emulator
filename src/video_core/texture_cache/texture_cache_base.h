@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <deque>
+#include <functional>
 #include <limits>
 #include <mutex>
 #include <span>
@@ -16,11 +17,11 @@
 #include <boost/container/small_vector.hpp>
 #include <queue>
 
+#include <ranges>
 #include "common/common_types.h"
 #include "common/hash.h"
 #include "common/literals.h"
 #include "common/lru_cache.h"
-#include <ranges>
 #include "common/scratch_buffer.h"
 #include "common/slot_vector.h"
 #include "common/thread_worker.h"
@@ -28,6 +29,7 @@
 #include "video_core/compatible_formats.h"
 #include "video_core/control/channel_state_cache.h"
 #include "video_core/delayed_destruction_ring.h"
+#include "video_core/physical_shadow.h"
 #include "video_core/engines/fermi_2d.h"
 #include "video_core/surface.h"
 #include "video_core/texture_cache/descriptor_table.h"
@@ -133,6 +135,8 @@ class TextureCache : public VideoCommon::ChannelSetupCaches<TextureCacheChannelI
 public:
     explicit TextureCache(Runtime&, Tegra::MaxwellDeviceMemoryManager&);
 
+    void SetPhysicalShadow(PhysicalShadow* shadow) noexcept { physical_shadow = shadow; }
+
     /// Notify the cache that a new frame has been queued
     void TickFrame(u64 cache_usage, u64 cache_target, std::span<const HeapMemoryBudget> heaps);
 
@@ -233,7 +237,8 @@ public:
 
     [[nodiscard]] std::pair<Image*, BufferImageCopy> DmaBufferImageCopy(
         const Tegra::DMA::ImageCopy& copy_info, const Tegra::DMA::BufferOperand& buffer_operand,
-        const Tegra::DMA::ImageOperand& image_operand, ImageId image_id, bool modifies_image);
+        const Tegra::DMA::ImageOperand& image_operand, ImageId image_id, bool modifies_image,
+        bool prepare = true);
 
     void DownloadImageIntoBuffer(Image* image, BufferType buffer, size_t buffer_offset,
                                  std::span<const VideoCommon::BufferImageCopy> copies,
@@ -250,9 +255,13 @@ public:
     void CreateChannel(Tegra::Control::ChannelState& channel) final override;
 
     /// Prepare an image to be used
-    void PrepareImage(ImageId image_id, bool is_modification, bool invalidate);
+    void PrepareImage(ImageId image_id, bool is_modification, bool invalidate,
+                      ShadowKind shadow_kind = ShadowKind::Texture);
 
     mutable std::recursive_mutex mutex;
+
+    // Borrowed renderer diagnostic, outlives this cache; GPU-thread confined.
+    PhysicalShadow* physical_shadow{};
 
 private:
     /// Iterate over all page indices in a range
@@ -323,6 +332,10 @@ public:
     /// Upload data from guest to an image
     template <typename StagingBuffer>
     void UploadImageContents(Image& image, StagingBuffer& staging_buffer);
+
+    template <typename StagingBuffer>
+    std::function<void()> DownloadImageMemorySynchronous(Image& image, StagingBuffer& staging,
+                                                         std::span<const BufferImageCopy> copies);
 
     /// Find or create an image view from a guest descriptor
     [[nodiscard]] ImageViewId FindImageView(const TICEntry& config);
@@ -414,13 +427,14 @@ public:
     void RemoveFramebuffers(std::span<const ImageViewId> removed_views);
 
     /// Mark an image as modified from the GPU
-    void MarkModification(ImageBase& image) noexcept;
+    void MarkModification(ImageBase& image, ShadowKind shadow_kind = ShadowKind::Texture) noexcept;
 
     /// Synchronize image aliases, copying data if needed
     void SynchronizeAliases(ImageId image_id);
 
     /// Prepare an image view to be used
-    void PrepareImageView(ImageViewId image_view_id, bool is_modification, bool invalidate);
+    void PrepareImageView(ImageViewId image_view_id, bool is_modification, bool invalidate,
+                          ShadowKind shadow_kind = ShadowKind::Texture);
 
     /// Execute copies from one image to the other, even if they are incompatible
     void CopyImage(ImageId dst_id, ImageId src_id, std::vector<ImageCopy> copies);
@@ -484,6 +498,16 @@ public:
         bool is_swizzle;
         size_t async_buffer_id;
         Common::SlotId object_id;
+        // Immutable queue-time identity: never resolve a reused slot at completion.
+        std::optional<ImageInfo> image_info;
+        GPUVAddr image_address{};
+        size_t image_bytes{};
+        bool canceled{};
+        bool recorded{};
+        u64 recorded_cpu_epoch{};
+        // DeleteImage transfers ownership here until the corresponding fence is consumed.
+        std::shared_ptr<Image> retired_image;
+        std::function<void()> complete;
     };
 
     Common::SlotVector<Image> slot_images;

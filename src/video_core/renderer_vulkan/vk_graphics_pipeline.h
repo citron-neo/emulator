@@ -108,10 +108,7 @@ public:
         return build_failed.load(std::memory_order::acquire);
     }
 
-    /// Whether a draw with this pipeline can write memory other than its render targets
-    [[nodiscard]] bool WritesMemory() const noexcept {
-        return writes_memory;
-    }
+    [[nodiscard]] bool WritesMemory() const noexcept { return writes_memory; }
 
     /// Vertex shader stores the rasterizer performs, see Shader::PointerStoreDescriptor
     [[nodiscard]] std::span<const Shader::PointerStoreDescriptor> VertexPointerStores()

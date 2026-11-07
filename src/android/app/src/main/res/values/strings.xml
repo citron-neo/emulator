@@ -1433,4 +1433,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="crt_mask_aperture">Aperture Grille</string>
     <string name="crt_mask_shadow">Shadow Mask</string>
 
+    <string name="bindless_texture_limit">Bindless Texture Array Limit</string>
+    <string name="bindless_texture_limit_description">Default preserves the original texture array size. Lower limits may improve performance but can show incorrect or missing textures. Requires restarting the game.</string>
 </resources>

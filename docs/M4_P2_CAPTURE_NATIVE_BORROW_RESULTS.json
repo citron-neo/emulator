@@ -1,0 +1,4101 @@
+{
+  "baseline": "ce2007b440cad4677882a35382f4fec1b8cd30de",
+  "branch": "codex/issue-372-fixes",
+  "main_untouched": "b6a2ce9488d78efdbbeb0efe14c2ec5c0a263e76",
+  "validated_at": "2026-10-24T18:56:40.301787+08:00",
+  "summary": {
+    "baseline_witnesses": 14,
+    "candidate_and_fixed_each": {
+      "normal_and_error_cases": 55,
+      "repetitions": 3,
+      "mutation_controls": 7,
+      "mutation_control_repetitions": 1,
+      "expected_terminal_exit": 86,
+      "expected_defect_exit": 91
+    },
+    "native_source_regression": {
+      "paths": 26,
+      "protocol": 7,
+      "terminal": 7,
+      "controls": 14,
+      "repeat": 3
+    },
+    "renderer_shutdown": {
+      "paths": 10,
+      "repeat": 3
+    },
+    "native_fence_regression": {
+      "positive_repeat": 3,
+      "controls": 8
+    },
+    "production_windows_amd64_objects": 3,
+    "production_diagnostics": ""
+  },
+  "suites": {
+    "m4-capture-baseline": {
+      "command": "python tools/gpu_lifecycle_tests/run_capture_borrow_tests.py --baseline --output-dir .diagnostics/m4-capture-baseline",
+      "runner_exit_code": 0,
+      "input_hashes_verified": 10,
+      "manifest": {
+        "baseline": true,
+        "candidate": false,
+        "revision": "ce2007b440cad4677882a35382f4fec1b8cd30de",
+        "repeat": 3,
+        "paths": [
+          "capture",
+          "applet",
+          "upload"
+        ],
+        "terminal_cases": [
+          "outside",
+          "record",
+          "callback",
+          "finish-before",
+          "finish-after",
+          "worker",
+          "poll-pending",
+          "poll-error",
+          "fallback-reset",
+          "closed",
+          "vk-finish",
+          "vk-record",
+          "record-active",
+          "context"
+        ],
+        "capture_extra": [
+          "draw",
+          "internal-finish"
+        ],
+        "controls": [],
+        "sha256": {
+          "src/common/terminal_fail_stop.cpp": "59a9ba954eeb0350a68a4277a5273f7609c4a0ce8332f903213eb42f2c84cf7c",
+          "src/common/terminal_fail_stop.h": "d79d436eac47142264ef70cd70c7cd09bd5dcba639367dc0233851f7ee189f20",
+          "src/video_core/renderer_vulkan/present/util.cpp": "73f418d83ca793b0d09f1c20a26fce062730976cc3d7dbace923efcdcd4439cf",
+          "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "c968e905fb71f31c6c3eb2227d901f2d5a48924bd2f52cd969d1a4fcf0e9c57f",
+          "src/video_core/renderer_vulkan/vk_present_manager.h": "4d6bbde6bc9c73c52f971077462818063dcdc3483b97664ccf8cb11123b82496",
+          "src/video_core/renderer_vulkan/vk_scheduler.cpp": "7e12116396e57d6435e53593ca318d34a36bfaf557288e06c2fabee4f6f5c832",
+          "src/video_core/renderer_vulkan/vk_scheduler.h": "fab530026f4b6d25dfb74c3c0e58d035ff2da1b67084fd95cb4b5ab0dd8e57bb",
+          "tools/gpu_lifecycle_tests/capture_borrow_candidate.json": "ff8c13250966a7e06de74b64953c5132139b6d0223a7414a8d0be89056f9d2c8",
+          "tools/gpu_lifecycle_tests/capture_borrow_fixture.cpp.in": "a51fed6fb5a5a79bee33592eb784386c446fdaf5b5fa7ab8da8b3f33a9e84025",
+          "tools/gpu_lifecycle_tests/run_capture_borrow_tests.py": "68b2f361e91ef77bbf4fda6bf2757ba5c24648710f60d1168948bcbb3a132929"
+        },
+        "boundary": "Actual RenderToBuffer/GetAppletCaptureBuffer/UploadImage and checked scheduler adapter, fixture allocation/driver/recording; no GPU/game or full helper lifetime proof."
+      }
+    },
+    "m4-capture-candidate": {
+      "command": "python tools/gpu_lifecycle_tests/run_capture_borrow_tests.py --candidate --output-dir .diagnostics/m4-capture-candidate",
+      "runner_exit_code": 0,
+      "input_hashes_verified": 10,
+      "manifest": {
+        "baseline": false,
+        "candidate": true,
+        "revision": "ce2007b440cad4677882a35382f4fec1b8cd30de",
+        "repeat": 3,
+        "paths": [
+          "capture",
+          "applet",
+          "upload"
+        ],
+        "terminal_cases": [
+          "outside",
+          "record",
+          "callback",
+          "finish-before",
+          "finish-after",
+          "worker",
+          "poll-pending",
+          "poll-error",
+          "fallback-reset",
+          "closed",
+          "vk-finish",
+          "vk-record",
+          "record-active",
+          "context"
+        ],
+        "capture_extra": [
+          "draw",
+          "internal-finish"
+        ],
+        "controls": [
+          "omit-capture-guard",
+          "omit-applet-guard",
+          "omit-upload-guard",
+          "omit-native-check",
+          "omit-admission",
+          "omit-worker-drain",
+          "wrong-completion-tick"
+        ],
+        "sha256": {
+          "src/common/terminal_fail_stop.cpp": "59a9ba954eeb0350a68a4277a5273f7609c4a0ce8332f903213eb42f2c84cf7c",
+          "src/common/terminal_fail_stop.h": "d79d436eac47142264ef70cd70c7cd09bd5dcba639367dc0233851f7ee189f20",
+          "src/video_core/renderer_vulkan/present/util.cpp": "73f418d83ca793b0d09f1c20a26fce062730976cc3d7dbace923efcdcd4439cf",
+          "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "c968e905fb71f31c6c3eb2227d901f2d5a48924bd2f52cd969d1a4fcf0e9c57f",
+          "src/video_core/renderer_vulkan/vk_present_manager.h": "4d6bbde6bc9c73c52f971077462818063dcdc3483b97664ccf8cb11123b82496",
+          "src/video_core/renderer_vulkan/vk_scheduler.cpp": "7e12116396e57d6435e53593ca318d34a36bfaf557288e06c2fabee4f6f5c832",
+          "src/video_core/renderer_vulkan/vk_scheduler.h": "fab530026f4b6d25dfb74c3c0e58d035ff2da1b67084fd95cb4b5ab0dd8e57bb",
+          "tools/gpu_lifecycle_tests/capture_borrow_candidate.json": "ff8c13250966a7e06de74b64953c5132139b6d0223a7414a8d0be89056f9d2c8",
+          "tools/gpu_lifecycle_tests/capture_borrow_fixture.cpp.in": "a51fed6fb5a5a79bee33592eb784386c446fdaf5b5fa7ab8da8b3f33a9e84025",
+          "tools/gpu_lifecycle_tests/run_capture_borrow_tests.py": "68b2f361e91ef77bbf4fda6bf2757ba5c24648710f60d1168948bcbb3a132929"
+        },
+        "boundary": "Actual RenderToBuffer/GetAppletCaptureBuffer/UploadImage and checked scheduler adapter, fixture allocation/driver/recording; no GPU/game or full helper lifetime proof."
+      }
+    },
+    "m4-capture-fixed": {
+      "command": "python tools/gpu_lifecycle_tests/run_capture_borrow_tests.py --repeat 3 --output-dir .diagnostics/m4-capture-fixed",
+      "runner_exit_code": 0,
+      "input_hashes_verified": 10,
+      "manifest": {
+        "baseline": false,
+        "candidate": false,
+        "revision": null,
+        "repeat": 3,
+        "paths": [
+          "capture",
+          "applet",
+          "upload"
+        ],
+        "terminal_cases": [
+          "outside",
+          "record",
+          "callback",
+          "finish-before",
+          "finish-after",
+          "worker",
+          "poll-pending",
+          "poll-error",
+          "fallback-reset",
+          "closed",
+          "vk-finish",
+          "vk-record",
+          "record-active",
+          "context"
+        ],
+        "capture_extra": [
+          "draw",
+          "internal-finish"
+        ],
+        "controls": [
+          "omit-capture-guard",
+          "omit-applet-guard",
+          "omit-upload-guard",
+          "omit-native-check",
+          "omit-admission",
+          "omit-worker-drain",
+          "wrong-completion-tick"
+        ],
+        "sha256": {
+          "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+          "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+          "src/video_core/renderer_vulkan/present/util.cpp": "f3feadd9fc99d929964a8488aa9237c890c68a3839a9d32b1ef0b8482cd21ab4",
+          "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "55e9236ab66c4e817466e97697476313822e5957eb643c03ff0057223f15b70a",
+          "src/video_core/renderer_vulkan/vk_present_manager.h": "534bd8f6d8d1459db2bb480d32497ea6dd669aa61f443d778908fedf8f5462e9",
+          "src/video_core/renderer_vulkan/vk_scheduler.cpp": "16e0779e044e8d6d3c99bb6db60fa8b26ba49678cf98b03ea597b3ea09ac14a0",
+          "src/video_core/renderer_vulkan/vk_scheduler.h": "c8ea793d234670644e84fb96ffdf6b3ea2fa8c3c1af11b0aacf4b8b2987b539c",
+          "tools/gpu_lifecycle_tests/capture_borrow_candidate.json": "ff8c13250966a7e06de74b64953c5132139b6d0223a7414a8d0be89056f9d2c8",
+          "tools/gpu_lifecycle_tests/capture_borrow_fixture.cpp.in": "a51fed6fb5a5a79bee33592eb784386c446fdaf5b5fa7ab8da8b3f33a9e84025",
+          "tools/gpu_lifecycle_tests/run_capture_borrow_tests.py": "68b2f361e91ef77bbf4fda6bf2757ba5c24648710f60d1168948bcbb3a132929"
+        },
+        "boundary": "Actual RenderToBuffer/GetAppletCaptureBuffer/UploadImage and checked scheduler adapter, fixture allocation/driver/recording; no GPU/game or full helper lifetime proof."
+      }
+    },
+    "m4-capture-production": {
+      "command": "python tools/physical_coherency_tests/run_windows_production_checks.py --source src/video_core/renderer_vulkan/renderer_vulkan.cpp --source src/video_core/renderer_vulkan/vk_scheduler.cpp --source src/video_core/renderer_vulkan/present/util.cpp --output-dir .diagnostics/m4-capture-production",
+      "runner_exit_code": 0,
+      "input_hashes_verified": 29,
+      "manifest": {
+        "platform": "Windows-11-10.0.26300-SP0",
+        "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+        "compiler": "g++.exe (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+        "boost_root": "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+        "boost_version_header": "//  Boost version.hpp configuration header file  ------------------------------//\n\n//  (C) Copyright John maddock 1999. Distributed under the Boost\n//  Software License, Version 1.0. (See accompanying file\n//  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)\n\n//  See http://www.boost.org/libs/config for documentation\n\n#ifndef BOOST_VERSION_HPP\n#define BOOST_VERSION_HPP\n\n//\n//  Caution: this is the only Boost header that is guaranteed\n//  to change with every Boost release. Including this header\n//  will cause a recompile every time a new Boost version is\n//  used.\n//\n//  BOOST_VERSION % 100 is the patch level\n//  BOOST_VERSION / 100 % 1000 is the minor version\n//  BOOST_VERSION / 100000 is the major version\n\n#define BOOST_VERSION 108700\n\n//\n//  BOOST_LIB_VERSION must be defined to be the same as BOOST_VERSION\n//  but as a *string* in the form \"x_y[_z]\" where x is the major version\n//  number, y is the minor version number, and z is the patch level if not 0.\n//  This is used by <config/auto_link.hpp> to select which library version to link to.\n\n#define BOOST_LIB_VERSION \"1_87\"\n\n#endif\n",
+        "boost_official_archive_sha256": null,
+        "sha256": {
+          "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+          "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+          "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+          "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+          "src/core/hle/service/nvdrv/core/container.h": "7f7f117669e99242f84506994e2f3af3bb538a962ef0a0c1208d39cfb96bd562",
+          "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+          "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+          "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+          "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+          "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+          "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+          "src/video_core/gpu.h": "b55625f616af2deb74407ec05104babd5712211c56dce28bad5c3b9f73b68786",
+          "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+          "src/video_core/memory_manager.h": "db03427bd693d7b20812828e60a59c4e2cc6cf314b1c206cfd720e4f56906682",
+          "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+          "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+          "src/video_core/renderer_vulkan/present/layer.h": "2e4e393a863f87f5c746c88b4d93ef7502f7ee06648ae0e20715694e7e056d87",
+          "src/video_core/renderer_vulkan/present/util.cpp": "f3feadd9fc99d929964a8488aa9237c890c68a3839a9d32b1ef0b8482cd21ab4",
+          "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "55e9236ab66c4e817466e97697476313822e5957eb643c03ff0057223f15b70a",
+          "src/video_core/renderer_vulkan/vk_blit_screen.h": "17a9caf88867f5a2888686427d6dbf41ac385280ce9c9b87f2cc6b503ce555d9",
+          "src/video_core/renderer_vulkan/vk_master_semaphore.h": "33584679044080c5defd0ab256d879788736382ce825bcb86260013fc602c5b6",
+          "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+          "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+          "src/video_core/renderer_vulkan/vk_rasterizer.h": "03c3f2a44a2010ef4c002db2b6d5ed71ff16f2ed2ec467ff799f529caceb0a79",
+          "src/video_core/renderer_vulkan/vk_scheduler.cpp": "16e0779e044e8d6d3c99bb6db60fa8b26ba49678cf98b03ea597b3ea09ac14a0",
+          "src/video_core/renderer_vulkan/vk_scheduler.h": "c8ea793d234670644e84fb96ffdf6b3ea2fa8c3c1af11b0aacf4b8b2987b539c",
+          "src/video_core/renderer_vulkan/vk_texture_cache.h": "294de0f628432503d9302c018686ed67d94eb5dbd641c6789f2c450a413fd8d5",
+          "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+          "tools/physical_coherency_tests/run_windows_production_checks.py": "1ae9d09175865c12f30f67048237e361d66be5510a382cf6730c39efb478897f"
+        },
+        "objects": [
+          {
+            "source": "src/video_core/renderer_vulkan/renderer_vulkan.cpp",
+            "sha256": "55e9236ab66c4e817466e97697476313822e5957eb643c03ff0057223f15b70a",
+            "object_sha256": "4af2d7f57cf125c955e814e1824051ff305cfe8f6c31284444fd48f7559a3aa2",
+            "object_size": 124276,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\renderer_vulkan.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-capture-production\\0-renderer_vulkan.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/video_core/renderer_vulkan/vk_scheduler.cpp",
+            "sha256": "16e0779e044e8d6d3c99bb6db60fa8b26ba49678cf98b03ea597b3ea09ac14a0",
+            "object_sha256": "749c649e9b0b26083ca3bae54715e2a6f8ae70839894cad622bdf990787f1b06",
+            "object_size": 242091,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\vk_scheduler.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-capture-production\\1-vk_scheduler.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/video_core/renderer_vulkan/present/util.cpp",
+            "sha256": "f3feadd9fc99d929964a8488aa9237c890c68a3839a9d32b1ef0b8482cd21ab4",
+            "object_sha256": "df909e9623537c431d9136ac2114cd947752154d2597c8dd555b49f854392520",
+            "object_size": 18571,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\renderer_vulkan\\present\\util.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-capture-production\\2-util.o"
+            ],
+            "warnings": ""
+          }
+        ],
+        "shader_evidence": null,
+        "window_shader_evidence": null,
+        "boundary": "Actual production Windows x64 object compilation with real headers. No application link, runtime, native Vulkan or Android claim."
+      }
+    },
+    "m4-capture-source-regression": {
+      "command": "python tools/gpu_lifecycle_tests/run_native_source_tests.py --repeat 3 --output-dir .diagnostics/m4-capture-source-regression",
+      "runner_exit_code": 0,
+      "input_hashes_verified": 16,
+      "manifest": {
+        "repetitions": 3,
+        "cases": [
+          "timeline",
+          "fallback",
+          "record-delay",
+          "submit-delay",
+          "native-delay",
+          "internal-flush",
+          "inter-layer-flush",
+          "null-image",
+          "preparation-finish",
+          "completed-on-next-begin",
+          "fallback-internal-flush",
+          "fallback-failure",
+          "fallback-reset-failure",
+          "scaled",
+          "presentation",
+          "queue-failure",
+          "query-failure",
+          "wait-failure",
+          "wrong-queue",
+          "missing-attempt",
+          "host-throw",
+          "record-throw",
+          "shutdown-pending",
+          "shutdown-worker",
+          "idle-active",
+          "unsubmitted"
+        ],
+        "controls": [
+          "omit-null-image-pin",
+          "end-scope-before-final-record",
+          "omit-cache-image-pin",
+          "omit-cache-view-pin",
+          "omit-owner-handoff",
+          "omit-record-renewal",
+          "ignore-native-completion",
+          "ignore-queue-result",
+          "omit-queue-identity",
+          "omit-queue-attempt",
+          "wrong-scaled-parent",
+          "retire-before-closure",
+          "retire-before-worker-join",
+          "ignore-fallback-failure"
+        ],
+        "terminal_cases": [
+          [
+            "registration-failure",
+            "native_source.admission",
+            "host_exception"
+          ],
+          [
+            "partial-registration-failure",
+            "native_source.admission",
+            "host_exception"
+          ],
+          [
+            "closed-record",
+            "native_source.record_admission",
+            "closed_admission"
+          ],
+          [
+            "closed-scope",
+            "native_source.scope",
+            "closed_admission"
+          ],
+          [
+            "renewal-failure",
+            "native_source.record_admission",
+            "host_exception"
+          ],
+          [
+            "closed-admission",
+            "native_source.admission",
+            "closed_or_missing_owner"
+          ],
+          [
+            "shutdown-disposal",
+            "scheduler.native_source_disposal",
+            "unconfirmed_native_owners"
+          ]
+        ],
+        "protocol_cases": [
+          "normal",
+          "pending",
+          "split",
+          "unknown",
+          "idle-active",
+          "nested",
+          "record-throw"
+        ],
+        "sha256": {
+          "src/common/terminal_fail_stop.cpp": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce",
+          "src/common/terminal_fail_stop.h": "26295b94dca2c4933b2edab4f85352a5bc5ab8a3f4f0494c8e4489eff254e0c3",
+          "src/video_core/renderer_vulkan/present/layer.cpp": "45bedcfa4321d5bc0fe01980d3f1d0dd95c2d64c7a72de23a07dcf6810223f21",
+          "src/video_core/renderer_vulkan/vk_blit_screen.h": "17a9caf88867f5a2888686427d6dbf41ac385280ce9c9b87f2cc6b503ce555d9",
+          "src/video_core/renderer_vulkan/vk_master_semaphore.h": "33584679044080c5defd0ab256d879788736382ce825bcb86260013fc602c5b6",
+          "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+          "src/video_core/renderer_vulkan/vk_present_manager.cpp": "b6de7ddb955420560ce8d30b55637b7a2dd2be22efb8d1d77ccd0c8588140868",
+          "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+          "src/video_core/renderer_vulkan/vk_rasterizer.cpp": "d4e872dd2f16698dc38781131d062679ca36561d34bd0d3797251b0a8e3d5cea",
+          "src/video_core/renderer_vulkan/vk_scheduler.cpp": "16e0779e044e8d6d3c99bb6db60fa8b26ba49678cf98b03ea597b3ea09ac14a0",
+          "src/video_core/renderer_vulkan/vk_scheduler.h": "c8ea793d234670644e84fb96ffdf6b3ea2fa8c3c1af11b0aacf4b8b2987b539c",
+          "src/video_core/renderer_vulkan/vk_texture_cache.cpp": "eda9023fde4cfb4c5996cdfccbdfd805113981b47e567e69bed6e51cf31cb835",
+          "src/video_core/renderer_vulkan/vk_texture_cache.h": "294de0f628432503d9302c018686ed67d94eb5dbd641c6789f2c450a413fd8d5",
+          "tools/gpu_lifecycle_tests/native_source_fixture.cpp.in": "87c9f5d16350ce6a97f8a0b1d6d8ca171d6bcf15674fe503b6d276d28d0e8ba6",
+          "tools/gpu_lifecycle_tests/native_source_protocol.cpp": "f83b1a2996291febb765065b3a29aad924db3b08b4cd424d4bb314284f9a88fb",
+          "tools/gpu_lifecycle_tests/run_native_source_tests.py": "90569ba3fad7c37e713a9d2318823e3a777c65307592f0f6150e313ef2001b40"
+        },
+        "actual": [
+          "PresentationSource, native retainer, Image/View retain functions, AccelerateDisplay and Layer source prefix",
+          "Scheduler native registration/collection/idle retirement, RecordWithUploadBuffer and full SubmitExecution",
+          "MasterSemaphore native/timeline poll, PresentManager GetRenderFrame/ReleaseRenderFrame"
+        ],
+        "fixtures": [
+          "Native resource wrappers/destruction probes, cache metadata/epoch, command chunks/driver queue and native progress",
+          "fallback acknowledgment is driven; separate actual WaitThread regression required; no Vulkan/game"
+        ],
+        "boundary": "Native source image/view ownership only; no guest coherency, native output/capture full lifetime or admission authority."
+      }
+    },
+    "m4-capture-shutdown": {
+      "command": "python tools/gpu_lifecycle_tests/run_renderer_tests.py --repeat 3 --output-dir .diagnostics/m4-capture-shutdown",
+      "runner_exit_code": 0,
+      "input_hashes_verified": 4,
+      "manifest": {
+        "source_sha256": {
+          "src/video_core/renderer_vulkan/vk_scheduler.cpp": "16e0779e044e8d6d3c99bb6db60fa8b26ba49678cf98b03ea597b3ea09ac14a0",
+          "src/video_core/renderer_vulkan/vk_present_manager.cpp": "b6de7ddb955420560ce8d30b55637b7a2dd2be22efb8d1d77ccd0c8588140868",
+          "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "55e9236ab66c4e817466e97697476313822e5957eb643c03ff0057223f15b70a",
+          "src/video_core/fence_manager.h": "5037fb131872db6690a31f6bb3e4a6f0a349aadb448f971c39793a27e8c74693"
+        },
+        "fixtures": [
+          "Vulkan commands and hardware",
+          "renderer orchestration collaborators",
+          "fence/cache/device objects"
+        ],
+        "production": [
+          "worker loops",
+          "WaitWorker/WaitPresent",
+          "Shutdown implementations",
+          "renderer destructor"
+        ],
+        "instrumentation": [
+          "signal on entry to wait/drain"
+        ]
+      }
+    },
+    "m4-capture-fallback": {
+      "command": "python tools/gpu_lifecycle_tests/run_native_fence_failure_tests.py --repeat 3 --output-dir .diagnostics/m4-capture-fallback",
+      "runner_exit_code": 0,
+      "input_hashes_verified": 3,
+      "manifest": {
+        "sha256": {
+          "src/video_core/renderer_vulkan/vk_master_semaphore.cpp": "72f572612bdbc6252c69a92791b11f7c72e99cc7d45306e92eac9eef2539031d",
+          "src/video_core/renderer_vulkan/vk_master_semaphore.h": "33584679044080c5defd0ab256d879788736382ce825bcb86260013fc602c5b6",
+          "tools/gpu_lifecycle_tests/run_native_fence_failure_tests.py": "8f8c015141c299fb2a5eb02de467153ecfe535613c71b3c7cc7d31823cb1cbfc"
+        },
+        "positive_repeats": 3,
+        "controls": [
+          "ignore-lifetime-failure",
+          "ignore-wait-result",
+          "recycle-unknown-fence",
+          "reset-exception-escapes",
+          "submit-record-too-late",
+          "submit-forgets-failure",
+          "older-failure-overwrites-isolation",
+          "recycle-allocation-escapes"
+        ],
+        "actual": [
+          "MasterSemaphore Wait, WaitThread and SubmitQueueFence"
+        ],
+        "fixtures": [
+          "Vulkan fence results, timeline-disabled facade and resource queues"
+        ],
+        "boundary": "No native device run, visibility, backing ownership or Guest admission proof."
+      }
+    }
+  },
+  "evidence": [
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/applet-finish-after.log",
+      "bytes": 72,
+      "sha256": "d519107fd110c44ada76139c500cf7df4a12e04acd9213590cb477150218a1d2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/applet-finish-before.log",
+      "bytes": 72,
+      "sha256": "d519107fd110c44ada76139c500cf7df4a12e04acd9213590cb477150218a1d2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/applet-record-active.log",
+      "bytes": 85,
+      "sha256": "16f1908a7522099e164891e70c121d8efef116d7945581d14eb7ad2d57bd89fc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/applet-record.log",
+      "bytes": 58,
+      "sha256": "56a1c5daee6d9c22f5ca1e3753123b99fb4a7078566133f59d2206257125b31d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/capture-draw.log",
+      "bytes": 105,
+      "sha256": "d3b4870c51cfd9ce0ab7ac3242ff64f66b9cb883ab719b1ff990cf1437f9c834"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/capture-finish-after.log",
+      "bytes": 139,
+      "sha256": "1b5a2c5c6d1b5345207e4a51d1c369b6a52854e9ee324d4aefcea9e5874e9d14"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/capture-finish-before.log",
+      "bytes": 139,
+      "sha256": "1b5a2c5c6d1b5345207e4a51d1c369b6a52854e9ee324d4aefcea9e5874e9d14"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/capture-internal-finish.log",
+      "bytes": 105,
+      "sha256": "d3b4870c51cfd9ce0ab7ac3242ff64f66b9cb883ab719b1ff990cf1437f9c834"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/capture-record-active.log",
+      "bytes": 152,
+      "sha256": "ec67772cec20e6a08c42541775fb5c49de098cd5b0b44980f81c4f17b831a664"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/capture-record.log",
+      "bytes": 125,
+      "sha256": "01fe862759a7eb3930a74d3677fef5a773ee4c2a8db03e979a322f3a9bfd0d8c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/extraction.json",
+      "bytes": 2001,
+      "sha256": "62ac7a12c9e329d4ad38d9b984d374881ba8d6d9e18570566ccd2c57ccd8a4ed"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/production-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/upload-finish-after.log",
+      "bytes": 72,
+      "sha256": "d519107fd110c44ada76139c500cf7df4a12e04acd9213590cb477150218a1d2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/upload-finish-before.log",
+      "bytes": 72,
+      "sha256": "d519107fd110c44ada76139c500cf7df4a12e04acd9213590cb477150218a1d2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/upload-record-active.log",
+      "bytes": 85,
+      "sha256": "16f1908a7522099e164891e70c121d8efef116d7945581d14eb7ad2d57bd89fc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-baseline/upload-record.log",
+      "bytes": 58,
+      "sha256": "56a1c5daee6d9c22f5ca1e3753123b99fb4a7078566133f59d2206257125b31d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-allocate-0.log",
+      "bytes": 123,
+      "sha256": "5bdd8e72c1573594ef8c42d6db9151dfe76e277191fdc3d00b7afb4eaf2c53f3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-allocate-1.log",
+      "bytes": 123,
+      "sha256": "5bdd8e72c1573594ef8c42d6db9151dfe76e277191fdc3d00b7afb4eaf2c53f3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-allocate-2.log",
+      "bytes": 123,
+      "sha256": "5bdd8e72c1573594ef8c42d6db9151dfe76e277191fdc3d00b7afb4eaf2c53f3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-callback-0.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-callback-1.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-callback-2.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-closed-0.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-closed-1.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-closed-2.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-context-0.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-context-1.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-context-2.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-empty-0.log",
+      "bytes": 80,
+      "sha256": "75a01196eb3cf4a6588b3177c3c4f49f3c3cf9ee80d299e3ea369ef6de215134"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-empty-1.log",
+      "bytes": 80,
+      "sha256": "75a01196eb3cf4a6588b3177c3c4f49f3c3cf9ee80d299e3ea369ef6de215134"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-empty-2.log",
+      "bytes": 80,
+      "sha256": "75a01196eb3cf4a6588b3177c3c4f49f3c3cf9ee80d299e3ea369ef6de215134"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-fallback-reset-0.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-fallback-reset-1.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-fallback-reset-2.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-finish-after-0.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-finish-after-1.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-finish-after-2.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-finish-before-0.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-finish-before-1.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-finish-before-2.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-invalidate-0.log",
+      "bytes": 215,
+      "sha256": "5beb3658231fad8c955ee69608618c0331998ccd4fcec02ea0a453bab71c2cb6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-invalidate-1.log",
+      "bytes": 215,
+      "sha256": "5beb3658231fad8c955ee69608618c0331998ccd4fcec02ea0a453bab71c2cb6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-invalidate-2.log",
+      "bytes": 215,
+      "sha256": "5beb3658231fad8c955ee69608618c0331998ccd4fcec02ea0a453bab71c2cb6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-normal-0.log",
+      "bytes": 197,
+      "sha256": "9f98425ff96a797273d4edc174cca6d6b55c518ed66c69840053a229b565d74f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-normal-1.log",
+      "bytes": 197,
+      "sha256": "9f98425ff96a797273d4edc174cca6d6b55c518ed66c69840053a229b565d74f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-normal-2.log",
+      "bytes": 197,
+      "sha256": "9f98425ff96a797273d4edc174cca6d6b55c518ed66c69840053a229b565d74f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-outside-0.log",
+      "bytes": 92,
+      "sha256": "6faf0b2f3d1d0bc0d5a2925f69a70cc9390501f9a8ad5bbf37c978bad0e3de76"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-outside-1.log",
+      "bytes": 92,
+      "sha256": "6faf0b2f3d1d0bc0d5a2925f69a70cc9390501f9a8ad5bbf37c978bad0e3de76"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-outside-2.log",
+      "bytes": 92,
+      "sha256": "6faf0b2f3d1d0bc0d5a2925f69a70cc9390501f9a8ad5bbf37c978bad0e3de76"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-poll-error-0.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-poll-error-1.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-poll-error-2.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-poll-pending-0.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-poll-pending-1.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-poll-pending-2.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-record-0.log",
+      "bytes": 112,
+      "sha256": "c1b1e85e82a8fbfe1db543cbcbc13a2219f67e7cdf433c88ef4de1335b82d704"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-record-1.log",
+      "bytes": 112,
+      "sha256": "c1b1e85e82a8fbfe1db543cbcbc13a2219f67e7cdf433c88ef4de1335b82d704"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-record-2.log",
+      "bytes": 112,
+      "sha256": "c1b1e85e82a8fbfe1db543cbcbc13a2219f67e7cdf433c88ef4de1335b82d704"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-record-active-0.log",
+      "bytes": 139,
+      "sha256": "43bdc6932375257eadd5f251a077d2b084be5078a54f44581135031bfbd4923f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-record-active-1.log",
+      "bytes": 139,
+      "sha256": "43bdc6932375257eadd5f251a077d2b084be5078a54f44581135031bfbd4923f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-record-active-2.log",
+      "bytes": 139,
+      "sha256": "43bdc6932375257eadd5f251a077d2b084be5078a54f44581135031bfbd4923f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-vk-finish-0.log",
+      "bytes": 119,
+      "sha256": "9ecce3f429c8c34a1c7ded0ef5bc3d3d11ee5c0b1366e7cf83a174574787e81c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-vk-finish-1.log",
+      "bytes": 119,
+      "sha256": "9ecce3f429c8c34a1c7ded0ef5bc3d3d11ee5c0b1366e7cf83a174574787e81c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-vk-finish-2.log",
+      "bytes": 119,
+      "sha256": "9ecce3f429c8c34a1c7ded0ef5bc3d3d11ee5c0b1366e7cf83a174574787e81c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-vk-record-0.log",
+      "bytes": 105,
+      "sha256": "7d9831e33bf5c9203c4d54e58c882ce957750f60148fd0462637a9ec95decda2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-vk-record-1.log",
+      "bytes": 105,
+      "sha256": "7d9831e33bf5c9203c4d54e58c882ce957750f60148fd0462637a9ec95decda2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-vk-record-2.log",
+      "bytes": 105,
+      "sha256": "7d9831e33bf5c9203c4d54e58c882ce957750f60148fd0462637a9ec95decda2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-worker-0.log",
+      "bytes": 145,
+      "sha256": "49e5857b8c2a0663c9e2140b17dce1e0247d51aaa5686983de200a9c48d916ad"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-worker-1.log",
+      "bytes": 145,
+      "sha256": "49e5857b8c2a0663c9e2140b17dce1e0247d51aaa5686983de200a9c48d916ad"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/applet-worker-2.log",
+      "bytes": 145,
+      "sha256": "49e5857b8c2a0663c9e2140b17dce1e0247d51aaa5686983de200a9c48d916ad"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-allocate-0.log",
+      "bytes": 239,
+      "sha256": "092cd050e781a28cf52699b584f01bb187e98440c1e439ed6f02416a759085be"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-allocate-1.log",
+      "bytes": 239,
+      "sha256": "092cd050e781a28cf52699b584f01bb187e98440c1e439ed6f02416a759085be"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-allocate-2.log",
+      "bytes": 239,
+      "sha256": "092cd050e781a28cf52699b584f01bb187e98440c1e439ed6f02416a759085be"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-callback-0.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-callback-1.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-callback-2.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-closed-0.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-closed-1.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-closed-2.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-context-0.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-context-1.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-context-2.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-draw-0.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-draw-1.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-draw-2.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-fallback-reset-0.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-fallback-reset-1.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-fallback-reset-2.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-finish-after-0.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-finish-after-1.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-finish-after-2.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-finish-before-0.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-finish-before-1.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-finish-before-2.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-frame-create-0.log",
+      "bytes": 217,
+      "sha256": "041befa8bf3002f206028b9c6f539d50aca5dd3e17a313bad2f86d51c1dda961"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-frame-create-1.log",
+      "bytes": 217,
+      "sha256": "041befa8bf3002f206028b9c6f539d50aca5dd3e17a313bad2f86d51c1dda961"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-frame-create-2.log",
+      "bytes": 217,
+      "sha256": "041befa8bf3002f206028b9c6f539d50aca5dd3e17a313bad2f86d51c1dda961"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-internal-finish-0.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-internal-finish-1.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-internal-finish-2.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-invalidate-0.log",
+      "bytes": 351,
+      "sha256": "11cd5c41340bf1d0028c1692a1d10dbfa7f4e3a27506de296de667d2d89ae00d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-invalidate-1.log",
+      "bytes": 351,
+      "sha256": "11cd5c41340bf1d0028c1692a1d10dbfa7f4e3a27506de296de667d2d89ae00d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-invalidate-2.log",
+      "bytes": 351,
+      "sha256": "11cd5c41340bf1d0028c1692a1d10dbfa7f4e3a27506de296de667d2d89ae00d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-normal-0.log",
+      "bytes": 333,
+      "sha256": "44ef207821e7e36daf750655e38909b8fc6291fcadbedcaed09cf0e3ce98b8ca"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-normal-1.log",
+      "bytes": 333,
+      "sha256": "44ef207821e7e36daf750655e38909b8fc6291fcadbedcaed09cf0e3ce98b8ca"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-normal-2.log",
+      "bytes": 333,
+      "sha256": "44ef207821e7e36daf750655e38909b8fc6291fcadbedcaed09cf0e3ce98b8ca"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-outside-0.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-outside-1.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-outside-2.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-poll-error-0.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-poll-error-1.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-poll-error-2.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-poll-pending-0.log",
+      "bytes": 231,
+      "sha256": "d0af392d0a93e66b0da4bdde8620e611b3a6dcfdd1dd834bdef174ee1cda5a88"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-poll-pending-1.log",
+      "bytes": 231,
+      "sha256": "d0af392d0a93e66b0da4bdde8620e611b3a6dcfdd1dd834bdef174ee1cda5a88"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-poll-pending-2.log",
+      "bytes": 231,
+      "sha256": "d0af392d0a93e66b0da4bdde8620e611b3a6dcfdd1dd834bdef174ee1cda5a88"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-record-0.log",
+      "bytes": 179,
+      "sha256": "a17ba6dbe6a1ece73bec28b60ecedbb09f739702b4974f4dbc4f2f60823f8e72"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-record-1.log",
+      "bytes": 179,
+      "sha256": "a17ba6dbe6a1ece73bec28b60ecedbb09f739702b4974f4dbc4f2f60823f8e72"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-record-2.log",
+      "bytes": 179,
+      "sha256": "a17ba6dbe6a1ece73bec28b60ecedbb09f739702b4974f4dbc4f2f60823f8e72"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-record-active-0.log",
+      "bytes": 206,
+      "sha256": "de068d31b014414b1688ce9f1c72291b31e4ebc4f51e12fb15ea4a20f3b0d8d4"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-record-active-1.log",
+      "bytes": 206,
+      "sha256": "de068d31b014414b1688ce9f1c72291b31e4ebc4f51e12fb15ea4a20f3b0d8d4"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-record-active-2.log",
+      "bytes": 206,
+      "sha256": "de068d31b014414b1688ce9f1c72291b31e4ebc4f51e12fb15ea4a20f3b0d8d4"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-vk-finish-0.log",
+      "bytes": 186,
+      "sha256": "ffd037cca4b8c7bb8c5affd4649288f93f9ca1c9742c295ca8aa38bd2a0a6082"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-vk-finish-1.log",
+      "bytes": 186,
+      "sha256": "ffd037cca4b8c7bb8c5affd4649288f93f9ca1c9742c295ca8aa38bd2a0a6082"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-vk-finish-2.log",
+      "bytes": 186,
+      "sha256": "ffd037cca4b8c7bb8c5affd4649288f93f9ca1c9742c295ca8aa38bd2a0a6082"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-vk-record-0.log",
+      "bytes": 172,
+      "sha256": "80fbb827220b773dec0dfca46270f05ff924c849e3ebf8b9ee9e9bb8092761a6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-vk-record-1.log",
+      "bytes": 172,
+      "sha256": "80fbb827220b773dec0dfca46270f05ff924c849e3ebf8b9ee9e9bb8092761a6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-vk-record-2.log",
+      "bytes": 172,
+      "sha256": "80fbb827220b773dec0dfca46270f05ff924c849e3ebf8b9ee9e9bb8092761a6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-worker-0.log",
+      "bytes": 212,
+      "sha256": "1d8cff7cd22d4ba5226a4fd9ef3e4209933fe22ee1f321f043d09966eaf23a25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-worker-1.log",
+      "bytes": 212,
+      "sha256": "1d8cff7cd22d4ba5226a4fd9ef3e4209933fe22ee1f321f043d09966eaf23a25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/capture-worker-2.log",
+      "bytes": 212,
+      "sha256": "1d8cff7cd22d4ba5226a4fd9ef3e4209933fe22ee1f321f043d09966eaf23a25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/extraction.json",
+      "bytes": 2188,
+      "sha256": "49689810bdec29af30e087c8d2941b8c4ea453ca143d75254d2cd7cc5b6c70ac"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-admission-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-admission.log",
+      "bytes": 330,
+      "sha256": "7938844cade53df33c3df587c5359046d429d16e5c98185db93cb454a80bcf9c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-applet-guard-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-applet-guard.log",
+      "bytes": 58,
+      "sha256": "56a1c5daee6d9c22f5ca1e3753123b99fb4a7078566133f59d2206257125b31d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-capture-guard-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-capture-guard.log",
+      "bytes": 125,
+      "sha256": "01fe862759a7eb3930a74d3677fef5a773ee4c2a8db03e979a322f3a9bfd0d8c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-native-check-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-native-check.log",
+      "bytes": 155,
+      "sha256": "1abbe09da3df29120544ec4a4b89527d9bddc96fe4dcb758047c17f65a205be0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-upload-guard-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-upload-guard.log",
+      "bytes": 58,
+      "sha256": "56a1c5daee6d9c22f5ca1e3753123b99fb4a7078566133f59d2206257125b31d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-worker-drain-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/omit-worker-drain.log",
+      "bytes": 314,
+      "sha256": "b75cf23c8d1ae758103646a7f4ccbdb913f648e205ecc1aacf2fb2e872d792db"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/production-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-allocate-0.log",
+      "bytes": 76,
+      "sha256": "a7025b8e00c9111024f062c3123600fea21a60d6c5c28cf44e658652bbbf9886"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-allocate-1.log",
+      "bytes": 76,
+      "sha256": "a7025b8e00c9111024f062c3123600fea21a60d6c5c28cf44e658652bbbf9886"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-allocate-2.log",
+      "bytes": 76,
+      "sha256": "a7025b8e00c9111024f062c3123600fea21a60d6c5c28cf44e658652bbbf9886"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-callback-0.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-callback-1.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-callback-2.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-closed-0.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-closed-1.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-closed-2.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-context-0.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-context-1.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-context-2.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-fallback-reset-0.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-fallback-reset-1.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-fallback-reset-2.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-finish-after-0.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-finish-after-1.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-finish-after-2.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-finish-before-0.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-finish-before-1.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-finish-before-2.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-flush-0.log",
+      "bytes": 90,
+      "sha256": "1d99d6a5c5999c286f2c2d62e34fe5bbee3f3415da70c1d554ad6d2721291f63"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-flush-1.log",
+      "bytes": 90,
+      "sha256": "1d99d6a5c5999c286f2c2d62e34fe5bbee3f3415da70c1d554ad6d2721291f63"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-flush-2.log",
+      "bytes": 90,
+      "sha256": "1d99d6a5c5999c286f2c2d62e34fe5bbee3f3415da70c1d554ad6d2721291f63"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-normal-0.log",
+      "bytes": 150,
+      "sha256": "5d2a3638aa836fbe7aa68334f1a8976b9fe76512c606eb9f40555045983159a9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-normal-1.log",
+      "bytes": 150,
+      "sha256": "5d2a3638aa836fbe7aa68334f1a8976b9fe76512c606eb9f40555045983159a9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-normal-2.log",
+      "bytes": 150,
+      "sha256": "5d2a3638aa836fbe7aa68334f1a8976b9fe76512c606eb9f40555045983159a9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-outside-0.log",
+      "bytes": 91,
+      "sha256": "58bd06db2a08a3c00725bc0aae0a429964eb71a4098ded0db95c403f99c6633c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-outside-1.log",
+      "bytes": 91,
+      "sha256": "58bd06db2a08a3c00725bc0aae0a429964eb71a4098ded0db95c403f99c6633c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-outside-2.log",
+      "bytes": 91,
+      "sha256": "58bd06db2a08a3c00725bc0aae0a429964eb71a4098ded0db95c403f99c6633c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-poll-error-0.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-poll-error-1.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-poll-error-2.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-poll-pending-0.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-poll-pending-1.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-poll-pending-2.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-record-0.log",
+      "bytes": 111,
+      "sha256": "479b8637e13c37b341b072fe7dc09c49ffb01d3cf272d49b82c5097c961253dc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-record-1.log",
+      "bytes": 111,
+      "sha256": "479b8637e13c37b341b072fe7dc09c49ffb01d3cf272d49b82c5097c961253dc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-record-2.log",
+      "bytes": 111,
+      "sha256": "479b8637e13c37b341b072fe7dc09c49ffb01d3cf272d49b82c5097c961253dc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-record-active-0.log",
+      "bytes": 138,
+      "sha256": "32be99db8f8e3cb64311032d69a1850ed0dcafaf0f2d054e078a69ed44e99eec"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-record-active-1.log",
+      "bytes": 138,
+      "sha256": "32be99db8f8e3cb64311032d69a1850ed0dcafaf0f2d054e078a69ed44e99eec"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-record-active-2.log",
+      "bytes": 138,
+      "sha256": "32be99db8f8e3cb64311032d69a1850ed0dcafaf0f2d054e078a69ed44e99eec"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-vk-finish-0.log",
+      "bytes": 118,
+      "sha256": "07017604f2a4a1edb053538423edf930d10bd37b050f8d305b3ba32d8b28b0b3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-vk-finish-1.log",
+      "bytes": 118,
+      "sha256": "07017604f2a4a1edb053538423edf930d10bd37b050f8d305b3ba32d8b28b0b3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-vk-finish-2.log",
+      "bytes": 118,
+      "sha256": "07017604f2a4a1edb053538423edf930d10bd37b050f8d305b3ba32d8b28b0b3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-vk-record-0.log",
+      "bytes": 104,
+      "sha256": "87ac20ced1a38f8e12a714b612cd90b66f9d2e0d7cfc98ff3ba5a1b72d15a438"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-vk-record-1.log",
+      "bytes": 104,
+      "sha256": "87ac20ced1a38f8e12a714b612cd90b66f9d2e0d7cfc98ff3ba5a1b72d15a438"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-vk-record-2.log",
+      "bytes": 104,
+      "sha256": "87ac20ced1a38f8e12a714b612cd90b66f9d2e0d7cfc98ff3ba5a1b72d15a438"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-worker-0.log",
+      "bytes": 144,
+      "sha256": "557957fc2ebdb1a7d57bee44ad59b2a23d2a5a297e41b21b30f881c418fd3ffd"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-worker-1.log",
+      "bytes": 144,
+      "sha256": "557957fc2ebdb1a7d57bee44ad59b2a23d2a5a297e41b21b30f881c418fd3ffd"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/upload-worker-2.log",
+      "bytes": 144,
+      "sha256": "557957fc2ebdb1a7d57bee44ad59b2a23d2a5a297e41b21b30f881c418fd3ffd"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/wrong-completion-tick-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-candidate/wrong-completion-tick.log",
+      "bytes": 155,
+      "sha256": "a069b8407d741c1d4de9e0c5749d631cbd5286f890a353a4e8d378afc3a089c5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-allocate-0.log",
+      "bytes": 123,
+      "sha256": "5bdd8e72c1573594ef8c42d6db9151dfe76e277191fdc3d00b7afb4eaf2c53f3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-allocate-1.log",
+      "bytes": 123,
+      "sha256": "5bdd8e72c1573594ef8c42d6db9151dfe76e277191fdc3d00b7afb4eaf2c53f3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-allocate-2.log",
+      "bytes": 123,
+      "sha256": "5bdd8e72c1573594ef8c42d6db9151dfe76e277191fdc3d00b7afb4eaf2c53f3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-callback-0.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-callback-1.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-callback-2.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-closed-0.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-closed-1.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-closed-2.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-context-0.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-context-1.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-context-2.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-empty-0.log",
+      "bytes": 80,
+      "sha256": "75a01196eb3cf4a6588b3177c3c4f49f3c3cf9ee80d299e3ea369ef6de215134"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-empty-1.log",
+      "bytes": 80,
+      "sha256": "75a01196eb3cf4a6588b3177c3c4f49f3c3cf9ee80d299e3ea369ef6de215134"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-empty-2.log",
+      "bytes": 80,
+      "sha256": "75a01196eb3cf4a6588b3177c3c4f49f3c3cf9ee80d299e3ea369ef6de215134"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-fallback-reset-0.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-fallback-reset-1.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-fallback-reset-2.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-finish-after-0.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-finish-after-1.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-finish-after-2.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-finish-before-0.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-finish-before-1.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-finish-before-2.log",
+      "bytes": 126,
+      "sha256": "95be0af8d0e5aa0490216c649231408d4f9e7433835c89a56be618eff1f809a3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-invalidate-0.log",
+      "bytes": 215,
+      "sha256": "5beb3658231fad8c955ee69608618c0331998ccd4fcec02ea0a453bab71c2cb6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-invalidate-1.log",
+      "bytes": 215,
+      "sha256": "5beb3658231fad8c955ee69608618c0331998ccd4fcec02ea0a453bab71c2cb6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-invalidate-2.log",
+      "bytes": 215,
+      "sha256": "5beb3658231fad8c955ee69608618c0331998ccd4fcec02ea0a453bab71c2cb6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-normal-0.log",
+      "bytes": 197,
+      "sha256": "9f98425ff96a797273d4edc174cca6d6b55c518ed66c69840053a229b565d74f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-normal-1.log",
+      "bytes": 197,
+      "sha256": "9f98425ff96a797273d4edc174cca6d6b55c518ed66c69840053a229b565d74f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-normal-2.log",
+      "bytes": 197,
+      "sha256": "9f98425ff96a797273d4edc174cca6d6b55c518ed66c69840053a229b565d74f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-outside-0.log",
+      "bytes": 92,
+      "sha256": "6faf0b2f3d1d0bc0d5a2925f69a70cc9390501f9a8ad5bbf37c978bad0e3de76"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-outside-1.log",
+      "bytes": 92,
+      "sha256": "6faf0b2f3d1d0bc0d5a2925f69a70cc9390501f9a8ad5bbf37c978bad0e3de76"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-outside-2.log",
+      "bytes": 92,
+      "sha256": "6faf0b2f3d1d0bc0d5a2925f69a70cc9390501f9a8ad5bbf37c978bad0e3de76"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-poll-error-0.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-poll-error-1.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-poll-error-2.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-poll-pending-0.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-poll-pending-1.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-poll-pending-2.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-record-0.log",
+      "bytes": 112,
+      "sha256": "c1b1e85e82a8fbfe1db543cbcbc13a2219f67e7cdf433c88ef4de1335b82d704"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-record-1.log",
+      "bytes": 112,
+      "sha256": "c1b1e85e82a8fbfe1db543cbcbc13a2219f67e7cdf433c88ef4de1335b82d704"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-record-2.log",
+      "bytes": 112,
+      "sha256": "c1b1e85e82a8fbfe1db543cbcbc13a2219f67e7cdf433c88ef4de1335b82d704"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-record-active-0.log",
+      "bytes": 139,
+      "sha256": "43bdc6932375257eadd5f251a077d2b084be5078a54f44581135031bfbd4923f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-record-active-1.log",
+      "bytes": 139,
+      "sha256": "43bdc6932375257eadd5f251a077d2b084be5078a54f44581135031bfbd4923f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-record-active-2.log",
+      "bytes": 139,
+      "sha256": "43bdc6932375257eadd5f251a077d2b084be5078a54f44581135031bfbd4923f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-vk-finish-0.log",
+      "bytes": 119,
+      "sha256": "9ecce3f429c8c34a1c7ded0ef5bc3d3d11ee5c0b1366e7cf83a174574787e81c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-vk-finish-1.log",
+      "bytes": 119,
+      "sha256": "9ecce3f429c8c34a1c7ded0ef5bc3d3d11ee5c0b1366e7cf83a174574787e81c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-vk-finish-2.log",
+      "bytes": 119,
+      "sha256": "9ecce3f429c8c34a1c7ded0ef5bc3d3d11ee5c0b1366e7cf83a174574787e81c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-vk-record-0.log",
+      "bytes": 105,
+      "sha256": "7d9831e33bf5c9203c4d54e58c882ce957750f60148fd0462637a9ec95decda2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-vk-record-1.log",
+      "bytes": 105,
+      "sha256": "7d9831e33bf5c9203c4d54e58c882ce957750f60148fd0462637a9ec95decda2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-vk-record-2.log",
+      "bytes": 105,
+      "sha256": "7d9831e33bf5c9203c4d54e58c882ce957750f60148fd0462637a9ec95decda2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-worker-0.log",
+      "bytes": 145,
+      "sha256": "49e5857b8c2a0663c9e2140b17dce1e0247d51aaa5686983de200a9c48d916ad"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-worker-1.log",
+      "bytes": 145,
+      "sha256": "49e5857b8c2a0663c9e2140b17dce1e0247d51aaa5686983de200a9c48d916ad"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/applet-worker-2.log",
+      "bytes": 145,
+      "sha256": "49e5857b8c2a0663c9e2140b17dce1e0247d51aaa5686983de200a9c48d916ad"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-allocate-0.log",
+      "bytes": 239,
+      "sha256": "092cd050e781a28cf52699b584f01bb187e98440c1e439ed6f02416a759085be"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-allocate-1.log",
+      "bytes": 239,
+      "sha256": "092cd050e781a28cf52699b584f01bb187e98440c1e439ed6f02416a759085be"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-allocate-2.log",
+      "bytes": 239,
+      "sha256": "092cd050e781a28cf52699b584f01bb187e98440c1e439ed6f02416a759085be"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-callback-0.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-callback-1.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-callback-2.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-closed-0.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-closed-1.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-closed-2.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-context-0.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-context-1.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-context-2.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-draw-0.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-draw-1.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-draw-2.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-fallback-reset-0.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-fallback-reset-1.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-fallback-reset-2.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-finish-after-0.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-finish-after-1.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-finish-after-2.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-finish-before-0.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-finish-before-1.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-finish-before-2.log",
+      "bytes": 193,
+      "sha256": "45e6fa09bc2af72c7c598a947bcab9b268d54962e9583add26b0c4cc8bc06fe0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-frame-create-0.log",
+      "bytes": 217,
+      "sha256": "041befa8bf3002f206028b9c6f539d50aca5dd3e17a313bad2f86d51c1dda961"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-frame-create-1.log",
+      "bytes": 217,
+      "sha256": "041befa8bf3002f206028b9c6f539d50aca5dd3e17a313bad2f86d51c1dda961"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-frame-create-2.log",
+      "bytes": 217,
+      "sha256": "041befa8bf3002f206028b9c6f539d50aca5dd3e17a313bad2f86d51c1dda961"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-internal-finish-0.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-internal-finish-1.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-internal-finish-2.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-invalidate-0.log",
+      "bytes": 351,
+      "sha256": "11cd5c41340bf1d0028c1692a1d10dbfa7f4e3a27506de296de667d2d89ae00d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-invalidate-1.log",
+      "bytes": 351,
+      "sha256": "11cd5c41340bf1d0028c1692a1d10dbfa7f4e3a27506de296de667d2d89ae00d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-invalidate-2.log",
+      "bytes": 351,
+      "sha256": "11cd5c41340bf1d0028c1692a1d10dbfa7f4e3a27506de296de667d2d89ae00d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-normal-0.log",
+      "bytes": 333,
+      "sha256": "44ef207821e7e36daf750655e38909b8fc6291fcadbedcaed09cf0e3ce98b8ca"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-normal-1.log",
+      "bytes": 333,
+      "sha256": "44ef207821e7e36daf750655e38909b8fc6291fcadbedcaed09cf0e3ce98b8ca"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-normal-2.log",
+      "bytes": 333,
+      "sha256": "44ef207821e7e36daf750655e38909b8fc6291fcadbedcaed09cf0e3ce98b8ca"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-outside-0.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-outside-1.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-outside-2.log",
+      "bytes": 159,
+      "sha256": "8dd9462f7a95aa919eb09fceefd21c6e6dc3ee5953f7b168a660ad1ad948ccdf"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-poll-error-0.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-poll-error-1.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-poll-error-2.log",
+      "bytes": 232,
+      "sha256": "7a3440aa4d821a78d9babb0ff4c8dc43fe4c59b95f1096774860a2e9243eac25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-poll-pending-0.log",
+      "bytes": 231,
+      "sha256": "d0af392d0a93e66b0da4bdde8620e611b3a6dcfdd1dd834bdef174ee1cda5a88"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-poll-pending-1.log",
+      "bytes": 231,
+      "sha256": "d0af392d0a93e66b0da4bdde8620e611b3a6dcfdd1dd834bdef174ee1cda5a88"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-poll-pending-2.log",
+      "bytes": 231,
+      "sha256": "d0af392d0a93e66b0da4bdde8620e611b3a6dcfdd1dd834bdef174ee1cda5a88"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-record-0.log",
+      "bytes": 179,
+      "sha256": "a17ba6dbe6a1ece73bec28b60ecedbb09f739702b4974f4dbc4f2f60823f8e72"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-record-1.log",
+      "bytes": 179,
+      "sha256": "a17ba6dbe6a1ece73bec28b60ecedbb09f739702b4974f4dbc4f2f60823f8e72"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-record-2.log",
+      "bytes": 179,
+      "sha256": "a17ba6dbe6a1ece73bec28b60ecedbb09f739702b4974f4dbc4f2f60823f8e72"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-record-active-0.log",
+      "bytes": 206,
+      "sha256": "de068d31b014414b1688ce9f1c72291b31e4ebc4f51e12fb15ea4a20f3b0d8d4"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-record-active-1.log",
+      "bytes": 206,
+      "sha256": "de068d31b014414b1688ce9f1c72291b31e4ebc4f51e12fb15ea4a20f3b0d8d4"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-record-active-2.log",
+      "bytes": 206,
+      "sha256": "de068d31b014414b1688ce9f1c72291b31e4ebc4f51e12fb15ea4a20f3b0d8d4"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-vk-finish-0.log",
+      "bytes": 186,
+      "sha256": "ffd037cca4b8c7bb8c5affd4649288f93f9ca1c9742c295ca8aa38bd2a0a6082"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-vk-finish-1.log",
+      "bytes": 186,
+      "sha256": "ffd037cca4b8c7bb8c5affd4649288f93f9ca1c9742c295ca8aa38bd2a0a6082"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-vk-finish-2.log",
+      "bytes": 186,
+      "sha256": "ffd037cca4b8c7bb8c5affd4649288f93f9ca1c9742c295ca8aa38bd2a0a6082"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-vk-record-0.log",
+      "bytes": 172,
+      "sha256": "80fbb827220b773dec0dfca46270f05ff924c849e3ebf8b9ee9e9bb8092761a6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-vk-record-1.log",
+      "bytes": 172,
+      "sha256": "80fbb827220b773dec0dfca46270f05ff924c849e3ebf8b9ee9e9bb8092761a6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-vk-record-2.log",
+      "bytes": 172,
+      "sha256": "80fbb827220b773dec0dfca46270f05ff924c849e3ebf8b9ee9e9bb8092761a6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-worker-0.log",
+      "bytes": 212,
+      "sha256": "1d8cff7cd22d4ba5226a4fd9ef3e4209933fe22ee1f321f043d09966eaf23a25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-worker-1.log",
+      "bytes": 212,
+      "sha256": "1d8cff7cd22d4ba5226a4fd9ef3e4209933fe22ee1f321f043d09966eaf23a25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/capture-worker-2.log",
+      "bytes": 212,
+      "sha256": "1d8cff7cd22d4ba5226a4fd9ef3e4209933fe22ee1f321f043d09966eaf23a25"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/extraction.json",
+      "bytes": 2151,
+      "sha256": "65a62faf3e0e5ecfa10bf432bd1cb44e485dd1a7dc8fab7e8f559a918b9382af"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-admission-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-admission.log",
+      "bytes": 330,
+      "sha256": "7938844cade53df33c3df587c5359046d429d16e5c98185db93cb454a80bcf9c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-applet-guard-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-applet-guard.log",
+      "bytes": 58,
+      "sha256": "56a1c5daee6d9c22f5ca1e3753123b99fb4a7078566133f59d2206257125b31d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-capture-guard-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-capture-guard.log",
+      "bytes": 125,
+      "sha256": "01fe862759a7eb3930a74d3677fef5a773ee4c2a8db03e979a322f3a9bfd0d8c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-native-check-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-native-check.log",
+      "bytes": 155,
+      "sha256": "1abbe09da3df29120544ec4a4b89527d9bddc96fe4dcb758047c17f65a205be0"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-upload-guard-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-upload-guard.log",
+      "bytes": 58,
+      "sha256": "56a1c5daee6d9c22f5ca1e3753123b99fb4a7078566133f59d2206257125b31d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-worker-drain-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/omit-worker-drain.log",
+      "bytes": 314,
+      "sha256": "b75cf23c8d1ae758103646a7f4ccbdb913f648e205ecc1aacf2fb2e872d792db"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/production-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-allocate-0.log",
+      "bytes": 76,
+      "sha256": "a7025b8e00c9111024f062c3123600fea21a60d6c5c28cf44e658652bbbf9886"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-allocate-1.log",
+      "bytes": 76,
+      "sha256": "a7025b8e00c9111024f062c3123600fea21a60d6c5c28cf44e658652bbbf9886"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-allocate-2.log",
+      "bytes": 76,
+      "sha256": "a7025b8e00c9111024f062c3123600fea21a60d6c5c28cf44e658652bbbf9886"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-callback-0.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-callback-1.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-callback-2.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-closed-0.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-closed-1.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-closed-2.log",
+      "bytes": 99,
+      "sha256": "4805432d4dc28b75454257397e25b9bc8b0f5bf9975ea620e79efc982b50cce8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-context-0.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-context-1.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-context-2.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-fallback-reset-0.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-fallback-reset-1.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-fallback-reset-2.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-finish-after-0.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-finish-after-1.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-finish-after-2.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-finish-before-0.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-finish-before-1.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-finish-before-2.log",
+      "bytes": 125,
+      "sha256": "7a5bdbc4f6b2d9bd8d8f71763c33b4883c2757aa2c9f6723a75d77fd1d36d985"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-flush-0.log",
+      "bytes": 90,
+      "sha256": "1d99d6a5c5999c286f2c2d62e34fe5bbee3f3415da70c1d554ad6d2721291f63"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-flush-1.log",
+      "bytes": 90,
+      "sha256": "1d99d6a5c5999c286f2c2d62e34fe5bbee3f3415da70c1d554ad6d2721291f63"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-flush-2.log",
+      "bytes": 90,
+      "sha256": "1d99d6a5c5999c286f2c2d62e34fe5bbee3f3415da70c1d554ad6d2721291f63"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-normal-0.log",
+      "bytes": 150,
+      "sha256": "5d2a3638aa836fbe7aa68334f1a8976b9fe76512c606eb9f40555045983159a9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-normal-1.log",
+      "bytes": 150,
+      "sha256": "5d2a3638aa836fbe7aa68334f1a8976b9fe76512c606eb9f40555045983159a9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-normal-2.log",
+      "bytes": 150,
+      "sha256": "5d2a3638aa836fbe7aa68334f1a8976b9fe76512c606eb9f40555045983159a9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-outside-0.log",
+      "bytes": 91,
+      "sha256": "58bd06db2a08a3c00725bc0aae0a429964eb71a4098ded0db95c403f99c6633c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-outside-1.log",
+      "bytes": 91,
+      "sha256": "58bd06db2a08a3c00725bc0aae0a429964eb71a4098ded0db95c403f99c6633c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-outside-2.log",
+      "bytes": 91,
+      "sha256": "58bd06db2a08a3c00725bc0aae0a429964eb71a4098ded0db95c403f99c6633c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-poll-error-0.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-poll-error-1.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-poll-error-2.log",
+      "bytes": 165,
+      "sha256": "8d6960d43da8571ae15dc1d21b2d071f37c627a251652a1cc6d5dd25e1dd4e90"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-poll-pending-0.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-poll-pending-1.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-poll-pending-2.log",
+      "bytes": 164,
+      "sha256": "1cc97525b45dcd3d1631e5119d025fe21e2509041b6d73f20e224975410e58ef"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-record-0.log",
+      "bytes": 111,
+      "sha256": "479b8637e13c37b341b072fe7dc09c49ffb01d3cf272d49b82c5097c961253dc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-record-1.log",
+      "bytes": 111,
+      "sha256": "479b8637e13c37b341b072fe7dc09c49ffb01d3cf272d49b82c5097c961253dc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-record-2.log",
+      "bytes": 111,
+      "sha256": "479b8637e13c37b341b072fe7dc09c49ffb01d3cf272d49b82c5097c961253dc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-record-active-0.log",
+      "bytes": 138,
+      "sha256": "32be99db8f8e3cb64311032d69a1850ed0dcafaf0f2d054e078a69ed44e99eec"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-record-active-1.log",
+      "bytes": 138,
+      "sha256": "32be99db8f8e3cb64311032d69a1850ed0dcafaf0f2d054e078a69ed44e99eec"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-record-active-2.log",
+      "bytes": 138,
+      "sha256": "32be99db8f8e3cb64311032d69a1850ed0dcafaf0f2d054e078a69ed44e99eec"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-vk-finish-0.log",
+      "bytes": 118,
+      "sha256": "07017604f2a4a1edb053538423edf930d10bd37b050f8d305b3ba32d8b28b0b3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-vk-finish-1.log",
+      "bytes": 118,
+      "sha256": "07017604f2a4a1edb053538423edf930d10bd37b050f8d305b3ba32d8b28b0b3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-vk-finish-2.log",
+      "bytes": 118,
+      "sha256": "07017604f2a4a1edb053538423edf930d10bd37b050f8d305b3ba32d8b28b0b3"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-vk-record-0.log",
+      "bytes": 104,
+      "sha256": "87ac20ced1a38f8e12a714b612cd90b66f9d2e0d7cfc98ff3ba5a1b72d15a438"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-vk-record-1.log",
+      "bytes": 104,
+      "sha256": "87ac20ced1a38f8e12a714b612cd90b66f9d2e0d7cfc98ff3ba5a1b72d15a438"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-vk-record-2.log",
+      "bytes": 104,
+      "sha256": "87ac20ced1a38f8e12a714b612cd90b66f9d2e0d7cfc98ff3ba5a1b72d15a438"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-worker-0.log",
+      "bytes": 144,
+      "sha256": "557957fc2ebdb1a7d57bee44ad59b2a23d2a5a297e41b21b30f881c418fd3ffd"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-worker-1.log",
+      "bytes": 144,
+      "sha256": "557957fc2ebdb1a7d57bee44ad59b2a23d2a5a297e41b21b30f881c418fd3ffd"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/upload-worker-2.log",
+      "bytes": 144,
+      "sha256": "557957fc2ebdb1a7d57bee44ad59b2a23d2a5a297e41b21b30f881c418fd3ffd"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/wrong-completion-tick-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fixed/wrong-completion-tick.log",
+      "bytes": 155,
+      "sha256": "a069b8407d741c1d4de9e0c5749d631cbd5286f890a353a4e8d378afc3a089c5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-production/0-renderer_vulkan.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-production/1-vk_scheduler.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-production/2-util.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-production/extraction.json",
+      "bytes": 12348,
+      "sha256": "66c51956d7236a09c489405ffa841ddcacfc2afab8b2da4e7b43e2e84b0a513c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/candidate-protocol-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/closed-admission-0.log",
+      "bytes": 129,
+      "sha256": "b718f7569fcc4901a2db3c565c3897cc472b0a628b6a900560f98dee17171c85"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/closed-admission-1.log",
+      "bytes": 129,
+      "sha256": "b718f7569fcc4901a2db3c565c3897cc472b0a628b6a900560f98dee17171c85"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/closed-admission-2.log",
+      "bytes": 129,
+      "sha256": "b718f7569fcc4901a2db3c565c3897cc472b0a628b6a900560f98dee17171c85"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/closed-record-0.log",
+      "bytes": 129,
+      "sha256": "2384f6d6edfd671a7ccc3e927e6c7319661fca7f90673fbe29fcab4402db3322"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/closed-record-1.log",
+      "bytes": 129,
+      "sha256": "2384f6d6edfd671a7ccc3e927e6c7319661fca7f90673fbe29fcab4402db3322"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/closed-record-2.log",
+      "bytes": 129,
+      "sha256": "2384f6d6edfd671a7ccc3e927e6c7319661fca7f90673fbe29fcab4402db3322"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/closed-scope-0.log",
+      "bytes": 99,
+      "sha256": "4c68add14a0e46bc9796014ae2bdb178148d517e156d52fc42aa1a8620acee1b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/closed-scope-1.log",
+      "bytes": 99,
+      "sha256": "4c68add14a0e46bc9796014ae2bdb178148d517e156d52fc42aa1a8620acee1b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/closed-scope-2.log",
+      "bytes": 99,
+      "sha256": "4c68add14a0e46bc9796014ae2bdb178148d517e156d52fc42aa1a8620acee1b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/completed-on-next-begin-0.log",
+      "bytes": 101,
+      "sha256": "132e5e4038b9e3cd49e8d97c315ec0f805cefc634f23fdd8b25d602e2af5d3f8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/completed-on-next-begin-1.log",
+      "bytes": 101,
+      "sha256": "132e5e4038b9e3cd49e8d97c315ec0f805cefc634f23fdd8b25d602e2af5d3f8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/completed-on-next-begin-2.log",
+      "bytes": 101,
+      "sha256": "132e5e4038b9e3cd49e8d97c315ec0f805cefc634f23fdd8b25d602e2af5d3f8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/end-scope-before-final-record-0.log",
+      "bytes": 104,
+      "sha256": "495a18a0ccc30b891da2839164958ee8419ef5c8704ef71332b45b9b0b62908e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/end-scope-before-final-record-1.log",
+      "bytes": 104,
+      "sha256": "495a18a0ccc30b891da2839164958ee8419ef5c8704ef71332b45b9b0b62908e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/end-scope-before-final-record-2.log",
+      "bytes": 104,
+      "sha256": "495a18a0ccc30b891da2839164958ee8419ef5c8704ef71332b45b9b0b62908e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/end-scope-before-final-record-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/extraction.json",
+      "bytes": 4756,
+      "sha256": "237be29ddc4123cc7e18febbb28ac288ae80f0ef7b5131b2f8d471dc8d225df9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-0.log",
+      "bytes": 86,
+      "sha256": "9ab15da7fa09bc2551e565f4d2f3285ed9dc4bdaec4c995c2e569b617c017586"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-1.log",
+      "bytes": 86,
+      "sha256": "9ab15da7fa09bc2551e565f4d2f3285ed9dc4bdaec4c995c2e569b617c017586"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-2.log",
+      "bytes": 86,
+      "sha256": "9ab15da7fa09bc2551e565f4d2f3285ed9dc4bdaec4c995c2e569b617c017586"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-failure-0.log",
+      "bytes": 94,
+      "sha256": "617140418b0158deb4752c8aed033da7693e6cbb5b81eedafd11d27f4cc0e94a"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-failure-1.log",
+      "bytes": 94,
+      "sha256": "617140418b0158deb4752c8aed033da7693e6cbb5b81eedafd11d27f4cc0e94a"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-failure-2.log",
+      "bytes": 94,
+      "sha256": "617140418b0158deb4752c8aed033da7693e6cbb5b81eedafd11d27f4cc0e94a"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-internal-flush-0.log",
+      "bytes": 101,
+      "sha256": "3516f2d4c59bccb93c9b1e7de3ab9d27669cf6802cdddc53617429aa455c16b9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-internal-flush-1.log",
+      "bytes": 101,
+      "sha256": "3516f2d4c59bccb93c9b1e7de3ab9d27669cf6802cdddc53617429aa455c16b9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-internal-flush-2.log",
+      "bytes": 101,
+      "sha256": "3516f2d4c59bccb93c9b1e7de3ab9d27669cf6802cdddc53617429aa455c16b9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-reset-failure-0.log",
+      "bytes": 100,
+      "sha256": "accc816da5d8ec63ba93b8c070e01c3b45f073b00a938a5dd0439cf2fe2a4c2d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-reset-failure-1.log",
+      "bytes": 100,
+      "sha256": "accc816da5d8ec63ba93b8c070e01c3b45f073b00a938a5dd0439cf2fe2a4c2d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/fallback-reset-failure-2.log",
+      "bytes": 100,
+      "sha256": "accc816da5d8ec63ba93b8c070e01c3b45f073b00a938a5dd0439cf2fe2a4c2d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/host-throw-0.log",
+      "bytes": 88,
+      "sha256": "e4a9462094de836b8542caa7cf9be0f85d0f84f2d77afbd82319ab17e1588278"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/host-throw-1.log",
+      "bytes": 88,
+      "sha256": "e4a9462094de836b8542caa7cf9be0f85d0f84f2d77afbd82319ab17e1588278"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/host-throw-2.log",
+      "bytes": 88,
+      "sha256": "e4a9462094de836b8542caa7cf9be0f85d0f84f2d77afbd82319ab17e1588278"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/idle-active-0.log",
+      "bytes": 89,
+      "sha256": "f3599dbd1dcfc5a69acef3150af4dfdf7d02a3a6b5f038f759880319d5600e1c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/idle-active-1.log",
+      "bytes": 89,
+      "sha256": "f3599dbd1dcfc5a69acef3150af4dfdf7d02a3a6b5f038f759880319d5600e1c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/idle-active-2.log",
+      "bytes": 89,
+      "sha256": "f3599dbd1dcfc5a69acef3150af4dfdf7d02a3a6b5f038f759880319d5600e1c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-fallback-failure-0.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-fallback-failure-1.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-fallback-failure-2.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-fallback-failure-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-native-completion-0.log",
+      "bytes": 111,
+      "sha256": "acc3792c74a422c1b1486abfcb725da6e31365d06a360debbbd9d1239a9f0d9b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-native-completion-1.log",
+      "bytes": 111,
+      "sha256": "acc3792c74a422c1b1486abfcb725da6e31365d06a360debbbd9d1239a9f0d9b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-native-completion-2.log",
+      "bytes": 111,
+      "sha256": "acc3792c74a422c1b1486abfcb725da6e31365d06a360debbbd9d1239a9f0d9b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-native-completion-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-queue-result-0.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-queue-result-1.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-queue-result-2.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/ignore-queue-result-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/inter-layer-flush-0.log",
+      "bytes": 95,
+      "sha256": "b2180deda54c8050a3d084c2742a439117bfe960d6695e14dbd6af154e78b189"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/inter-layer-flush-1.log",
+      "bytes": 95,
+      "sha256": "b2180deda54c8050a3d084c2742a439117bfe960d6695e14dbd6af154e78b189"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/inter-layer-flush-2.log",
+      "bytes": 95,
+      "sha256": "b2180deda54c8050a3d084c2742a439117bfe960d6695e14dbd6af154e78b189"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/internal-flush-0.log",
+      "bytes": 92,
+      "sha256": "04c169d186e8d7157b453144a432d8b6098fe28c331a3db14cd907786ff23bd6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/internal-flush-1.log",
+      "bytes": 92,
+      "sha256": "04c169d186e8d7157b453144a432d8b6098fe28c331a3db14cd907786ff23bd6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/internal-flush-2.log",
+      "bytes": 92,
+      "sha256": "04c169d186e8d7157b453144a432d8b6098fe28c331a3db14cd907786ff23bd6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/missing-attempt-0.log",
+      "bytes": 93,
+      "sha256": "104836e12389a66291e3fd9055470a417943bd0f19c2c59b2426b3fb3094dcdb"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/missing-attempt-1.log",
+      "bytes": 93,
+      "sha256": "104836e12389a66291e3fd9055470a417943bd0f19c2c59b2426b3fb3094dcdb"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/missing-attempt-2.log",
+      "bytes": 93,
+      "sha256": "104836e12389a66291e3fd9055470a417943bd0f19c2c59b2426b3fb3094dcdb"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/native-delay-0.log",
+      "bytes": 90,
+      "sha256": "aaca9fc596a52da1f5fb5502abe92479980e5314447865c1c5211bfe2b8f1302"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/native-delay-1.log",
+      "bytes": 90,
+      "sha256": "aaca9fc596a52da1f5fb5502abe92479980e5314447865c1c5211bfe2b8f1302"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/native-delay-2.log",
+      "bytes": 90,
+      "sha256": "aaca9fc596a52da1f5fb5502abe92479980e5314447865c1c5211bfe2b8f1302"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/null-image-0.log",
+      "bytes": 88,
+      "sha256": "3e9e8c3a13a096dd3768408d7d8b6a7be03e65d0f7ae8a1c4304da25cd708625"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/null-image-1.log",
+      "bytes": 88,
+      "sha256": "3e9e8c3a13a096dd3768408d7d8b6a7be03e65d0f7ae8a1c4304da25cd708625"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/null-image-2.log",
+      "bytes": 88,
+      "sha256": "3e9e8c3a13a096dd3768408d7d8b6a7be03e65d0f7ae8a1c4304da25cd708625"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-cache-image-pin-0.log",
+      "bytes": 103,
+      "sha256": "17e7d184259fc9db12525abba4ca1278931f72858ab16bb2db66eadb81a6054c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-cache-image-pin-1.log",
+      "bytes": 103,
+      "sha256": "17e7d184259fc9db12525abba4ca1278931f72858ab16bb2db66eadb81a6054c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-cache-image-pin-2.log",
+      "bytes": 103,
+      "sha256": "17e7d184259fc9db12525abba4ca1278931f72858ab16bb2db66eadb81a6054c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-cache-image-pin-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-cache-view-pin-0.log",
+      "bytes": 103,
+      "sha256": "17e7d184259fc9db12525abba4ca1278931f72858ab16bb2db66eadb81a6054c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-cache-view-pin-1.log",
+      "bytes": 103,
+      "sha256": "17e7d184259fc9db12525abba4ca1278931f72858ab16bb2db66eadb81a6054c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-cache-view-pin-2.log",
+      "bytes": 103,
+      "sha256": "17e7d184259fc9db12525abba4ca1278931f72858ab16bb2db66eadb81a6054c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-cache-view-pin-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-null-image-pin-0.log",
+      "bytes": 60,
+      "sha256": "b83d68ebd0ec5e5e58eb4852dcda89e20502042d5bf078c0b976d1843e36af6f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-null-image-pin-1.log",
+      "bytes": 60,
+      "sha256": "b83d68ebd0ec5e5e58eb4852dcda89e20502042d5bf078c0b976d1843e36af6f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-null-image-pin-2.log",
+      "bytes": 60,
+      "sha256": "b83d68ebd0ec5e5e58eb4852dcda89e20502042d5bf078c0b976d1843e36af6f"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-null-image-pin-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-owner-handoff-0.log",
+      "bytes": 104,
+      "sha256": "495a18a0ccc30b891da2839164958ee8419ef5c8704ef71332b45b9b0b62908e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-owner-handoff-1.log",
+      "bytes": 104,
+      "sha256": "495a18a0ccc30b891da2839164958ee8419ef5c8704ef71332b45b9b0b62908e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-owner-handoff-2.log",
+      "bytes": 104,
+      "sha256": "495a18a0ccc30b891da2839164958ee8419ef5c8704ef71332b45b9b0b62908e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-owner-handoff-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-queue-attempt-0.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-queue-attempt-1.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-queue-attempt-2.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-queue-attempt-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-queue-identity-0.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-queue-identity-1.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-queue-identity-2.log",
+      "bytes": 100,
+      "sha256": "8c554a71355410010f9c195e0e09d5de5dc2112812e37124017582c99eecf7c7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-queue-identity-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-record-renewal-0.log",
+      "bytes": 104,
+      "sha256": "495a18a0ccc30b891da2839164958ee8419ef5c8704ef71332b45b9b0b62908e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-record-renewal-1.log",
+      "bytes": 104,
+      "sha256": "495a18a0ccc30b891da2839164958ee8419ef5c8704ef71332b45b9b0b62908e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-record-renewal-2.log",
+      "bytes": 104,
+      "sha256": "495a18a0ccc30b891da2839164958ee8419ef5c8704ef71332b45b9b0b62908e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/omit-record-renewal-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/partial-registration-failure-0.log",
+      "bytes": 120,
+      "sha256": "dc77dbe4d5ef027be05d3c07ba008d8ee80e7ae5914793610df35930712bbde1"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/partial-registration-failure-1.log",
+      "bytes": 120,
+      "sha256": "dc77dbe4d5ef027be05d3c07ba008d8ee80e7ae5914793610df35930712bbde1"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/partial-registration-failure-2.log",
+      "bytes": 120,
+      "sha256": "dc77dbe4d5ef027be05d3c07ba008d8ee80e7ae5914793610df35930712bbde1"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/preparation-finish-0.log",
+      "bytes": 96,
+      "sha256": "ac65b565854abed9760b2c1ce5eaff05c1f9a649a3182dfb79c473d8bb1e8db9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/preparation-finish-1.log",
+      "bytes": 96,
+      "sha256": "ac65b565854abed9760b2c1ce5eaff05c1f9a649a3182dfb79c473d8bb1e8db9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/preparation-finish-2.log",
+      "bytes": 96,
+      "sha256": "ac65b565854abed9760b2c1ce5eaff05c1f9a649a3182dfb79c473d8bb1e8db9"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/presentation-0.log",
+      "bytes": 109,
+      "sha256": "bfc95c9ec2a67f62d95ca0bc69b2f6be82e0099526598af13aa96da87ddc1a87"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/presentation-1.log",
+      "bytes": 109,
+      "sha256": "bfc95c9ec2a67f62d95ca0bc69b2f6be82e0099526598af13aa96da87ddc1a87"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/presentation-2.log",
+      "bytes": 109,
+      "sha256": "bfc95c9ec2a67f62d95ca0bc69b2f6be82e0099526598af13aa96da87ddc1a87"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/production-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-idle-active-0.log",
+      "bytes": 41,
+      "sha256": "a6ff80ff0bcb23764fcf253c1b034789758be856e83458feb47e31ba8b60a26d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-idle-active-1.log",
+      "bytes": 41,
+      "sha256": "a6ff80ff0bcb23764fcf253c1b034789758be856e83458feb47e31ba8b60a26d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-idle-active-2.log",
+      "bytes": 41,
+      "sha256": "a6ff80ff0bcb23764fcf253c1b034789758be856e83458feb47e31ba8b60a26d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-nested-0.log",
+      "bytes": 36,
+      "sha256": "420ef62b1f39a8deb69b5844a51ed501ac75bd0f4224bf371de81b326f5576fd"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-nested-1.log",
+      "bytes": 36,
+      "sha256": "420ef62b1f39a8deb69b5844a51ed501ac75bd0f4224bf371de81b326f5576fd"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-nested-2.log",
+      "bytes": 36,
+      "sha256": "420ef62b1f39a8deb69b5844a51ed501ac75bd0f4224bf371de81b326f5576fd"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-normal-0.log",
+      "bytes": 36,
+      "sha256": "9abc6baf536386fb8e5de987e6b500ac4fd280556d0d9d3c62ec5e61cf6907be"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-normal-1.log",
+      "bytes": 36,
+      "sha256": "9abc6baf536386fb8e5de987e6b500ac4fd280556d0d9d3c62ec5e61cf6907be"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-normal-2.log",
+      "bytes": 36,
+      "sha256": "9abc6baf536386fb8e5de987e6b500ac4fd280556d0d9d3c62ec5e61cf6907be"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-pending-0.log",
+      "bytes": 37,
+      "sha256": "1520ac4b60a31258949381ff9d83e29a0c0b6a394d9cb307e6dead29f7deb0e2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-pending-1.log",
+      "bytes": 37,
+      "sha256": "1520ac4b60a31258949381ff9d83e29a0c0b6a394d9cb307e6dead29f7deb0e2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-pending-2.log",
+      "bytes": 37,
+      "sha256": "1520ac4b60a31258949381ff9d83e29a0c0b6a394d9cb307e6dead29f7deb0e2"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-record-throw-0.log",
+      "bytes": 42,
+      "sha256": "12cbe3cd269f6444ccd4f242ed50ca3652e3351763214243a6bbdc50215b584c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-record-throw-1.log",
+      "bytes": 42,
+      "sha256": "12cbe3cd269f6444ccd4f242ed50ca3652e3351763214243a6bbdc50215b584c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-record-throw-2.log",
+      "bytes": 42,
+      "sha256": "12cbe3cd269f6444ccd4f242ed50ca3652e3351763214243a6bbdc50215b584c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-split-0.log",
+      "bytes": 35,
+      "sha256": "8b896020701ab2908141afe04be9360bd9dfd36347bc0920dee0bd2720451d1c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-split-1.log",
+      "bytes": 35,
+      "sha256": "8b896020701ab2908141afe04be9360bd9dfd36347bc0920dee0bd2720451d1c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-split-2.log",
+      "bytes": 35,
+      "sha256": "8b896020701ab2908141afe04be9360bd9dfd36347bc0920dee0bd2720451d1c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-unknown-0.log",
+      "bytes": 37,
+      "sha256": "0acf6408e740b11b5b908e639e4936eb8b94caa8973e2d6d231f79954cf1c705"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-unknown-1.log",
+      "bytes": 37,
+      "sha256": "0acf6408e740b11b5b908e639e4936eb8b94caa8973e2d6d231f79954cf1c705"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/protocol-unknown-2.log",
+      "bytes": 37,
+      "sha256": "0acf6408e740b11b5b908e639e4936eb8b94caa8973e2d6d231f79954cf1c705"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/query-failure-0.log",
+      "bytes": 91,
+      "sha256": "f6b58b00fd6a9e41c101ba962d946eceb24d605268965ed5a6462d1f8ee0ffdb"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/query-failure-1.log",
+      "bytes": 91,
+      "sha256": "f6b58b00fd6a9e41c101ba962d946eceb24d605268965ed5a6462d1f8ee0ffdb"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/query-failure-2.log",
+      "bytes": 91,
+      "sha256": "f6b58b00fd6a9e41c101ba962d946eceb24d605268965ed5a6462d1f8ee0ffdb"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/queue-failure-0.log",
+      "bytes": 91,
+      "sha256": "0f0d08ace9582fe0982868acd4d71e6319a81e660ff018a2e3ad7105cd292f0a"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/queue-failure-1.log",
+      "bytes": 91,
+      "sha256": "0f0d08ace9582fe0982868acd4d71e6319a81e660ff018a2e3ad7105cd292f0a"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/queue-failure-2.log",
+      "bytes": 91,
+      "sha256": "0f0d08ace9582fe0982868acd4d71e6319a81e660ff018a2e3ad7105cd292f0a"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/record-delay-0.log",
+      "bytes": 90,
+      "sha256": "cdac0472076a3b5dec5863ac5d2df667321233ba8b2b3db70cf4af5196d63766"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/record-delay-1.log",
+      "bytes": 90,
+      "sha256": "cdac0472076a3b5dec5863ac5d2df667321233ba8b2b3db70cf4af5196d63766"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/record-delay-2.log",
+      "bytes": 90,
+      "sha256": "cdac0472076a3b5dec5863ac5d2df667321233ba8b2b3db70cf4af5196d63766"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/record-throw-0.log",
+      "bytes": 90,
+      "sha256": "4cc6b3071aae00cb6a93ae43212e8e75f874e8642573d094486c5680319164ec"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/record-throw-1.log",
+      "bytes": 90,
+      "sha256": "4cc6b3071aae00cb6a93ae43212e8e75f874e8642573d094486c5680319164ec"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/record-throw-2.log",
+      "bytes": 90,
+      "sha256": "4cc6b3071aae00cb6a93ae43212e8e75f874e8642573d094486c5680319164ec"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/registration-failure-0.log",
+      "bytes": 120,
+      "sha256": "dc77dbe4d5ef027be05d3c07ba008d8ee80e7ae5914793610df35930712bbde1"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/registration-failure-1.log",
+      "bytes": 120,
+      "sha256": "dc77dbe4d5ef027be05d3c07ba008d8ee80e7ae5914793610df35930712bbde1"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/registration-failure-2.log",
+      "bytes": 120,
+      "sha256": "dc77dbe4d5ef027be05d3c07ba008d8ee80e7ae5914793610df35930712bbde1"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/renewal-failure-0.log",
+      "bytes": 127,
+      "sha256": "b43804c2ec57376d8888e0f2aa80b67433be244380e8241c4327e044c8515aa8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/renewal-failure-1.log",
+      "bytes": 127,
+      "sha256": "b43804c2ec57376d8888e0f2aa80b67433be244380e8241c4327e044c8515aa8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/renewal-failure-2.log",
+      "bytes": 127,
+      "sha256": "b43804c2ec57376d8888e0f2aa80b67433be244380e8241c4327e044c8515aa8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/retire-before-closure-0.log",
+      "bytes": 111,
+      "sha256": "181f1307075ba66ebc5172a99c52052fc2afcaa19731d11f92c6abb919c3d7fe"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/retire-before-closure-1.log",
+      "bytes": 111,
+      "sha256": "181f1307075ba66ebc5172a99c52052fc2afcaa19731d11f92c6abb919c3d7fe"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/retire-before-closure-2.log",
+      "bytes": 111,
+      "sha256": "181f1307075ba66ebc5172a99c52052fc2afcaa19731d11f92c6abb919c3d7fe"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/retire-before-closure-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/retire-before-worker-join-0.log",
+      "bytes": 110,
+      "sha256": "287105f4eeebc4b777e8546e12e0b68ed2de445ba35181c79bb1fe16446f2fcc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/retire-before-worker-join-1.log",
+      "bytes": 110,
+      "sha256": "287105f4eeebc4b777e8546e12e0b68ed2de445ba35181c79bb1fe16446f2fcc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/retire-before-worker-join-2.log",
+      "bytes": 110,
+      "sha256": "287105f4eeebc4b777e8546e12e0b68ed2de445ba35181c79bb1fe16446f2fcc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/retire-before-worker-join-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/scaled-0.log",
+      "bytes": 84,
+      "sha256": "2ae9635ae12586aede735ce051bad122f05308cebd74da0cd6e684296961708b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/scaled-1.log",
+      "bytes": 84,
+      "sha256": "2ae9635ae12586aede735ce051bad122f05308cebd74da0cd6e684296961708b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/scaled-2.log",
+      "bytes": 84,
+      "sha256": "2ae9635ae12586aede735ce051bad122f05308cebd74da0cd6e684296961708b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/shutdown-disposal-0.log",
+      "bytes": 140,
+      "sha256": "7b6bc2f78de6da11387427a012ae247e107bbcbb4c31c24a36b7c6d189e8c579"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/shutdown-disposal-1.log",
+      "bytes": 140,
+      "sha256": "7b6bc2f78de6da11387427a012ae247e107bbcbb4c31c24a36b7c6d189e8c579"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/shutdown-disposal-2.log",
+      "bytes": 140,
+      "sha256": "7b6bc2f78de6da11387427a012ae247e107bbcbb4c31c24a36b7c6d189e8c579"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/shutdown-pending-0.log",
+      "bytes": 94,
+      "sha256": "1cdd2f2a14eb9dc8a2b4658c657203f071e31cbad28c10152b92a11478a496c5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/shutdown-pending-1.log",
+      "bytes": 94,
+      "sha256": "1cdd2f2a14eb9dc8a2b4658c657203f071e31cbad28c10152b92a11478a496c5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/shutdown-pending-2.log",
+      "bytes": 94,
+      "sha256": "1cdd2f2a14eb9dc8a2b4658c657203f071e31cbad28c10152b92a11478a496c5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/shutdown-worker-0.log",
+      "bytes": 93,
+      "sha256": "9975fc7bdc278147caaeaf1e5e171983903ccc85603b667c0b9dce399ded7690"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/shutdown-worker-1.log",
+      "bytes": 93,
+      "sha256": "9975fc7bdc278147caaeaf1e5e171983903ccc85603b667c0b9dce399ded7690"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/shutdown-worker-2.log",
+      "bytes": 93,
+      "sha256": "9975fc7bdc278147caaeaf1e5e171983903ccc85603b667c0b9dce399ded7690"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/submit-delay-0.log",
+      "bytes": 90,
+      "sha256": "496733a89cc1fbe4eace35b86c15406268f8348daa9f5fc1e1bf3345a20b99ce"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/submit-delay-1.log",
+      "bytes": 90,
+      "sha256": "496733a89cc1fbe4eace35b86c15406268f8348daa9f5fc1e1bf3345a20b99ce"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/submit-delay-2.log",
+      "bytes": 90,
+      "sha256": "496733a89cc1fbe4eace35b86c15406268f8348daa9f5fc1e1bf3345a20b99ce"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/timeline-0.log",
+      "bytes": 86,
+      "sha256": "df566fb83aa95a8c81e932b9bb04fbbe70ed6ee1ea2597e3c1e94327a742a05e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/timeline-1.log",
+      "bytes": 86,
+      "sha256": "df566fb83aa95a8c81e932b9bb04fbbe70ed6ee1ea2597e3c1e94327a742a05e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/timeline-2.log",
+      "bytes": 86,
+      "sha256": "df566fb83aa95a8c81e932b9bb04fbbe70ed6ee1ea2597e3c1e94327a742a05e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/unsubmitted-0.log",
+      "bytes": 89,
+      "sha256": "f32e1ce8dec1d55d3c80307407a044caa452015365eb002d228d558fdf4011f5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/unsubmitted-1.log",
+      "bytes": 89,
+      "sha256": "f32e1ce8dec1d55d3c80307407a044caa452015365eb002d228d558fdf4011f5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/unsubmitted-2.log",
+      "bytes": 89,
+      "sha256": "f32e1ce8dec1d55d3c80307407a044caa452015365eb002d228d558fdf4011f5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/wait-failure-0.log",
+      "bytes": 90,
+      "sha256": "a2b42f3f7f6d13151e4b0592857f750511cd9a3598cbd674862f51a4decb4b6e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/wait-failure-1.log",
+      "bytes": 90,
+      "sha256": "a2b42f3f7f6d13151e4b0592857f750511cd9a3598cbd674862f51a4decb4b6e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/wait-failure-2.log",
+      "bytes": 90,
+      "sha256": "a2b42f3f7f6d13151e4b0592857f750511cd9a3598cbd674862f51a4decb4b6e"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/wrong-queue-0.log",
+      "bytes": 89,
+      "sha256": "db62e6328c086f18b5178318ee2a79cdf8f68073c318ee598c8f6d86c52e28bb"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/wrong-queue-1.log",
+      "bytes": 89,
+      "sha256": "db62e6328c086f18b5178318ee2a79cdf8f68073c318ee598c8f6d86c52e28bb"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/wrong-queue-2.log",
+      "bytes": 89,
+      "sha256": "db62e6328c086f18b5178318ee2a79cdf8f68073c318ee598c8f6d86c52e28bb"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/wrong-scaled-parent-0.log",
+      "bytes": 103,
+      "sha256": "17e7d184259fc9db12525abba4ca1278931f72858ab16bb2db66eadb81a6054c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/wrong-scaled-parent-1.log",
+      "bytes": 103,
+      "sha256": "17e7d184259fc9db12525abba4ca1278931f72858ab16bb2db66eadb81a6054c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/wrong-scaled-parent-2.log",
+      "bytes": 103,
+      "sha256": "17e7d184259fc9db12525abba4ca1278931f72858ab16bb2db66eadb81a6054c"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-source-regression/wrong-scaled-parent-compile.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-completion-0.log",
+      "bytes": 17,
+      "sha256": "7697d77ca67be4d3939db98c85f0d389d33af2b12959a011eb16b1925d824ce7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-completion-1.log",
+      "bytes": 17,
+      "sha256": "7697d77ca67be4d3939db98c85f0d389d33af2b12959a011eb16b1925d824ce7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-completion-2.log",
+      "bytes": 17,
+      "sha256": "7697d77ca67be4d3939db98c85f0d389d33af2b12959a011eb16b1925d824ce7"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-extraction.json",
+      "bytes": 861,
+      "sha256": "78520049589933d273c7f00d05f219490f52a188b2c6b63f67c3b98c60471e77"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-fencing-0.log",
+      "bytes": 14,
+      "sha256": "ae722b82a3b3de7e8c6b8f155dea7f708deef84b02481fc12e2c4519b9fef32b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-fencing-1.log",
+      "bytes": 14,
+      "sha256": "ae722b82a3b3de7e8c6b8f155dea7f708deef84b02481fc12e2c4519b9fef32b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-fencing-2.log",
+      "bytes": 14,
+      "sha256": "ae722b82a3b3de7e8c6b8f155dea7f708deef84b02481fc12e2c4519b9fef32b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-presentation-0.log",
+      "bytes": 19,
+      "sha256": "b3fe7a703c5bf7e1a21d2ce18f0bd8bafd32eb0089f21fc31cd08971876f6b24"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-presentation-1.log",
+      "bytes": 19,
+      "sha256": "b3fe7a703c5bf7e1a21d2ce18f0bd8bafd32eb0089f21fc31cd08971876f6b24"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-presentation-2.log",
+      "bytes": 19,
+      "sha256": "b3fe7a703c5bf7e1a21d2ce18f0bd8bafd32eb0089f21fc31cd08971876f6b24"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_failed_idle-0.log",
+      "bytes": 88,
+      "sha256": "e5d995213971a76f6476ff262985b5d9bbf74d3860427b748ad2ba0ae2be9329"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_failed_idle-1.log",
+      "bytes": 88,
+      "sha256": "e5d995213971a76f6476ff262985b5d9bbf74d3860427b748ad2ba0ae2be9329"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_failed_idle-2.log",
+      "bytes": 88,
+      "sha256": "e5d995213971a76f6476ff262985b5d9bbf74d3860427b748ad2ba0ae2be9329"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_order-0.log",
+      "bytes": 21,
+      "sha256": "2a4d6fe3ae09099e5b70774ddf9fb2cd16fc8143a54acc2773713ac272cfc700"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_order-1.log",
+      "bytes": 21,
+      "sha256": "2a4d6fe3ae09099e5b70774ddf9fb2cd16fc8143a54acc2773713ac272cfc700"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_order-2.log",
+      "bytes": 21,
+      "sha256": "2a4d6fe3ae09099e5b70774ddf9fb2cd16fc8143a54acc2773713ac272cfc700"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_pending_disposal-0.log",
+      "bytes": 103,
+      "sha256": "932830d72e7549226fdd01b16a34d9806c4edef84bdf90cca59c8070c9551ab6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_pending_disposal-1.log",
+      "bytes": 103,
+      "sha256": "932830d72e7549226fdd01b16a34d9806c4edef84bdf90cca59c8070c9551ab6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_pending_disposal-2.log",
+      "bytes": 103,
+      "sha256": "932830d72e7549226fdd01b16a34d9806c4edef84bdf90cca59c8070c9551ab6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_pending_native_sources-0.log",
+      "bytes": 103,
+      "sha256": "e2df8a86bb5c6e194a2bdd11bd901b2d459f8fbea04fc4a4c5a0e3d03529a213"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_pending_native_sources-1.log",
+      "bytes": 103,
+      "sha256": "e2df8a86bb5c6e194a2bdd11bd901b2d459f8fbea04fc4a4c5a0e3d03529a213"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-renderer_pending_native_sources-2.log",
+      "bytes": 103,
+      "sha256": "e2df8a86bb5c6e194a2bdd11bd901b2d459f8fbea04fc4a4c5a0e3d03529a213"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-scheduler-0.log",
+      "bytes": 16,
+      "sha256": "39fb260055321109513e4f1c79673e1ce6e671cb24378569a20dbe9e02f478f5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-scheduler-1.log",
+      "bytes": 16,
+      "sha256": "39fb260055321109513e4f1c79673e1ce6e671cb24378569a20dbe9e02f478f5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-scheduler-2.log",
+      "bytes": 16,
+      "sha256": "39fb260055321109513e4f1c79673e1ce6e671cb24378569a20dbe9e02f478f5"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-scheduler_cancel-0.log",
+      "bytes": 23,
+      "sha256": "b20497551903321ac6d3716e2ee37c1aa357a0f0fa87f3c6f0d9364e66abfec1"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-scheduler_cancel-1.log",
+      "bytes": 23,
+      "sha256": "b20497551903321ac6d3716e2ee37c1aa357a0f0fa87f3c6f0d9364e66abfec1"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-scheduler_cancel-2.log",
+      "bytes": 23,
+      "sha256": "b20497551903321ac6d3716e2ee37c1aa357a0f0fa87f3c6f0d9364e66abfec1"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-turbo-0.log",
+      "bytes": 12,
+      "sha256": "6a1c28a75e0a2af1c57c27ea2f76f82ff40d60835e8ddaeec4333c6aef58ab92"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-turbo-1.log",
+      "bytes": 12,
+      "sha256": "6a1c28a75e0a2af1c57c27ea2f76f82ff40d60835e8ddaeec4333c6aef58ab92"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-shutdown/renderer-turbo-2.log",
+      "bytes": 12,
+      "sha256": "6a1c28a75e0a2af1c57c27ea2f76f82ff40d60835e8ddaeec4333c6aef58ab92"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/extraction.json",
+      "bytes": 1003,
+      "sha256": "40f5664cbad2e8ba20253f595e180a1b98df84c559a1db40484793fffc1c1a87"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/ignore-lifetime-failure.log",
+      "bytes": 55,
+      "sha256": "194474d212e3bdde28880cef975199be5b7ef0a737ffcd625f8eecd4da375ae6"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/ignore-wait-result.log",
+      "bytes": 46,
+      "sha256": "a23b35930b634526cf4d19aeaa09912326a95edfbd50b315f7b4212c14438eaa"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/older-failure-overwrites-isolation.log",
+      "bytes": 356,
+      "sha256": "247f5273bc0c74b1a5a647012b1b430dbf992ac56561270747cca321696a904d"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/positive-0.log",
+      "bytes": 370,
+      "sha256": "8a84cf6520dd83acc4bd8ef6babd14618ab2f88d67514d08169528bd536522cc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/positive-1.log",
+      "bytes": 370,
+      "sha256": "8a84cf6520dd83acc4bd8ef6babd14618ab2f88d67514d08169528bd536522cc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/positive-2.log",
+      "bytes": 370,
+      "sha256": "8a84cf6520dd83acc4bd8ef6babd14618ab2f88d67514d08169528bd536522cc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/recycle-allocation-escapes.log",
+      "bytes": 291,
+      "sha256": "cfd748fdb31fbff7791621ff85f7af0c9cce27b8ebbfcc5134a9ddd20c8642d8"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/recycle-unknown-fence.log",
+      "bytes": 61,
+      "sha256": "1cfa1150cd43ad3368c27ff6ba907c09a1b66528738ed56a1f3d456a3fce414b"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/reset-exception-escapes.log",
+      "bytes": 211,
+      "sha256": "bfb7014cffc1546854cb56a5f2af2f08a3c29a85cb474dfd28ad465c2b0a8c5a"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/submit-forgets-failure.log",
+      "bytes": 356,
+      "sha256": "5ba9951418ad9493a6e11d71d342834c8737bbe1ed2a7b862c09dbb3847fffdc"
+    },
+    {
+      "path": ".diagnostics/m4-capture-results/m4-capture-fallback/submit-record-too-late.log",
+      "bytes": 354,
+      "sha256": "7cab7c3b744545c4449bc25a5fe515cb98a279621c5898b233b6cad7d6abdba0"
+    }
+  ],
+  "cleanup": {
+    "complete": true,
+    "scopes": [
+      "m4-capture-baseline",
+      "m4-capture-candidate",
+      "m4-capture-fixed",
+      "m4-capture-production",
+      "m4-capture-source-regression",
+      "m4-capture-shutdown",
+      "m4-capture-fallback"
+    ],
+    "files": [
+      {
+        "path": ".diagnostics/m4-capture-baseline/production.cpp",
+        "bytes": 12811,
+        "sha256": "b5ff95e7ed2e22c3ce3350e9e3f6aaf07d2ec8cc38d950259cb55a4d134b47fc"
+      },
+      {
+        "path": ".diagnostics/m4-capture-baseline/production.exe",
+        "bytes": 153276,
+        "sha256": "ab0c4dc5324d926b0089022ed7d797535a05abe6bb21a7765f892d8c106796a2"
+      },
+      {
+        "path": ".diagnostics/m4-capture-baseline/terminal.cpp",
+        "bytes": 1709,
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-admission.cpp",
+        "bytes": 14237,
+        "sha256": "1e001e8eae5195fd5eb56574f6374a9db96aa9fa48ae7ba8cbb00d61e7535bf3"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-admission.exe",
+        "bytes": 154332,
+        "sha256": "ad0d1688d5ada53c9d1fcb243c192b87892bd2251822b469e45b3fe613cbeb91"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-applet-guard.cpp",
+        "bytes": 14260,
+        "sha256": "47cd4963f185c2ce3cbf642087deda2f51e812027510b3a5c190742b941d067d"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-applet-guard.exe",
+        "bytes": 154354,
+        "sha256": "3e23ac65d9ac8e41387885ea23f6c5d9ed999031b149c3726711772cdbbde187"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-capture-guard.cpp",
+        "bytes": 14260,
+        "sha256": "4992cf4dcbe6aa7cfe9fb453f0daf8f8e654a6c648ecef9869649658d8051cb4"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-capture-guard.exe",
+        "bytes": 154355,
+        "sha256": "973e3f05ce26c4e8292caef98402b535d659523bc6152e522d57c1a1bc191901"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-native-check.cpp",
+        "bytes": 14292,
+        "sha256": "a2b39db92368ff1cf212753a62c77bbe23cd6a6c8d1a67e721d56b32a0960acf"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-native-check.exe",
+        "bytes": 154354,
+        "sha256": "eb484bad4c8427fb47189f25b7b1b9e3352494650ae267fade56833e5e0fc306"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-upload-guard.cpp",
+        "bytes": 14261,
+        "sha256": "69fc3b2ebea1372726615a93daab0861a2c236975cb065ee7badb6c54c6fdc05"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-upload-guard.exe",
+        "bytes": 154354,
+        "sha256": "b7e06bcd59022ec015ae200e219fee9b5c0ee9c6d252ef7c4555b8aa52326eec"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-worker-drain.cpp",
+        "bytes": 14323,
+        "sha256": "c407bbb9fd40c9f49bb2cb16ad7d144c1ddc22e40427386c4e107924bd2979eb"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/omit-worker-drain.exe",
+        "bytes": 154317,
+        "sha256": "3075e1cd0fac1da0bc06c12c5e5c18cff08d9f0965a710220099bf578f5a8007"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/production.cpp",
+        "bytes": 14315,
+        "sha256": "f97e6dc3c1de9ded8f19c36886a752d7008874117eb1b6f98881f00f30d32558"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/production.exe",
+        "bytes": 154332,
+        "sha256": "9dcce2fe2cb764063803127044c6d7678947cb44308f2cb774086bb7f80fd242"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/terminal.cpp",
+        "bytes": 1709,
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/wrong-completion-tick.cpp",
+        "bytes": 14317,
+        "sha256": "4222475779402a7263e9b142970cfe7704a38ac10f9a66fd1914cbf24aed08fe"
+      },
+      {
+        "path": ".diagnostics/m4-capture-candidate/wrong-completion-tick.exe",
+        "bytes": 154358,
+        "sha256": "64978c88230115568849d71307ddab1b4bc51b150c0916ac6ff0b6b393d60c95"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-admission.cpp",
+        "bytes": 14624,
+        "sha256": "a133019f1180f59779996beb9d578bfc362c2c8d2a4351a4902c4bdefd3399e1"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-admission.exe",
+        "bytes": 154332,
+        "sha256": "eab7650a502b768b3cb490abb36291931e4b82c6fd9b31c29a6554ed610de821"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-applet-guard.cpp",
+        "bytes": 14647,
+        "sha256": "50fe233b0df1c94214c5bc0d76924a549d504ea0d2f43e8a4b8911aeab1a4772"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-applet-guard.exe",
+        "bytes": 154354,
+        "sha256": "bb7ec4864b669b9c2bc4caf11e59c85d5ca3697e0f23b11164ca5eafae6d5c97"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-capture-guard.cpp",
+        "bytes": 14647,
+        "sha256": "ed31b74d3d632b71a065737f8135613c598435395ba2792b77d78ebcc66bcaeb"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-capture-guard.exe",
+        "bytes": 154355,
+        "sha256": "eaf134524f66341dda192b61220b9d546e2642e8760a00e75a62543d2934ed04"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-native-check.cpp",
+        "bytes": 14679,
+        "sha256": "5e96c5822ce1c00ee2a243cdf4b5cc51d43503e4ec7388df6ccdc82b44bfd67b"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-native-check.exe",
+        "bytes": 154354,
+        "sha256": "52c76572d9b5706ed187010bf2f60504d6f8463346a2a5e17b39675a9b74f493"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-upload-guard.cpp",
+        "bytes": 14648,
+        "sha256": "d1c3ed9b99eb604ab319872d1d1e48804a849176779650209642d03fe52277ab"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-upload-guard.exe",
+        "bytes": 154354,
+        "sha256": "83eb68ff7d897765eda0c025aa4c3590485bac7f5abb818f95dff640ee9fb839"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-worker-drain.cpp",
+        "bytes": 14710,
+        "sha256": "befb8537d2576624ef6877f91733924bf26f61650e7a3f22a9478e13a14b361a"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/omit-worker-drain.exe",
+        "bytes": 154317,
+        "sha256": "821963068957f8da74be4bb3bc4ee60f453346b8db2cb199fee0f2236a15e204"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/production.cpp",
+        "bytes": 14702,
+        "sha256": "9fe134eb3ab32eaf862a5d6244fd5bd1d0238823d5b1aaa4a5c50427d109af8c"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/production.exe",
+        "bytes": 154332,
+        "sha256": "447646b09839f58c29657d8f9302c459f3ae71984e8cdb0ae6d9b5a9df682982"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/terminal.cpp",
+        "bytes": 1709,
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/wrong-completion-tick.cpp",
+        "bytes": 14704,
+        "sha256": "870e24449c9a6bffb924ae7191552757a922c1a5e581418d1953c0b6ce955bc7"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fixed/wrong-completion-tick.exe",
+        "bytes": 154358,
+        "sha256": "62684b2aee3727dc618361f4d7e26851a50dffe540888f3ec85d6e4607e8c49a"
+      },
+      {
+        "path": ".diagnostics/m4-capture-production/0-renderer_vulkan.o",
+        "bytes": 124276,
+        "sha256": "4af2d7f57cf125c955e814e1824051ff305cfe8f6c31284444fd48f7559a3aa2"
+      },
+      {
+        "path": ".diagnostics/m4-capture-production/1-vk_scheduler.o",
+        "bytes": 242091,
+        "sha256": "749c649e9b0b26083ca3bae54715e2a6f8ae70839894cad622bdf990787f1b06"
+      },
+      {
+        "path": ".diagnostics/m4-capture-production/2-util.o",
+        "bytes": 18571,
+        "sha256": "df909e9623537c431d9136ac2114cd947752154d2597c8dd555b49f854392520"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/candidate-protocol.cpp",
+        "bytes": 2441,
+        "sha256": "d5f810ff4f96dd1af10a20b2dd8a9452a8de24d2149db304615067a4026f91f0"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/candidate-protocol.exe",
+        "bytes": 101243,
+        "sha256": "41dac350c44365340f0767577d86aced3888d1815ff5389f8ce12ea3f95c8601"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/end-scope-before-final-record.cpp",
+        "bytes": 32846,
+        "sha256": "dab32ef7c2d1bc2b5c87752abd528e19a1ce1f8d3039816ffae5dd35984ad7c2"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/end-scope-before-final-record.exe",
+        "bytes": 208468,
+        "sha256": "6beb53973587985754e21d4adc5ee609781a73625b6c9e45b7bec8a3a3cd0c7b"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/ignore-fallback-failure.cpp",
+        "bytes": 32814,
+        "sha256": "d0a499b52fca88dc1c6245471586438046889e690f90520d9b7063ee511609a6"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/ignore-fallback-failure.exe",
+        "bytes": 207950,
+        "sha256": "a4c7992758a2b9bfa49343737fd5f5c8ad8c516ca00d8bf1497686aede131851"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/ignore-native-completion.cpp",
+        "bytes": 32781,
+        "sha256": "c70e7decf3706c8218ab781508a92db164952b21a87e0b25a1ac0b117a85d92d"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/ignore-native-completion.exe",
+        "bytes": 208262,
+        "sha256": "2da771142114eac3f4c20cab28429c09b58a5b943339d2c9a27f677cd85e5652"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/ignore-queue-result.cpp",
+        "bytes": 32815,
+        "sha256": "929dc29f49666d7c8ea136cdcc901acc490b6411464522c0351083298f886fb0"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/ignore-queue-result.exe",
+        "bytes": 207946,
+        "sha256": "0bf6207856ba5bdc724a5cc186fd4c55ac420f3ad13f1a322d12b19d558207dd"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-cache-image-pin.cpp",
+        "bytes": 32785,
+        "sha256": "b4cfee95af682d363b1aba84e2ed6c61fad705e2b26b170db7fedfe3400e9ae8"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-cache-image-pin.exe",
+        "bytes": 207633,
+        "sha256": "564a7a1d5141ba10947968416b55c88fa51c4bbfe579b630a8a33e4aac5bc38a"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-cache-view-pin.cpp",
+        "bytes": 32760,
+        "sha256": "3220a752d8860c2aba8e1821f2b3b2c9945f8f135083d86a85a0ba0cc692db35"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-cache-view-pin.exe",
+        "bytes": 208458,
+        "sha256": "008f1f67d28f42ac12906f44bf657afb6f49a9fd3ea6dcce163c1c062955082a"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-null-image-pin.cpp",
+        "bytes": 32801,
+        "sha256": "186c4efb20316201b60710cb1802b629ce00f41724921b07ea98508ccbe3fa12"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-null-image-pin.exe",
+        "bytes": 207946,
+        "sha256": "46dd1e3e4ec178115ac2019bf1c2522e233b6864085587ec6b08523d1b65c849"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-owner-handoff.cpp",
+        "bytes": 32749,
+        "sha256": "578001628144918491ad27a7c1084b0d08fd140ce2e1c64ffdc7b54a784e2f60"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-owner-handoff.exe",
+        "bytes": 207945,
+        "sha256": "55cca85f04b3521846d7663e0a41eb1853341bbc0ea4d6d9d2169f3e6a862bf5"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-queue-attempt.cpp",
+        "bytes": 32778,
+        "sha256": "57364545fc9d39dbc515f64342cb83bc9ca12b5531c7408b352bf160e06be0cb"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-queue-attempt.exe",
+        "bytes": 209481,
+        "sha256": "1585fb2855b2ed49ae7409b7b074fa3cacb5aacb84dbccc0645b31060877ded8"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-queue-identity.cpp",
+        "bytes": 32783,
+        "sha256": "8defbf99d093455eab78324ba26f6d191a204fb63cddf1dc9a7c3dcc72626caf"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-queue-identity.exe",
+        "bytes": 207946,
+        "sha256": "4c6eddca0078e630d2bea95a5f5e855222b1bce05b903460d14d04fe594fb8e3"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-record-renewal.cpp",
+        "bytes": 32795,
+        "sha256": "44e6424b50c632f732e1a499d5daede1452d849f7618c90838221876073d56fa"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/omit-record-renewal.exe",
+        "bytes": 207946,
+        "sha256": "7203bb4d0508adb162aeeeecf1fc1186f54753b2ba7591dc9ea70b58008ca9cc"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/production.cpp",
+        "bytes": 32830,
+        "sha256": "bb779eb35367f144a7a40d63e06706fe868e87f17e27715570169f17f1d6677b"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/production.exe",
+        "bytes": 207922,
+        "sha256": "58449108c33d118ad666aba3ed592369a893bab1490e7b1dfea78e57bdca93c3"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/retire-before-closure.cpp",
+        "bytes": 32730,
+        "sha256": "2db189f979204f45a7764d4e391803b96f9587f8f252bf057bab3eb055511705"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/retire-before-closure.exe",
+        "bytes": 207948,
+        "sha256": "04330d8557e74236dac7bb056cef6fbd713c2b6b5a2954b411b60bb8db01942a"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/retire-before-worker-join.cpp",
+        "bytes": 32802,
+        "sha256": "de5ec24e50367d7cfc8065c6e99c054879e84b0836b4e5a83b547277a0398303"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/retire-before-worker-join.exe",
+        "bytes": 207952,
+        "sha256": "ee58d252b1462242b3a8cade72c19b16ed570886b9eefdcb557b613047500666"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/terminal-fail-stop.cpp",
+        "bytes": 1709,
+        "sha256": "627f91a65893069156afbeb20edd74e3d70b2db4bc9e217ab0c3e12e5ce0bdce"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/wrong-scaled-parent.cpp",
+        "bytes": 32797,
+        "sha256": "0296a5c97c8c329fbe1b40cd994306274401814b9a0ff70d0e97a2a41d0999f5"
+      },
+      {
+        "path": ".diagnostics/m4-capture-source-regression/wrong-scaled-parent.exe",
+        "bytes": 207946,
+        "sha256": "e5a74fd5c09d2845a11023fefd2e822b995af36513eaae237cc0e794a8307cb1"
+      },
+      {
+        "path": ".diagnostics/m4-capture-shutdown/renderer_workers.cpp",
+        "bytes": 30778,
+        "sha256": "fb5c0b5766f8f717c4aae28fbf7cc74bfc15af58e6d9bde0331e5d3d8ab5955b"
+      },
+      {
+        "path": ".diagnostics/m4-capture-shutdown/renderer_workers.exe",
+        "bytes": 2735610,
+        "sha256": "e03304c22c4a7ac693ec327298f43fb175e7f4257059d6dc26357f59e591ab02"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/ignore-lifetime-failure.cpp",
+        "bytes": 17560,
+        "sha256": "8f5c5732ddbef4d41befd0f075339f17b1667d73b456b84c8387ddefd0ab9dac"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/ignore-lifetime-failure.exe",
+        "bytes": 196117,
+        "sha256": "c582cf3dc23e99dff9da5b5c642e104f9d5bf8bea7c200424cff85c335bb09a0"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/ignore-wait-result.cpp",
+        "bytes": 17577,
+        "sha256": "14f7a43b77ed340f5a866d434588093e8efcdb995e01d67284b0ac7fac685b4b"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/ignore-wait-result.exe",
+        "bytes": 196112,
+        "sha256": "c493cc3f9b1a929f39217ea858c633d755420c5f01715147a7ace6df90fbc908"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/native-fence.cpp",
+        "bytes": 17592,
+        "sha256": "3daba1c06ee77e83a5b437535638c012be200939ea0ce2498aaa125912afa1d5"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/native-fence.exe",
+        "bytes": 196089,
+        "sha256": "ee54610eb0a2e3dc6e0d44e13aa1376c1e482a3573bca4e5cb515e3acbeb2b31"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/older-failure-overwrites-isolation.cpp",
+        "bytes": 17592,
+        "sha256": "d77b17e53b3f94b425c34da70f672644c5ca7216e3969f19883be76a60541035"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/older-failure-overwrites-isolation.exe",
+        "bytes": 196128,
+        "sha256": "86ff569e60dfa291628a1953d04ce32b3af8b30fda3d8b11f033ec2073adb097"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/recycle-allocation-escapes.cpp",
+        "bytes": 17561,
+        "sha256": "0858378a27d0d4daf03b835641ccc875af9d51f602e93f23ff2fd9af2d622c9a"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/recycle-allocation-escapes.exe",
+        "bytes": 196120,
+        "sha256": "0828c26d2613630fdae6ecd2aa5676d4838639271439446ceca07521d1ec97bd"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/recycle-unknown-fence.cpp",
+        "bytes": 17596,
+        "sha256": "3b9a3c59985d7310e360b210114bd34640cf81b4eb2b64f4599de1c737b4183a"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/recycle-unknown-fence.exe",
+        "bytes": 197383,
+        "sha256": "d3ae620d2cf9ccce53f842eba0e7b36ee2c51c3f9ae4488c049efd756437f869"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/reset-exception-escapes.cpp",
+        "bytes": 17571,
+        "sha256": "11f3c7d636af823e241a355bce113d06249c570a23101486a7689811998630ca"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/reset-exception-escapes.exe",
+        "bytes": 196117,
+        "sha256": "91edf35dc22bb3b0872b441ee0ddf14a1acfb140285b0effe8dcb05d8b0ff122"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/submit-forgets-failure.cpp",
+        "bytes": 17532,
+        "sha256": "8d3f184553703879927c72a2cce621212d8759387b1b00a81c2bcf8bcbdaf81b"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/submit-forgets-failure.exe",
+        "bytes": 196116,
+        "sha256": "60de8ce02520d2b2000049ca004a2f25708e311247bcb22ce6d508c1fb71ce8d"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/submit-record-too-late.cpp",
+        "bytes": 17554,
+        "sha256": "17d1f17fddcec214faec56e62e9bf1124c54f21834aee3ef24e5920b0891aaec"
+      },
+      {
+        "path": ".diagnostics/m4-capture-fallback/submit-record-too-late.exe",
+        "bytes": 195852,
+        "sha256": "d5b339e966491063cd6d35bd2bac6530bc6ee81d1cf3042f5544c58f331b076e"
+      }
+    ],
+    "counts": {
+      ".cpp": 47,
+      ".exe": 43,
+      ".o": 3
+    }
+  },
+  "limitations": [
+    "Selected owner-side local native borrow repair, not all helper/frame constructors or arbitrary concurrent entry closure",
+    "Fixture driver, resource wrappers, command emission, native progress and capture Scheduler collaborators; actual extracted methods and separately tested actual source/shutdown/fallback bodies are identified in manifests",
+    "Real Windows GCC13.2 AMD64 production objects only; no app link, MSVC, local Android, native Vulkan/game or current-head CI acceptance",
+    "No full provenance rerun for this additive adapter; queue/submission native source and failure regressions rerun",
+    "HostMemory remains high risk; helper replacement and partial applet_frame initialization next; all M4 phases incomplete, F2/F3 open, GuestBackingAdmission Unknown"
+  ],
+  "resume_environment": "$env:CXX='C:/Strawberry/c/bin/g++.exe'; $env:PYTHONUTF8='1'",
+  "changed_input_sha256": {
+    ".github/workflows/pr375-pr380-integration.yml": "82392928f3a46b346ce7f8913cce6db3d7b50543f7301439d9fe73df6fd14cfe",
+    "docs/M4_F3_WIP_HANDOFF.md": "026e72b62d4d03ed4265ab97f586dc3833bc6143d37682eb99679073a4188b74",
+    "docs/M4_P2_ACCELERATED_NATIVE_SOURCE.md": "c0fc8f83f6eb4f58d96c0b9e9f489970c46873c8f31e4f81564f628b5a5a52f6",
+    "docs/M4_P2_REMAINING_PRODUCER_AUDIT.md": "771055711c48247071b5e2d00afc675286657d99a632bb0e583cf9910d27da08",
+    "src/video_core/renderer_vulkan/present/util.cpp": "f3feadd9fc99d929964a8488aa9237c890c68a3839a9d32b1ef0b8482cd21ab4",
+    "src/video_core/renderer_vulkan/renderer_vulkan.cpp": "55e9236ab66c4e817466e97697476313822e5957eb643c03ff0057223f15b70a",
+    "src/video_core/renderer_vulkan/vk_scheduler.cpp": "16e0779e044e8d6d3c99bb6db60fa8b26ba49678cf98b03ea597b3ea09ac14a0",
+    "src/video_core/renderer_vulkan/vk_scheduler.h": "c8ea793d234670644e84fb96ffdf6b3ea2fa8c3c1af11b0aacf4b8b2987b539c",
+    "tools/gpu_lifecycle_tests/README.md": "e2ba160e8a404244d875e2202bd478d29e0b7c1250d91d63a4ee70fe4b855549",
+    "docs/M4_P2_CAPTURE_NATIVE_BORROW.md": "6afd6e51eb977e1c917e018f1352bb226ea92695802c75175d96c86843843bfd",
+    "tools/gpu_lifecycle_tests/capture_borrow_candidate.json": "ff8c13250966a7e06de74b64953c5132139b6d0223a7414a8d0be89056f9d2c8",
+    "tools/gpu_lifecycle_tests/capture_borrow_fixture.cpp.in": "a51fed6fb5a5a79bee33592eb784386c446fdaf5b5fa7ab8da8b3f33a9e84025",
+    "tools/gpu_lifecycle_tests/run_capture_borrow_tests.py": "68b2f361e91ef77bbf4fda6bf2757ba5c24648710f60d1168948bcbb3a132929"
+  }
+}

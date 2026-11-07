@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <atomic>
+#include <cstdlib>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include "common/common_types.h"
+#include "video_core/delayed_destruction_ring.h"
+using VkImage=u64;using VkImageView=u64;
+namespace Shader{enum class TextureType{Color2D};}
+namespace Settings{struct{struct{u32 ScaleUp(u32 v)const{return v;}}resolution_info;}values;}
+namespace Tegra{struct FramebufferConfig{std::optional<int>source_mapping{1};};}
+namespace Vulkan{
+@INFO@
+struct NativeOwner{
+    std::shared_ptr<std::atomic_bool> alive;
+    explicit NativeOwner(std::shared_ptr<std::atomic_bool> a):alive{std::move(a)}{}
+    NativeOwner(NativeOwner&&)=default;
+    ~NativeOwner(){if(alive)*alive=false;}
+};
+struct RasterizerVulkan {
+    struct Cache {std::mutex mutex;
+        NativeOwner image{std::make_shared<std::atomic_bool>(true)},image_view{std::make_shared<std::atomic_bool>(true)};
+        struct View{
+        struct{u32 width=2,height=1;}size;u64 ImageHandle(){return 11;}u64 Handle(Shader::TextureType){return 12;}
+    }view;
+        auto TryFindFramebufferImageView(const Tegra::FramebufferConfig&,DAddr){return std::pair(&view,false);}
+    }texture_cache;
+    struct DeviceMemory{template<class F>bool WithFrameMapping(int,DAddr,u64,F f){return f();}}device_memory;
+    struct Query{void NotifySegment(bool){}}query_cache;
+    std::optional<FramebufferTextureInfo> AccelerateDisplay(const Tegra::FramebufferConfig&,DAddr,u32);
+};
+@ACCELERATE@
+}
+int main(int argc,char** argv){
+    Vulkan::RasterizerVulkan raster;
+    auto image=raster.texture_cache.image.alive,view=raster.texture_cache.image_view.alive;
+    const auto selected=raster.AccelerateDisplay({},4096,2);
+    if(!*image||!*view)return 90;
+    VideoCommon::DelayedDestructionRing<Vulkan::NativeOwner,@TICKS@> images,views;
+    images.Push(std::move(raster.texture_cache.image));views.Push(std::move(raster.texture_cache.image_view));
+    // No native progress or fake completion is supplied while the actual CPU rings advance.
+    for(size_t i=0;i<@TICKS@;++i){images.Tick();views.Tick();}
+    if(selected&&selected->image==11&&selected->image_view==12&&!*image&&!*view){
+        std::cerr<<"FAIL CPU ring age retired accelerated native source\n";std::_Exit(91);
+    }
+    std::cout<<"PASS present completion "<<(argc>1?argv[1]:"owner-held")<<'\n';
+    return 0;
+}

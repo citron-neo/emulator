@@ -24,7 +24,7 @@ public:
     ~Swapchain();
 
     /// Creates (or recreates) the swapchain with a given size.
-    void Create(VkSurfaceKHR surface, u32 width, u32 height);
+    [[nodiscard]] bool Create(VkSurfaceKHR surface, u32 width, u32 height);
 
     /// Acquires the next image in the swapchain, waits as needed.
     bool AcquireNextImage();

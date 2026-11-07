@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -13,6 +14,7 @@
 #include "common/common_types.h"
 #include "common/scratch_buffer.h"
 #include "video_core/engines/engine_interface.h"
+#include "video_core/physical_access_plan.h"
 
 namespace Core {
 class System;
@@ -98,6 +100,30 @@ public:
 
 class MaxwellDMA final : public EngineInterface {
 public:
+    static constexpr std::size_t NUM_REGS = 0x800;
+    /// Pure register projection for preflight. This does not describe/authorize a memory access;
+    /// page kinds, launch effects, semaphore writes and remap/layout rules still require checks.
+    [[nodiscard]] std::optional<std::array<u32, NUM_REGS>> ProjectPendingState() const;
+    struct AccessRange {
+        GPUVAddr address;
+        u64 size;
+    };
+    struct SingleLineCopy {
+        GPUVAddr source, destination;
+        u32 bytes;
+        // Conservative synchronization coverage, NOT exact write/publication extents.
+        AccessRange source_coverage, destination_coverage;
+    };
+    /// One launch word only; not a whole NI batch. Rejects additional launch semantics.
+    /// Storage plans, layout eligibility and completion/admission are separate prerequisites.
+    [[nodiscard]] std::optional<SingleLineCopy> DescribeSingleLineCopy(u32 launch_word) const;
+    struct SingleLineStoragePlan {
+        SingleLineCopy description;
+        PhysicalCopyPlan storage;
+    };
+    /// Resolves conservative coverage to real retained storage at one mapping checkpoint.
+    /// Not executable: layout eligibility, representation pins and admission remain required.
+    [[nodiscard]] std::optional<SingleLineStoragePlan> PrepareSingleLineStorage(u32 launch_word) const;
     struct PackedGPUVAddr {
         u32 upper;
         u32 lower;
@@ -306,7 +332,6 @@ private:
     Common::ScratchBuffer<u8> write_buffer;
     Common::ScratchBuffer<u8> intermediate_buffer;
 
-    static constexpr std::size_t NUM_REGS = 0x800;
     struct Regs {
         union {
             struct {

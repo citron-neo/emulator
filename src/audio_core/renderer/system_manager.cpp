@@ -9,11 +9,13 @@
 #include "common/thread.h"
 #include "core/core.h"
 #include "core/core_timing.h"
+#include "core/hle/kernel/kernel.h"
 
 namespace AudioCore::Renderer {
 
 SystemManager::SystemManager(Core::System& core_)
-    : core{core_}, audio_renderer{core.AudioCore().ADSP().AudioRenderer()} {}
+    : core{core_}, rendering{core.Kernel().AudioRenderDomain()},
+      audio_renderer{core.AudioCore().ADSP().AudioRenderer()} {}
 
 SystemManager::~SystemManager() {
     Stop();
@@ -78,6 +80,8 @@ void SystemManager::ThreadFunc(std::stop_token stop_token) {
     Common::SetCurrentThreadName("AudioRenderSystemManager");
     Common::SetCurrentThreadPriority(Common::ThreadPriority::High);
     while (active && !stop_token.stop_requested()) {
+        auto render = rendering.Enter(stop_token);
+        if (!render) return;
         {
             std::scoped_lock l{mutex1};
             for (auto system : systems) {
@@ -86,7 +90,10 @@ void SystemManager::ThreadFunc(std::stop_token stop_token) {
         }
 
         audio_renderer.Signal();
-        audio_renderer.Wait();
+        if (!audio_renderer.Wait()) {
+            rendering.Quarantine();
+            return;
+        }
     }
 }
 

@@ -1022,6 +1022,7 @@ class SettingsFragmentPresenter(
             add(IntSetting.ASTC_RECOMPRESSION.key)
 
             add(HeaderSetting(R.string.advanced_graphics_header))
+            add(IntSetting.BINDLESS_TEXTURE_LIMIT.key)
             add(IntSetting.EXTENDED_DYNAMIC_STATE.key)
             if (IntSetting.EXTENDED_DYNAMIC_STATE.getInt() == 3) {
                 add(BooleanSetting.RENDERER_VERTEX_INPUT_DYNAMIC_STATE.key)

@@ -624,10 +624,14 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
         // across CB boundaries risks the allocator handing it back on a later
         // miss and overwriting contents an earlier in-flight CB references.
         const u64 current_tick = semaphore.CurrentTick();
+        // The uniform set (0) and the resource set (1) are built from the same descriptor data,
+        // so the set index must be part of the key or one would be handed out for the other.
         const auto get_or_alloc = [&](DescriptorAllocator& alloc,
-                                      const vk::DescriptorUpdateTemplate& tpl) -> VkDescriptorSet {
+                                      const vk::DescriptorUpdateTemplate& tpl,
+                                      u64 set_index) -> VkDescriptorSet {
+            const u64 set_hash = data_hash ^ (set_index * 0x9E3779B97F4A7C15ULL);
             for (auto& e : descriptor_set_cache) {
-                if (e.set != VK_NULL_HANDLE && e.hash == data_hash &&
+                if (e.set != VK_NULL_HANDLE && e.hash == set_hash &&
                     e.cb_tick == current_tick) {
                     return e.set;
                 }
@@ -657,7 +661,7 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
                     e.set = VK_NULL_HANDLE;
                 }
             }
-            descriptor_set_cache[descriptor_set_cache_rr] = {data_hash, current_tick, fresh};
+            descriptor_set_cache[descriptor_set_cache_rr] = {set_hash, current_tick, fresh};
             descriptor_set_cache_rr =
                 (descriptor_set_cache_rr + 1) % DESC_SET_CACHE_SIZE;
             return fresh;
@@ -668,14 +672,14 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
                                                         *pipeline_layout, 0, descriptor_data);
             } else {
                 const VkDescriptorSet ds = get_or_alloc(descriptor_allocator,
-                                                        descriptor_update_template);
+                                                        descriptor_update_template, 0);
                 cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout, 0,
                                           ds, nullptr);
             }
         }
         if (resource_set_layout) {
             const VkDescriptorSet rs = get_or_alloc(resource_descriptor_allocator,
-                                                    resource_update_template);
+                                                    resource_update_template, 1);
             cmdbuf.BindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout, 1,
                                       rs, nullptr);
         }

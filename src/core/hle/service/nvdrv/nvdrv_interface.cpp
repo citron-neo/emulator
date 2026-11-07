@@ -2,12 +2,15 @@
 // SPDX-FileCopyrightText: 2021 Skyline Team and Contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <exception>
+
 #include "common/logging.h"
 #include "common/scope_exit.h"
 #include "common/string_util.h"
 #include "core/core.h"
 #include "core/hle/kernel/k_event.h"
 #include "core/hle/kernel/k_process.h"
+#include "core/hle/kernel/kernel.h"
 #include "core/hle/kernel/k_readable_event.h"
 #include "core/hle/service/ipc_helpers.h"
 #include "core/hle/service/nvdrv/nvdata.h"
@@ -152,29 +155,42 @@ void NVDRV::Close(HLERequestContext& ctx) {
 }
 
 void NVDRV::Initialize(HLERequestContext& ctx) {
-    LOG_WARNING(Service_NVDRV, "(STUBBED) called");
-    IPC::ResponseBuilder rb{ctx, 3};
-    SCOPE_EXIT {
-        rb.Push(ResultSuccess);
-        rb.PushEnum(NvResult::Success);
-    };
-
-    if (is_initialized) {
+    const auto domain = system.Kernel().NvdrvDispatchDomain();
+    auto initialization = domain->EnterCold();
+    if (!initialization) {
+        ServiceError(ctx, NvResult::Busy);
         return;
     }
+    const auto exception_depth = std::uncaught_exceptions();
+    SCOPE_EXIT {
+        if (std::uncaught_exceptions() > exception_depth) domain->Seal();
+    };
+    LOG_WARNING(Service_NVDRV, "(STUBBED) called");
 
-    IPC::RequestParser rp{ctx};
-    const auto process_handle{ctx.GetCopyHandle(0)};
-    // The transfer memory is lent to nvdrv as a work buffer since nvdrv is
-    // unable to allocate as much memory on its own. For HLE it's unnecessary to handle it
-    [[maybe_unused]] const auto transfer_memory_handle{ctx.GetCopyHandle(1)};
-    [[maybe_unused]] const auto transfer_memory_size = rp.Pop<u32>();
+    if (!is_initialized) {
+        IPC::RequestParser rp{ctx};
+        const auto process_handle{ctx.GetCopyHandle(0)};
+        // The transfer memory is lent to nvdrv as a work buffer since nvdrv is
+        // unable to allocate as much memory on its own. For HLE it's unnecessary to handle it
+        [[maybe_unused]] const auto transfer_memory_handle{ctx.GetCopyHandle(1)};
+        [[maybe_unused]] const auto transfer_memory_size = rp.Pop<u32>();
 
-    auto& container = nvdrv->GetContainer();
-    auto process = ctx.GetObjectFromHandle<Kernel::KProcess>(process_handle);
-    session_id = container.OpenSession(process.GetPointerUnsafe());
+        auto& container = nvdrv->GetContainer();
+        auto process = ctx.GetObjectFromHandle<Kernel::KProcess>(process_handle);
+        auto prepared = nvdrv->PrepareSessionRetirement(process.GetPointerUnsafe(), *initialization);
+        if (!prepared) {
+            ServiceError(ctx, NvResult::Busy);
+            return;
+        }
+        session_retirement = std::move(prepared);
+        session_id = container.OpenSession(process.GetPointerUnsafe());
+        *session_retirement->published = session_id;
 
-    is_initialized = true;
+        is_initialized = true;
+    }
+    IPC::ResponseBuilder rb{ctx, 3};
+    rb.Push(ResultSuccess);
+    rb.PushEnum(NvResult::Success);
 }
 
 void NVDRV::QueryEvent(HLERequestContext& ctx) {
@@ -262,9 +278,12 @@ NVDRV::NVDRV(Core::System& system_, std::shared_ptr<Module> nvdrv_, const char* 
 }
 
 NVDRV::~NVDRV() {
-    if (is_initialized) {
-        auto& container = nvdrv->GetContainer();
-        container.CloseSession(session_id, true);
+    if (session_retirement) {
+        auto queue = nvdrv->RetirementQueue();
+        // The record carries Module/Process/backing. Drop this facade's extra
+        // Module reference before counted final release; queue survives Module.
+        nvdrv.reset();
+        queue->Retire(std::move(session_retirement->record));
     }
 }
 

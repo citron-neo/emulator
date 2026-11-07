@@ -12,6 +12,7 @@
 #include "common/profiling.h"
 #include <ranges>
 #include "common/settings.h"
+#include "common/terminal_fail_stop.h"
 #include "core/core.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_swapchain.h"
@@ -128,39 +129,52 @@ VkCompositeAlphaFlagBitsKHR ChooseAlphaFlags(const VkSurfaceCapabilitiesKHR& cap
 Swapchain::Swapchain(VkSurfaceKHR surface_, const Device& device_, Scheduler& scheduler_,
                      u32 width_, u32 height_)
     : surface{surface_}, device{device_}, scheduler{scheduler_} {
-    Create(surface_, width_, height_);
+    if (!Create(surface_, width_, height_)) throw vk::Exception{VK_ERROR_OUT_OF_DATE_KHR};
 }
 
 Swapchain::~Swapchain() = default;
 
-void Swapchain::Create(VkSurfaceKHR surface_, u32 width_, u32 height_) {
-    is_outdated = false;
-    is_suboptimal = false;
-    width = width_;
-    height = height_;
-    surface = surface_;
-
+bool Swapchain::Create(VkSurfaceKHR surface_, u32 width_, u32 height_) {
     const auto physical_device = device.GetPhysical();
-    const auto capabilities{physical_device.GetSurfaceCapabilitiesKHR(surface)};
+    const auto capabilities{physical_device.GetSurfaceCapabilitiesKHR(surface_)};
     if (capabilities.maxImageExtent.width == 0 || capabilities.maxImageExtent.height == 0) {
-        return;
+        return false; // No new swapchain owns surface_; preserve the old publication.
     }
-
-    {
-        std::scoped_lock lock{scheduler.submit_mutex};
-        device.GetLogical().WaitIdle();
+    try {
+        {
+            std::scoped_lock lock{scheduler.submit_mutex};
+            const auto idle = device.GetLogical().WaitIdle();
+            if (idle != VK_SUCCESS) {
+                Common::TerminalFailStop("swapchain.retirement", "vulkan_result",
+                                         static_cast<int>(idle));
+            }
+        }
+        Destroy();
+        width = width_;
+        height = height_;
+        surface = surface_;
+        is_outdated = false;
+        is_suboptimal = false;
+        CreateSwapchain(capabilities);
+        CreateSemaphores();
+        resource_ticks.resize(image_count);
+        if (!image_count || images.size() != image_count ||
+            present_semaphores.size() != image_count || render_semaphores.size() != image_count) {
+            Common::TerminalFailStop("swapchain.create", "incomplete_resources");
+        }
+        return true;
+    } catch (const vk::Exception& error) {
+        Common::TerminalFailStop("swapchain.create", "vulkan_exception",
+                                 static_cast<int>(error.GetResult()));
+    } catch (...) {
+        Common::TerminalFailStop("swapchain.create", "host_exception");
     }
-
-    Destroy();
-
-    CreateSwapchain(capabilities);
-    CreateSemaphores();
-
-    resource_ticks.clear();
-    resource_ticks.resize(image_count);
 }
 
 bool Swapchain::AcquireNextImage() {
+    if (!image_count || frame_index >= present_semaphores.size()) {
+        Common::TerminalFailStop("swapchain.acquire", "invalid_frame_index");
+    }
     const VkResult result = device.GetLogical().AcquireNextImageKHR(
         *swapchain, std::numeric_limits<u64>::max(), *present_semaphores[frame_index],
         VK_NULL_HANDLE, &image_index);
@@ -172,13 +186,15 @@ bool Swapchain::AcquireNextImage() {
         break;
     case VK_ERROR_OUT_OF_DATE_KHR:
         is_outdated = true;
-        break;
+        return true; // No image was acquired; image_index is not an output receipt.
     case VK_ERROR_SURFACE_LOST_KHR:
         vk::Check(result);
         break;
     default:
-        LOG_ERROR(Render_Vulkan, "vkAcquireNextImageKHR returned {}", string_VkResult(result));
-        break;
+        Common::TerminalFailStop("swapchain.acquire", "vulkan_result", static_cast<int>(result));
+    }
+    if (image_index >= resource_ticks.size() || image_index >= images.size()) {
+        Common::TerminalFailStop("swapchain.acquire", "invalid_image_index");
     }
 
     scheduler.Wait(resource_ticks[image_index]);
@@ -333,8 +349,13 @@ void Swapchain::CreateSemaphores() {
 
 void Swapchain::Destroy() {
     frame_index = 0;
+    image_index = 0;
     present_semaphores.clear();
+    render_semaphores.clear();
+    resource_ticks.clear();
+    images.clear();
     swapchain.reset();
+    image_count = 0;
 }
 
 bool Swapchain::NeedsPresentModeUpdate() const {

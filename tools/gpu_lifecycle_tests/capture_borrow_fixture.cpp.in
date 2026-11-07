@@ -1,0 +1,151 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <algorithm>
+#include <atomic>
+#include <utility>
+#include <array>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <functional>
+#include <memory>
+#include <ranges>
+#include <span>
+#include <semaphore>
+#include <thread>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include <vulkan/vulkan.h>
+#include "common/terminal_fail_stop.h"
+using u8 = unsigned char;
+using u64 = unsigned long long;
+static std::string mode;
+static bool borrowed{}, native_pending{}, completed{}, invalidated{}, returned{}, worker_joined{};
+static bool admission{true};
+static int submissions{}, callbacks{};
+static void fail(const char* what) { std::fprintf(stderr,"FAIL %s\n",what);std::fflush(stderr);std::_Exit(91); }
+static void event(const char* what) { std::fprintf(stderr,"EVENT %s\n",what);std::fflush(stderr); }
+static void inject(const char* where) { if(mode==where) throw std::runtime_error(where); }
+namespace vk {
+class Exception : public std::exception { public: VkResult GetResult()const{return VK_ERROR_DEVICE_LOST;} };
+struct Image {
+    bool live{false};
+    ~Image(){if(live){if(borrowed||native_pending)fail("image destroyed while borrowed");event("image.destroy");}}
+    Image()=default;explicit Image(bool v):live{v}{}
+    Image& operator=(Image&& other)noexcept{live=std::exchange(other.live,false);return *this;}
+    Image(Image&& other)noexcept:live{std::exchange(other.live,false)}{}
+    VkImage operator*()const{return reinterpret_cast<VkImage>(11);}
+    explicit operator bool()const{return live;}
+};
+struct Child {
+    const char* name;
+    ~Child(){if(borrowed||native_pending)fail("child destroyed while borrowed");event(name);}
+    VkImageView operator*()const{return reinterpret_cast<VkImageView>(12);}
+};
+struct Buffer {
+    bool live{true};std::array<u8,16> bytes{};
+    Buffer()=default;Buffer(Buffer&& other)noexcept:live{std::exchange(other.live,false)},bytes{other.bytes}{}
+    ~Buffer(){if(live){if(borrowed||native_pending)fail("buffer destroyed while borrowed");event("buffer.destroy");}}
+    VkBuffer operator*()const{return reinterpret_cast<VkBuffer>(21);}
+    std::span<u8> Mapped(){return bytes;}
+    std::span<const u8> Mapped()const{return bytes;}
+    void Flush(){inject("flush");}
+    void Invalidate()const{if(!completed)fail("invalidate before completion");invalidated=true;inject("invalidate");}
+};
+struct CommandBuffer {void CopyBufferToImage(VkBuffer,VkImage,VkImageLayout,const std::array<VkBufferImageCopy,1>&){++callbacks;}};
+}
+namespace Tegra {struct FramebufferConfig{};}
+namespace Layout {struct FramebufferLayout {unsigned width{2},height{2};};}
+namespace VideoCore::Capture {constexpr unsigned LinearWidth=2,LinearHeight=2,BytesPerPixel=4;}
+namespace Vulkan {
+enum class MemoryUsage{Download,Upload};
+struct Device{};
+struct MemoryAllocator {vk::Buffer CreateBuffer(const VkBufferCreateInfo&,MemoryUsage){inject("buffer-create");return {};}};
+struct Master {VkResult PollNativeResourceLifetime(u64 tick){if(tick!=static_cast<u64>(submissions))fail("wrong native completion tick");event("checked.poll");if(mode=="poll-pending")return VK_NOT_READY;if(mode=="poll-error"||mode=="fallback-reset")return VK_ERROR_DEVICE_LOST;return VK_SUCCESS;}};
+struct Scheduler {
+    Master master;std::vector<std::function<void(vk::CommandBuffer)>> queue;int tick{1};
+    std::binary_semaphore entered{0},release{0};std::jthread worker;
+    void RequireNativeBorrowAdmission()const;
+    void FinishNativeBorrow();
+    void Finish(VkSemaphore signal_semaphore=nullptr,VkSemaphore wait_semaphore=nullptr);
+    u64 SubmitExecution(VkSemaphore,VkSemaphore){
+        ++submissions;event("finish");inject("finish-before");
+        if(mode=="vk-finish")throw vk::Exception{};
+        return static_cast<u64>(tick++);
+    }
+    void Wait(u64){
+        vk::CommandBuffer cmd;
+        for(auto& f:queue)f(cmd);
+        queue.clear();borrowed=false;native_pending=true;
+        inject("finish-after");
+        if(mode!="poll-pending"&&mode!="poll-error"&&mode!="fallback-reset")native_pending=false;
+        completed=!native_pending;
+    }
+    void AllocateNewContext(){inject("context");}
+    void WaitWorker(){event("worker.join");worker_joined=true;inject("worker");}
+    u64 CurrentTick()const{return static_cast<u64>(tick);}
+    void RequestOutsideRenderPassOperationContext(){inject("outside");}
+    template<class F>void Record(F f){
+        queue.emplace_back(f);event("borrow.begin");borrowed=true;
+        if(mode=="record-active"){
+            worker=std::jthread([this,f]{event("worker.borrow.enter");entered.release();release.acquire();f(vk::CommandBuffer{});});
+            entered.acquire();throw std::runtime_error("worker gated before read");
+        }
+        if(mode=="vk-record")throw vk::Exception{};
+        inject("record");
+    }
+    struct Owner {bool load(std::memory_order)const{return admission;}};
+    std::shared_ptr<Owner> submission_owner{std::make_shared<Owner>()};
+    std::unique_ptr<Master> master_semaphore{std::make_unique<Master>()};
+};
+@CHECKED_METHODS@
+struct Frame {unsigned width{},height{};VkFormat image_view_format=VK_FORMAT_UNDEFINED;vk::Image image;vk::Child image_view{"view.destroy"};vk::Child framebuffer{"framebuffer.destroy"};};
+struct Blit {
+    vk::Child CreateFramebuffer(const Layout::FramebufferLayout&,VkImageView,VkFormat){inject("framebuffer-create");return {"framebuffer.destroy"};}
+    void DrawToFrame(int&,Frame*,std::span<const Tegra::FramebufferConfig>,const Layout::FramebufferLayout&,int,VkFormat){event("borrow.begin");borrowed=true;inject("draw");if(mode=="internal-finish"){native_pending=true;throw std::runtime_error("split");}}
+};
+static vk::Image CreateWrappedImage(MemoryAllocator&,VkExtent2D,VkFormat){return vk::Image(true);}
+static vk::Child CreateWrappedImageView(const Device&,vk::Image&,VkFormat){return {"view.destroy"};}
+static vk::Buffer CreateWrappedBuffer(MemoryAllocator&,VkDeviceSize,MemoryUsage){inject("buffer-create");return {};}
+static void DownloadColorImage(vk::CommandBuffer&,VkImage,VkBuffer,VkExtent3D){++callbacks;inject("callback");}
+static void TransitionImageLayout(vk::CommandBuffer&,VkImage,VkImageLayout,VkImageLayout){inject("callback");}
+constexpr VkExtent3D CaptureImageExtent{2,2,1};
+struct RendererVulkan {
+    MemoryAllocator memory_allocator;Device device;Blit blit_capture;Scheduler scheduler;int rasterizer{};Frame applet_frame;
+    @CONTENT_STATE@
+    RendererVulkan(){applet_frame.image.live=mode!="empty";@INIT_CONTENT_STATE@}
+    vk::Buffer RenderToBuffer(std::span<const Tegra::FramebufferConfig>,const Layout::FramebufferLayout&,VkFormat,VkDeviceSize);
+    std::vector<u8> GetAppletCaptureBuffer();
+};
+@CAPTURE_METHODS@
+@UPLOAD_METHOD@
+}
+int main(int argc,char**argv){
+    if(argc!=3)return 2;
+    const std::string path=argv[1];mode=argv[2];admission=mode!="closed";
+    std::atexit([]{event("atexit");});
+    try {
+        if(path=="upload"){
+            Vulkan::Scheduler scheduler;Vulkan::MemoryAllocator allocator;Vulkan::Device device;vk::Image image(true);
+            std::array<u8,16> bytes{};
+            Vulkan::UploadImage(device,allocator,scheduler,image,{2,2},VK_FORMAT_R8G8B8A8_UNORM,bytes);
+        }else{
+            Vulkan::RendererVulkan renderer;
+            if(path=="capture"){
+                auto result=renderer.RenderToBuffer({}, {}, VK_FORMAT_R8G8B8A8_UNORM,16);
+                if(!invalidated)fail("missing invalidate");
+            }else if(path=="applet"){
+                auto result=renderer.GetAppletCaptureBuffer();
+                if(result.size()!=16||(mode!="empty"&&!invalidated))fail("missing applet readback");
+                if(mode=="empty"&&(submissions||callbacks))fail("empty capture scheduled work");
+            }else return 2;
+        }
+        returned=true;
+    }catch(...){event("caught");if(borrowed||native_pending)fail("exception escaped with native borrow");}
+    if(mode=="closed"&&returned)fail("closed admission accepted");
+    if(mode=="normal"){
+        if(!returned||submissions!=1||callbacks!=1||!completed||!worker_joined)fail("normal synchronous semantics");
+    }
+    if(mode=="invalidate"&&(!completed||borrowed||native_pending))fail("post completion unwind");
+    std::fprintf(stderr,"PASS %s %s\n",argv[1],argv[2]);
+}

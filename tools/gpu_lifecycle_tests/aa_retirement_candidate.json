@@ -1,0 +1,25 @@
+{
+  "replacements": [
+    [
+      "    raw_width = framebuffer.width;\n    raw_height = framebuffer.height;\n    pixel_format = framebuffer.pixel_format;\n    anti_alias.reset();\n\n    ReleaseRawImages();",
+      "    WaitForResourceUses();\n    raw_width = framebuffer.width;\n    raw_height = framebuffer.height;\n    pixel_format = framebuffer.pixel_format;\n    anti_alias.reset();\n\n    ClearRawImages();"
+    ],
+    [
+      "    anti_alias_setting = effective_aa;",
+      "    if (anti_alias) WaitForResourceUses();"
+    ],
+    [
+      "    switch (anti_alias_setting) {",
+      "    switch (effective_aa) {"
+    ],
+    [
+      "        anti_alias = std::make_unique<NoAA>();\n        break;\n    }\n}",
+      "        anti_alias = std::make_unique<NoAA>();\n        break;\n    }\n    anti_alias_setting = effective_aa;\n}"
+    ],
+    [
+      "    raw_images.clear();\n    buffer.reset();",
+      "    ClearRawImages();"
+    ]
+  ],
+  "extra_methods": "void Layer::WaitForResourceUses() {\n    if (!anti_alias && raw_images.empty() && !buffer) return;\n    try {\n        // Slot ticks can precede the final composite after an internal Finish.\n        // Seal and complete the entire graphics prefix while old owners still live.\n        scheduler.FinishNativeBorrow();\n    } catch (const vk::Exception& error) {\n        Common::TerminalFailStop(\"layer.resource_retirement\", \"vulkan_exception\",\n                                 static_cast<int>(error.GetResult()));\n    } catch (...) {\n        Common::TerminalFailStop(\"layer.resource_retirement\", \"host_exception\");\n    }\n}\n\nvoid Layer::ClearRawImages() {\n    raw_image_views.clear();\n    raw_images.clear();\n    buffer.reset();\n}"
+}

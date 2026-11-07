@@ -12,6 +12,7 @@
 #include "common/alignment.h"
 #include "common/common_funcs.h"
 #include "common/common_types.h"
+#include "video_core/buffer_cache/gpu_write_revision.h"
 #include "video_core/buffer_cache/uma.h"
 #include "video_core/buffer_cache/word_manager.h"
 
@@ -122,6 +123,10 @@ public:
     /// page. Read by the unified memory upload rule (uma.h); written by BufferCache at every
     /// such hand-off.
     std::vector<u64> page_gpu_tick;
+
+    // Changes even when the same dirty interval or the same bytes are written
+    // again. Paired with the retained native identity by the isolated adapter.
+    GpuWriteRevision gpu_write_revision;
 
 private:
     VAddr cpu_addr = 0;

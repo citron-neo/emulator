@@ -24,6 +24,7 @@ size_t SparseStorage::Read(u8* buffer, size_t size, size_t offset) const {
         assert(R_SUCCEEDED(get_offsets_result));
         assert(table_offsets.IsInclude(offset, size));
 
+
         std::memset(buffer, 0, size);
     } else {
         self->OperatePerEntry<false, true>(

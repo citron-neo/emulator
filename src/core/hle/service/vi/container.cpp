@@ -26,14 +26,23 @@ Container::~Container() {
 }
 
 void Container::OnTerminate() {
-    std::scoped_lock lk{m_lock};
-
-    m_is_shut_down = true;
-
-    if (!m_is_initialized) {
-        return;
+    std::scoped_lock terminal_lk{m_termination_lock};
+    Conductor* conductor{};
+    {
+        std::scoped_lock lk{m_lock};
+        if (m_is_shut_down) return;
+        m_is_shut_down = true;
+        if (!m_is_initialized) return;
+        conductor = std::addressof(*m_conductor);
     }
 
+    // Do not wait while holding m_lock: in-flight timing/composition can need it.
+    // This drains CPU callback/event borrows, not native GPU submissions.
+    if (conductor) {
+        conductor->Stop();
+    }
+
+    std::scoped_lock lk{m_lock};
     m_layers.ForEachLayer([&](auto& layer) { this->DestroyLayerLocked(layer.GetId()); });
 
     m_displays.ForEachDisplay(
@@ -41,21 +50,26 @@ void Container::OnTerminate() {
 }
 
 SharedBufferManager* Container::GetSharedBufferManager() {
-    this->EnsureInitialized();
+    if (!this->EnsureInitialized()) return nullptr;
+    std::scoped_lock lk{m_lock};
+    if (m_is_shut_down) return nullptr;
     return std::addressof(*m_shared_buffer_manager);
 }
 
 Result Container::GetBinderDriver(
     std::shared_ptr<Nvnflinger::IHOSBinderDriver>* out_binder_driver) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
+    std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
     *out_binder_driver = m_binder_driver;
     R_SUCCEED();
 }
 
 Result Container::GetLayerProducerHandle(
     std::shared_ptr<android::BufferQueueProducer>* out_producer, u64 layer_id) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
 
     auto* const layer = m_layers.GetLayerById(layer_id);
     R_UNLESS(layer != nullptr, VI::ResultNotFound);
@@ -80,14 +94,16 @@ Result Container::CloseDisplay(u64 display_id) {
 }
 
 Result Container::CreateManagedLayer(u64* out_layer_id, u64 display_id, u64 owner_aruid) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
     R_RETURN(this->CreateLayerLocked(out_layer_id, display_id, owner_aruid));
 }
 
 Result Container::DestroyManagedLayer(u64 layer_id) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
 
     // Try to close, if open, but don't fail if not.
     this->CloseLayerLocked(layer_id);
@@ -96,20 +112,23 @@ Result Container::DestroyManagedLayer(u64 layer_id) {
 }
 
 Result Container::OpenLayer(s32* out_producer_binder_id, u64 layer_id, u64 aruid) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
     R_RETURN(this->OpenLayerLocked(out_producer_binder_id, layer_id, aruid));
 }
 
 Result Container::CloseLayer(u64 layer_id) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
     R_RETURN(this->CloseLayerLocked(layer_id));
 }
 
 Result Container::SetLayerVisibility(u64 layer_id, bool visible) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
 
     auto* const layer = m_layers.GetLayerById(layer_id);
     R_UNLESS(layer != nullptr, VI::ResultNotFound);
@@ -119,8 +138,9 @@ Result Container::SetLayerVisibility(u64 layer_id, bool visible) {
 }
 
 Result Container::SetLayerBlending(u64 layer_id, bool enabled) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
 
     auto* const layer = m_layers.GetLayerById(layer_id);
     R_UNLESS(layer != nullptr, VI::ResultNotFound);
@@ -132,8 +152,9 @@ Result Container::SetLayerBlending(u64 layer_id, bool enabled) {
 }
 
 Result Container::SetLayerZIndex(u64 layer_id, s32 z_index) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
 
     auto* const layer = m_layers.GetLayerById(layer_id);
     R_UNLESS(layer != nullptr, VI::ResultNotFound);
@@ -152,8 +173,9 @@ Result Container::SetLayerZIndex(u64 layer_id, s32 z_index) {
 }
 
 Result Container::GetLayerZIndex(u64 layer_id, s32* out_z_index) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
 
     auto* const layer = m_layers.GetLayerById(layer_id);
     R_UNLESS(layer != nullptr, VI::ResultNotFound);
@@ -167,8 +189,9 @@ Result Container::GetLayerZIndex(u64 layer_id, s32* out_z_index) {
 }
 
 Result Container::SetLayerIsOverlay(u64 layer_id, bool is_overlay) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
 
     auto* const layer = m_layers.GetLayerById(layer_id);
     R_UNLESS(layer != nullptr, VI::ResultNotFound);
@@ -178,27 +201,32 @@ Result Container::SetLayerIsOverlay(u64 layer_id, bool is_overlay) {
 }
 
 void Container::LinkVsyncEvent(u64 display_id, Event* event) {
-    this->EnsureInitialized();
+    if (!this->EnsureInitialized()) return;
     std::scoped_lock lk{m_lock};
+    if (m_is_shut_down) return;
     m_conductor->LinkVsyncEvent(display_id, event);
 }
 
 void Container::UnlinkVsyncEvent(u64 display_id, Event* event) {
-    this->EnsureInitialized();
     std::scoped_lock lk{m_lock};
+    // Revocation must remain available while Stop drains an old signal borrow.
+    // Never lazily initialize resources merely to remove an event.
+    if (!m_is_initialized) return;
     m_conductor->UnlinkVsyncEvent(display_id, event);
 }
 
 Result Container::CreateStrayLayer(s32* out_producer_binder_id, u64* out_layer_id, u64 display_id) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
     R_TRY(this->CreateLayerLocked(out_layer_id, display_id, {}));
     R_RETURN(this->OpenLayerLocked(out_producer_binder_id, *out_layer_id, {}));
 }
 
 Result Container::DestroyStrayLayer(u64 layer_id) {
-    this->EnsureInitialized();
+    R_UNLESS(this->EnsureInitialized(), VI::ResultOperationFailed);
     std::scoped_lock lk{m_lock};
+    R_UNLESS(!m_is_shut_down, VI::ResultOperationFailed);
     R_TRY(this->CloseLayerLocked(layer_id));
     R_RETURN(this->DestroyLayerLocked(layer_id));
 }
@@ -268,44 +296,47 @@ Result Container::CloseLayerLocked(u64 layer_id) {
 
 bool Container::ComposeOnDisplay(s32* out_swap_interval, f32* out_compose_speed_scale,
                                  u64 display_id) {
-    this->EnsureInitialized();
+    if (!this->EnsureInitialized()) return false;
     std::scoped_lock lk{m_lock};
+    if (m_is_shut_down) return false;
     return m_surface_flinger->ComposeDisplay(out_swap_interval, out_compose_speed_scale,
                                              display_id);
 }
 
-void Container::EnsureInitialized() {
-    if (m_is_initialized) {
-        return;
+bool Container::EnsureInitialized() {
+    {
+        std::scoped_lock lk{m_lock};
+        if (m_is_shut_down) return false;
+        if (m_is_initialized) return true;
     }
 
-    // Do the slow, potentially blocking work outside the lock
+    // No container lock spans potentially blocking service lookups. Termination
+    // can win here; provider ownership alone is not publication permission.
     auto binder =
         m_system.ServiceManager().GetService<Nvnflinger::IHOSBinderDriver>("dispdrv", true);
+    if (!binder) return false;
     auto surface_flinger = binder->GetSurfaceFlinger();
-    auto nvdrv = m_system.ServiceManager().GetService<Nvidia::NVDRV>("nvdrv:s", true)->GetModule();
+    auto nvdrv_service = m_system.ServiceManager().GetService<Nvidia::NVDRV>("nvdrv:s", true);
+    if (!surface_flinger || !nvdrv_service) return false;
+    auto nvdrv = nvdrv_service->GetModule();
+    if (!nvdrv) return false;
 
     {
         std::scoped_lock lk{m_lock};
-
-        // Re-check inside the lock
-        if (m_is_initialized) {
-            return;
-        }
+        // The same lock linearizes OnTerminate and the complete publication.
+        // Never start a new Conductor after the stop callback has returned.
+        if (m_is_shut_down) return false;
+        if (m_is_initialized) return true;
 
         m_binder_driver = std::move(binder);
         m_surface_flinger = std::move(surface_flinger);
-
         m_shared_buffer_manager.emplace(m_system, *this, nvdrv);
-
         m_displays.ForEachDisplay(
             [&](auto& display) { m_surface_flinger->AddDisplay(display.GetId()); });
-
         m_conductor.emplace(m_system, *this, m_displays);
-
         m_is_initialized = true;
+        return true;
     }
 }
-
 
 } // namespace Service::VI

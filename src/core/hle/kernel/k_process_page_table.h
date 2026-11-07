@@ -26,8 +26,8 @@ public:
             system_resource, resource_limit, memory, aslr_space_start));
     }
 
-    void Finalize() {
-        m_page_table.Finalize();
+    void Finalize(const Core::Memory::Memory::MappingTeardown* teardown = nullptr) {
+        m_page_table.Finalize(teardown);
     }
 
     void AllowDeviceMappingOfExecPages() {
@@ -45,6 +45,7 @@ public:
     Common::PageTable& GetImpl() {
         return m_page_table.GetImpl();
     }
+    bool HasImpl() const noexcept { return m_page_table.HasImpl(); }
 
     Common::PageTable& GetImpl() const {
         return m_page_table.GetImpl();
@@ -167,8 +168,9 @@ public:
         R_RETURN(m_page_table.MapPages(address, num_pages, state, perm));
     }
 
-    Result UnmapPages(KProcessAddress addr, size_t num_pages, KMemoryState state) {
-        R_RETURN(m_page_table.UnmapPages(addr, num_pages, state));
+    Result UnmapPages(KProcessAddress addr, size_t num_pages, KMemoryState state,
+                      const Core::Memory::Memory::MappingTeardown* teardown = nullptr) {
+        R_RETURN(m_page_table.UnmapPages(addr, num_pages, state, teardown));
     }
 
     Result MakeAndOpenPageGroup(KPageGroup* out, KProcessAddress address, size_t num_pages,

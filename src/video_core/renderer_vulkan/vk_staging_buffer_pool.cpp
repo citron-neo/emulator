@@ -174,6 +174,11 @@ StagingBufferRef StagingBufferPool::GetStreamBuffer(size_t size) {
         // Avoid waiting for the previous usages to be free
         return GetStagingBuffer(size, MemoryUsage::Upload);
     }
+    if (iterator + size >= stream_buffer_size && AreRegionsActive(0, Region(size) + 1)) {
+        // Reject a busy wrap before changing the cursors. Otherwise the next request can
+        // treat the rejected head range as already checked and overwrite in-flight uploads.
+        return GetStagingBuffer(size, MemoryUsage::Upload);
+    }
     const u64 current_tick = scheduler.CurrentTick();
     std::fill(sync_ticks.begin() + Region(used_iterator), sync_ticks.begin() + Region(iterator),
               current_tick);
@@ -186,11 +191,6 @@ StagingBufferRef StagingBufferPool::GetStreamBuffer(size_t size) {
         used_iterator = 0;
         iterator = 0;
         free_iterator = size;
-
-        if (AreRegionsActive(0, Region(size) + 1)) {
-            // Avoid waiting for the previous usages to be free
-            return GetStagingBuffer(size, MemoryUsage::Upload);
-        }
     }
     const size_t offset = iterator;
     iterator = Common::AlignUp(iterator + size, MAX_ALIGNMENT);

@@ -31,10 +31,14 @@ void SyncpointManager::DeregisterAction(std::vector<RegisteredAction>& action_st
     if (handle == ActionHandle{}) {
         return;
     }
+    // Captures can own resource-retirement callbacks. Release them after guard,
+    // including on cancellation; their destructors may re-enter this manager.
+    std::function<void()> retired_action;
     std::unique_lock lk(guard);
     // Gone already if the action ran
     const auto it = std::ranges::find(action_storage, handle, &RegisteredAction::id);
     if (it != action_storage.end()) {
+        retired_action = std::move(it->action);
         action_storage.erase(it);
     }
 }
@@ -66,13 +70,22 @@ void SyncpointManager::WaitHost(u32 syncpoint_id, u32 expected_value) {
 void SyncpointManager::Increment(std::atomic<u32>& syncpoint, std::condition_variable& wait_cv, std::vector<RegisteredAction>& action_storage) {
     auto new_value{syncpoint.fetch_add(1, std::memory_order_acq_rel) + 1};
 
+    // Declare before lk so completed captures retire outside guard, also when a
+    // later callback throws. Execution/order of callbacks remains under guard.
+    std::vector<std::function<void()>> retired_actions;
     std::unique_lock lk(guard);
+    const auto ready_end = std::ranges::upper_bound(action_storage, new_value, {},
+                                                    &RegisteredAction::expected_value);
+    // Reserve before any callback effect/erasure; moving functions then cannot
+    // allocate midway through retirement. A failed reserve leaves actions intact.
+    retired_actions.reserve(static_cast<size_t>(ready_end - action_storage.begin()));
     auto it = action_storage.begin();
     while (it != action_storage.end()) {
         if (it->expected_value > new_value) {
             break;
         }
         it->action();
+        retired_actions.push_back(std::move(it->action));
         it = action_storage.erase(it);
     }
     wait_cv.notify_all();

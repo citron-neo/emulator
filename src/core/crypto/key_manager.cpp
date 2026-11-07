@@ -14,9 +14,7 @@
 #include <openssl/bn.h>
 #include <openssl/evp.h>
 #include <openssl/params.h>
-#ifdef ARCHITECTURE_x86_64
 #include "core/crypto/aes_ni.h"
-#endif
 #include "common/fs/file.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
@@ -1045,7 +1043,7 @@ void KeyManager::DeriveSDSeedLazy() {
 
 static Key128 CalculateCMAC(const u8* source, size_t size, const Key128& key) {
     Key128 out{};
-#ifdef ARCHITECTURE_x86_64
+#if CITRON_HAS_AES_NI
     __m128i ks[AesNi::kRoundKeys128];
     AesNi::KeyExpand128Enc(key.data(), ks);
     AesNi::Cmac128(ks, source, size, out.data());

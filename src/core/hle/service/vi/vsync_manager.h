@@ -4,6 +4,7 @@
 #pragma once
 
 #include <set>
+#include <mutex>
 
 namespace Service {
 class Event;
@@ -23,6 +24,7 @@ public:
     void UnlinkVsyncEvent(Event* event);
 
 private:
+    std::mutex m_lock;
     std::set<Event*> m_vsync_events;
 };
 

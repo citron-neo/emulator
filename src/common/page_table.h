@@ -4,6 +4,10 @@
 #pragma once
 
 #include <atomic>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <shared_mutex>
 
 #include "common/common_types.h"
 #include "common/typed_address.h"
@@ -29,6 +33,37 @@ enum class PageType : u8 {
  * mimics the way a real CPU page table works.
  */
 struct PageTable {
+    // Cold controlled-CPU resolution domain. Existing raw/JIT accesses are not enrolled.
+    struct MappingDomain {
+        mutable std::shared_mutex mutex;
+        std::atomic<u64> generation{};
+        std::atomic<bool> alive{true};
+    };
+    struct MappingSnapshot {
+        std::shared_ptr<const MappingDomain> domain;
+        u64 generation, virtual_page, physical_page;
+        PageType type;
+        /// Invalidation check only, never permission to execute against current VA mappings.
+        [[nodiscard]] bool IsCurrent() const noexcept {
+            return domain && domain->alive.load(std::memory_order_acquire) &&
+                   domain->generation.load(std::memory_order_acquire) == generation;
+        }
+    };
+    class MappingMutation {
+    public:
+        explicit MappingMutation(std::shared_ptr<MappingDomain> domain_)
+            : domain{std::move(domain_)}, lock{domain->mutex} {
+            domain->generation.fetch_add(1, std::memory_order_release);
+        }
+    private:
+        std::shared_ptr<MappingDomain> domain;
+        std::unique_lock<std::shared_mutex> lock;
+    };
+
+    /// No GPU callbacks or suspension while holding this guard.
+    [[nodiscard]] MappingMutation MutateMappings() { return MappingMutation{mapping.domain}; }
+    /// Cold, mutually consistent tag/backing snapshot. Caller protects the PageTable object.
+    [[nodiscard]] std::optional<MappingSnapshot> SnapshotMapping(u64 virtual_page) const;
     struct TraversalEntry {
         u64 phys_addr{};
         std::size_t block_size{};
@@ -140,6 +175,25 @@ struct PageTable {
     u8* fastmem_arena{};
 
     std::size_t page_size{};
+
+private:
+    // A moved/replaced owner retires its old token even when snapshots retain the domain.
+    struct MappingOwner {
+        std::shared_ptr<MappingDomain> domain{std::make_shared<MappingDomain>()};
+        MappingOwner() = default;
+        MappingOwner(MappingOwner&&) noexcept = default;
+        MappingOwner& operator=(MappingOwner&& other) noexcept {
+            if (this != &other) { Retire(); domain = std::move(other.domain); }
+            return *this;
+        }
+        ~MappingOwner() { Retire(); }
+        void Retire() noexcept {
+            if (!domain) return;
+            std::unique_lock lock{domain->mutex};
+            domain->alive.store(false, std::memory_order_release);
+            domain->generation.fetch_add(1, std::memory_order_release);
+        }
+    } mapping;
 };
 
 } // namespace Common

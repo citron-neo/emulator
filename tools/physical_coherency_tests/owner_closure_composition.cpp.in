@@ -1,0 +1,189 @@
+// Kernel/process/backend/HostMemory allocation remain test collaborators.
+// AudioManager and ThreadManager are their full production owner declarations.
+using VideoCommon::GPUThread::ThreadManager;
+static std::atomic<bool> callback_finished{};
+static Event audio_left;
+static Event host_paused;
+void ObserveAudioWait() { if(callback_finished) audio_left.Set(); }
+void ObserveHostPause() {host_paused.Set();}
+
+struct Session {
+    Kernel::KScopedAutoObject<Kernel::KProcess> process;
+    Common::RetainedBackingStorage backing;
+    std::shared_ptr<std::array<u8,4096>> bytes;
+    Core::Memory::Memory memory;
+    Session(Kernel::KProcess& p,Kernel::KernelCore& k)
+        : process{&p}, backing{std::move(*k.System().DeviceMemory().buffer.RetainBackingStorage())},
+          bytes{k.System().DeviceMemory().buffer.allocation},
+          memory{k.ManagedGuestWriteDomain(),bytes->data()} {}
+};
+
+int main(int argc,char**argv) {
+    Require(argc==2,"expected case");
+    const std::string mode=argv[1];
+    using R=Kernel::ProcessCohortStop::Result;
+    using D=Common::ProducerDrain::Result;
+    Kernel::KernelCore kernel;
+    Kernel::KProcess requester{kernel},idle_owner{kernel};
+    Kernel::KThread backend_thread{idle_owner};
+    std::promise<void> unlock_entered,unlock_release;
+    auto unlocking=unlock_entered.get_future();
+    auto allow_unlock=unlock_release.get_future().share();
+    std::thread cpu;
+    if(mode=="backend-active") {
+        idle_owner.backend.unlock_entered=&unlock_entered;
+        idle_owner.backend.unlock_release=allow_unlock;
+        cpu=std::thread([&]{kernel.PhysicalCore(0).RunThread(&backend_thread);});
+        Until([&]{return idle_owner.backend.running.load();});
+    }
+    VideoCore::RendererBase renderer;
+    Core::Frontend::GraphicsContext context;
+    Tegra::Control::Scheduler scheduler;
+    ThreadManager gpu{kernel.System(),true};
+    gpu.StartThread(renderer,context,scheduler);
+    auto audio=std::make_unique<AudioCore::AudioManager>(kernel.AudioCallbackDomain());
+    auto packet=std::make_shared<Session>(requester,kernel);
+    std::weak_ptr<Session> escaped=packet;
+    u8* raw_alias=mode=="escaped-alias" ? packet->memory.impl->GetPointerImpl(0,[]{},[]{}) : nullptr;
+    std::weak_ptr<std::array<u8,4096>> backing=packet->bytes;
+    Event store_entered,store_release;
+    std::thread writer;
+    if(mode=="memory-active") {
+        packet->memory.impl->before_store=[&](u64 address) {
+            if(address==4) {store_entered.Set();store_release.Wait();}
+        };
+        writer=std::thread([hold=packet]{hold->memory.Write8(Common::ProcessAddress{4},68);});
+        store_entered.Wait();
+    }
+    Event outer_entered,dispatch_release,native_entered,native_release,tail_entered,tail_release;
+    Event stopping,joined,queued;
+    stop_requested=&stopping;worker_joined=&joined;
+    std::atomic<unsigned> executions{},completions{},calls{};
+    std::atomic<bool> cancelled{};
+    std::future<void> blocker;
+    if(mode=="queued-cancel") {
+        blocker=std::async(std::launch::async,[&]{gpu.RunOnGpuThread([&]{native_entered.Set();native_release.Wait();});});
+        native_entered.Wait();
+    }
+    auto result=audio->SetOutManager([hold=packet, &outer_entered, &dispatch_release, &gpu,
+        &mode, &native_entered, &native_release, &tail_entered, &tail_release, &executions, &completions, &calls, &cancelled] {
+        ++calls;
+        hold->memory.Write8(Common::ProcessAddress{0},17);
+        outer_entered.Set();dispatch_release.Wait();
+        if(mode=="callback-fail") throw std::runtime_error("partial callback side effect");
+        try {hold->memory.Write8(Common::ProcessAddress{1},34);}
+        catch(const Core::Memory::ManagedGuestWrites::Refused&) {
+            Require(false,"outer callback could not finish inner write");
+        }
+        gpu.RunOnGpuThread([hold, &executions, &completions, &mode, &native_entered, &native_release] {
+            Require(hold->backing.OwnerAlive(),"native callback lost source backing");
+            ++executions;
+            if(mode!="queued-cancel") {native_entered.Set();native_release.Wait();}
+            ++completions;
+        });
+        cancelled=executions==0;
+        tail_entered.Set();tail_release.Wait();
+        if(!cancelled) hold->memory.Write8(Common::ProcessAddress{2},51);
+        callback_finished=true;
+    });
+    Require(result==ResultSuccess,"real callback registration refused");
+    outer_entered.Wait();
+    auto close=requester.TryStopProcessCohort(mode=="timeout"?2:256);
+    Require(bool(close),"cohort factory refused");
+    Require(close->Poll()==R::Pending,"cohort acknowledged active callback");
+    if(mode=="backend-active") {
+        Require(unlocking.wait_for(5s)==std::future_status::ready,"backend did not reach UnlockThread");
+        Require(bool(kernel.AudioCallbackDomain()->TryEnter()),"host close preceded backend exit acknowledgement");
+        Require(idle_owner.refs>=3,"active backend owner not retained");
+        unlock_release.set_value();cpu.join();
+        Require(close->Poll()==R::Pending,"backend join substituted for callback drainage");
+    }
+    Require(!kernel.AudioCallbackDomain()->TryEnter(),"outer callback ingress remained open");
+    Require(bool(kernel.ManagedGuestWriteDomain()->TryEnter()),"outer callback could not finish inner write");
+    Require(idle_owner.refs>1,"idle process owner omitted from cohort");
+    Require(close->GuestBackingAdmission()==D::Unknown,"subset granted guest admission");
+    packet.reset();
+    Require(!escaped.expired(),"active callback lost Session owner");
+    if(mode=="timeout") {
+        while(close->Poll()==R::Pending) {}
+        Require(close->Poll()==R::Unknown,"timeout did not quarantine");
+        // Inner domains may never have closed; no new work or reopen is inferred.
+    }
+    if(mode=="queued-cancel") {command_queued=&queued;}
+    dispatch_release.Set();
+    if(mode=="callback-fail") {
+        audio->Shutdown();
+        Require(close->Poll()==R::Unknown,"partial callback failure certified drained");
+        Require(!kernel.AudioCallbackDomain()->TryEnter(),"partial callback reopened");
+        gpu.Stop();
+    } else {
+        if(mode=="queued-cancel") {queued.Wait();}
+        else native_entered.Wait();
+        Require(!escaped.expired(),"GPU work lost Session owner");
+        Require(completions==0,"blocked callback fabricated completion");
+        Require(close->Poll()==(mode=="timeout"?R::Unknown:R::Pending),"cohort ignored callback-to-GPU dependency");
+        std::future<void> stop;
+        if(mode=="active-stop"||mode=="queued-cancel") {
+            stop=std::async(std::launch::async,[&]{gpu.Stop();});
+            stopping.Wait();
+            Require(stop.wait_for(0ms)!=std::future_status::ready,"GPU stop returned with active worker");
+            Require(!escaped.expired()&&!backing.expired(),"shutdown lost active resource owner");
+        }
+        native_release.Set();
+        if(blocker.valid()) Ready(blocker);
+        if(stop.valid()) Ready(stop);
+        tail_entered.Wait();
+        Require(!escaped.expired(),"GPU join discarded live outer callback owner");
+        Require(close->Poll()==(mode=="timeout"?R::Unknown:R::Pending),"GPU join substituted for outer callback join");
+        if(mode=="queued-cancel") Require(executions==0&&completions==0&&cancelled,"cancelled callback executed or reported completion");
+        else Require(executions==1&&completions==1&&!cancelled,"joined callback lost actual completion");
+        tail_release.Set();audio_left.Wait();
+        if(mode=="memory-active") {
+            Require(close->Poll()==R::Pending,"cohort acknowledged a pre-resolved active store");
+            Require(!kernel.ManagedGuestWriteDomain()->TryEnter(),"active store left new Memory ingress open");
+            Require(!backing.expired()&&!escaped.expired(),"pre-resolved store lost retained owners");
+            store_release.Set();writer.join();
+            auto hold=escaped.lock();
+            Require((*hold->bytes)[4]==68,"joined store did not publish actual byte");
+        }
+        const auto drained=close->Poll();
+        Require(drained==(mode=="timeout"?R::Unknown:R::BackendsStopped),"completed owner chain failed subset join");
+        if(mode!="timeout") {
+            auto hold=escaped.lock();const auto before=hold->memory.impl->translations.load();
+            bool refused=false;
+            try {hold->memory.Write8(Common::ProcessAddress{3},99);}
+            catch(const Core::Memory::ManagedGuestWrites::Refused&) {refused=true;}
+            Require(refused&&hold->memory.impl->translations==before&&(*hold->bytes)[3]==0,
+                    "closed Memory entered pointer translation");
+            Require((*hold->bytes)[0]==17&&(*hold->bytes)[1]==34&&
+                (*hold->bytes)[2]==(cancelled?0:51),"partial write receipt changed");
+            if(mode=="escaped-alias") {
+                // Deliberate coverage-negative witness; backing is still owned here.
+                raw_alias[5]=85;
+                Require((*hold->bytes)[5]==85&&close->GuestBackingAdmission()==D::Unknown,
+                        "managed closure concealed escaped raw writer");
+            }
+            if(mode=="late-seal") {
+                kernel.AudioCallbackDomain()->Seal();
+                Require(close->Poll()==R::Unknown&&!close->CancelNoEffects(),"late seal reopened cohort");
+            }
+            audio->SetEvent(AudioCore::Event::Type::AudioOutManager,true);
+            host_paused.Wait();
+            Require(calls==1,"held closure invoked a late callback");
+        }
+        audio->Shutdown();gpu.Stop();
+    }
+    // Joining the worker does not release the registered std::function's owner.
+    Require(!escaped.expired(),"worker join released registered callback ownership");
+    audio.reset();
+    Require(escaped.expired(),"joined AudioManager leaked Session owner");
+    kernel.System().DeviceMemory().buffer.allocation.reset();
+    Require(!backing.expired(),"cohort lost retained backing");
+    Require(requester.refs>1&&idle_owner.refs>1,"cohort released Process owners before closure lifetime ended");
+    Require(close->GuestBackingAdmission()==D::Unknown,"terminal joins granted admission");
+    // Effects occurred: do not invoke the no-effects resume protocol.
+    close.reset();
+    Require(backing.expired(),"closed cohort leaked backing");
+    Require(requester.refs==1&&idle_owner.refs==1,"cohort leaked Process reference");
+    std::cout<<"PASS owner-composition "<<mode<<"\n";
+}

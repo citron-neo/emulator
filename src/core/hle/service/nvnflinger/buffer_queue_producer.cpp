@@ -9,6 +9,7 @@
 #include "core/hle/kernel/k_event.h"
 #include "core/hle/kernel/k_readable_event.h"
 #include "core/hle/kernel/kernel.h"
+#include "core/hle/service/nvdrv/nvdrv.h"
 #include "core/hle/service/kernel_helpers.h"
 #include "core/hle/service/nvnflinger/buffer_queue_core.h"
 #include "core/hle/service/nvnflinger/buffer_queue_producer.h"
@@ -26,9 +27,9 @@ namespace Service::android {
 
 BufferQueueProducer::BufferQueueProducer(Service::KernelHelpers::ServiceContext& service_context_,
                                          std::shared_ptr<BufferQueueCore> buffer_queue_core_,
-                                         Service::Nvidia::NvCore::NvMap& nvmap_)
-    : service_context{service_context_}, core{std::move(buffer_queue_core_)}, slots(core->slots),
-      clock{Common::CreateOptimalClock()}, nvmap(nvmap_) {
+                                         std::shared_ptr<Service::Nvidia::Module> nvdrv_)
+    : service_context{service_context_}, nvdrv{std::move(nvdrv_)},
+      core{std::move(buffer_queue_core_)}, slots(core->slots), clock{Common::CreateOptimalClock()} {
     buffer_wait_event = service_context.CreateEvent("BufferQueue:WaitEvent");
 }
 
@@ -742,11 +743,27 @@ Status BufferQueueProducer::SetPreallocatedBuffer(s32 slot,
         return Status::BadValue;
     }
 
+    {
+        std::scoped_lock lock{core->mutex};
+        // An escaped producer can outlive its consumer/layer. Global dispatch
+        // admission does not authorize reopening an abandoned queue.
+        if (core->is_abandoned) return Status::NoInit;
+    }
+
+    auto dispatch = nvdrv->TryEnterDispatch();
+    if (!dispatch) return Status::WouldBlock;
+    auto graphic_buffer = GraphicBuffer::TryCreate(nvdrv, buffer, *dispatch);
+    if (!graphic_buffer) return Status::WouldBlock;
     std::scoped_lock lock{core->mutex};
+
+    // Disconnect may have cleared every slot during backing preparation.
+    // Refuse before any slot/metadata/notification effect. The unpublished
+    // candidate retires after unlocking, through its prepared owner record.
+    if (core->is_abandoned) return Status::NoInit;
 
     slots[slot] = {};
     slots[slot].fence = Fence::NoFence();
-    slots[slot].graphic_buffer = std::make_shared<GraphicBuffer>(nvmap, buffer);
+    slots[slot].graphic_buffer = std::move(graphic_buffer);
     slots[slot].frame_number = 0;
 
            // Most games preallocate a buffer and pass a valid buffer here. However, it is possible for

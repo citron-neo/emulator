@@ -1,0 +1,2645 @@
+{
+  "baseline": "d7c6489eadc00cbff9cb89c2fbd1712f2a850d1d",
+  "branch": "codex/issue-372-fixes",
+  "validated_at": "2026-10-25T19:21:27.807041+08:00",
+  "main_untouched": "b6a2ce9488d78efdbbeb0efe14c2ec5c0a263e76",
+  "production_sources_changed": false,
+  "summary": {
+    "joint_interleavings": 9,
+    "exact_controls": 6,
+    "repeat_each": 3,
+    "coverage_negative": "escaped raw store still writes after managed close; required Unknown",
+    "actual_production_service_target": "AudioOut/In raw-this target owner not certified by prepared packet",
+    "windows_real_amd64_objects": 8,
+    "windows_production_diagnostics": "",
+    "global_P2_complete": false,
+    "GuestBackingAdmission": "Unknown",
+    "F2_F3": "open",
+    "CI_current_head": "not yet available; no manual dispatch"
+  },
+  "suites": {
+    "m4-owner-d7c": {
+      "command": "python tools/physical_coherency_tests/run_owner_closure_composition_tests.py --repeat 3 --output-dir .diagnostics/m4-owner-d7c",
+      "exit_code": 0,
+      "input_verification": {
+        "src/audio_core/audio_event.cpp": "current_raw",
+        "src/audio_core/audio_event.h": "current_raw",
+        "src/audio_core/audio_in_manager.cpp": "current_raw",
+        "src/audio_core/audio_manager.cpp": "current_raw",
+        "src/audio_core/audio_manager.h": "current_raw",
+        "src/audio_core/audio_out_manager.cpp": "current_raw",
+        "src/common/bounded_threadsafe_queue.h": "current_raw",
+        "src/common/page_table.h": "current_raw",
+        "src/common/polyfill_thread.h": "current_raw",
+        "src/common/producer_drain.h": "current_raw",
+        "src/common/retained_backing_storage.h": "current_raw",
+        "src/common/scope_exit.h": "current_raw",
+        "src/common/terminal_ingress.h": "current_raw",
+        "src/common/typed_address.h": "current_raw",
+        "src/core/core.cpp": "current_raw",
+        "src/core/device_memory_manager.h": "current_raw",
+        "src/core/gpu_dirty_memory_manager.h": "current_raw",
+        "src/core/hle/kernel/k_process.cpp": "current_raw",
+        "src/core/hle/kernel/kernel.cpp": "current_raw",
+        "src/core/hle/kernel/physical_core.cpp": "current_raw",
+        "src/core/hle/kernel/physical_core.h": "current_raw",
+        "src/core/hle/kernel/process_cohort_stop.cpp": "current_raw",
+        "src/core/hle/kernel/process_cohort_stop.h": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.cpp": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.h": "current_raw",
+        "src/core/hle/kernel/process_owner_roster.cpp": "current_raw",
+        "src/core/hle/kernel/process_owner_roster.h": "current_raw",
+        "src/core/hle/result.h": "current_raw",
+        "src/core/hle/service/audio/audio_in_manager.h": "current_raw",
+        "src/core/hle/service/audio/audio_out_manager.h": "current_raw",
+        "src/core/hle/service/audio/errors.h": "current_raw",
+        "src/core/managed_guest_writes.h": "current_raw",
+        "src/core/managed_host_producer.h": "current_raw",
+        "src/core/memory.cpp": "current_raw",
+        "src/core/memory.h": "current_raw",
+        "src/video_core/acknowledged_callback.h": "current_raw",
+        "src/video_core/gpu.cpp": "current_raw",
+        "src/video_core/gpu_thread.cpp": "current_raw",
+        "src/video_core/gpu_thread.h": "current_raw",
+        "tools/gpu_lifecycle_tests/run_thread_tests.py": "current_raw",
+        "tools/physical_coherency_tests/owner_closure_composition.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/owner_closure_memory.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/process_execution_stop_fixture.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/run_owner_closure_composition_tests.py": "current_raw",
+        "tools/physical_coherency_tests/run_process_execution_stop_tests.py": "current_raw"
+      },
+      "manifest": {
+        "repeat": 3,
+        "cases": [
+          "normal",
+          "backend-active",
+          "memory-active",
+          "escaped-alias",
+          "active-stop",
+          "queued-cancel",
+          "callback-fail",
+          "timeout",
+          "late-seal"
+        ],
+        "controls": [
+          "omit-callback-drain",
+          "close-memory-before-callback",
+          "raw-session-capture",
+          "omit-callback-seal",
+          "bypass-write-admission",
+          "weak-backing-owner"
+        ],
+        "sha256": {
+          "src/audio_core/audio_event.cpp": "4e895db3018dedf2b808526ba62767e6646a3f8e215d1c4227448014b333a437",
+          "src/audio_core/audio_event.h": "f72c33125698c2f803c724ed32ead490aa29b6441b86993e45bf4dc1bd391d06",
+          "src/audio_core/audio_in_manager.cpp": "aee9a6a2198d28c9276ff9594ef6f098ec8b68401bf4430211e0213cc68b8b11",
+          "src/audio_core/audio_manager.cpp": "c8f7631f8e43b36c47a4a6416ac3d92559ed304d84d7e6088cf3744fc2329f37",
+          "src/audio_core/audio_manager.h": "f6a14d391ebdb21a588f0965278b5d0f5a7c5a189dad89b713f2ba89905c71a3",
+          "src/audio_core/audio_out_manager.cpp": "564b71dac6f66f1fd2c578410933d44158b7f7490ecb5887848456b00f4f4c07",
+          "src/common/bounded_threadsafe_queue.h": "9c2746cc8d722f5a24d72c4f3a5bbbae65bef3775971e5de8f5da1fec3508948",
+          "src/common/page_table.h": "b617052d5ff8e5f8b1421229ba36cfc40ed84ff07b0b0d590442b26fb0633d9e",
+          "src/common/polyfill_thread.h": "d2a3b1103f8f65cc28915621acc5bf7a3429bfcdda1dba6aecd7aa0c5ac7cc14",
+          "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+          "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+          "src/common/scope_exit.h": "f441cc79b44dd2b6e6b2ae36ae480281f960a176bbff4f2a501ff752581f35f2",
+          "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+          "src/common/typed_address.h": "dac80745ee3eb02a907a2ed3e24bb829cd83954db1dfbb5d9cd1979b0cbf0a01",
+          "src/core/core.cpp": "6b8fbeef5ae64cfcb3174a469f5dcc0f42132938173048ed2cc423e5c77b3a37",
+          "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+          "src/core/gpu_dirty_memory_manager.h": "f752ba7d44d5c0164321887e63d452b42c28fa2c41df042fa88fcadb0835c288",
+          "src/core/hle/kernel/k_process.cpp": "69d795ff3a2cdaa8e29917ee03120f70f464a5fff4e1387d51fb00c24aaacf8b",
+          "src/core/hle/kernel/kernel.cpp": "a69fb40294d28128fbc27d575fb5d15b9df64cf49dc1af32e137d6bce67163ea",
+          "src/core/hle/kernel/physical_core.cpp": "0292cf16f3ffc871fae30ecf319a81e6ec8452a39b5f78ced27736a22601849e",
+          "src/core/hle/kernel/physical_core.h": "6742af493b1d6020e024f412ad300d9fa3c2823be5ca15e02e40102e51d46624",
+          "src/core/hle/kernel/process_cohort_stop.cpp": "4a82749d5c8d4d4250285317c06c0667bdd4ca41daf98ad805b422bd4102bea2",
+          "src/core/hle/kernel/process_cohort_stop.h": "133ca868d6d92fc305bb99558bf2f254791b431de8aa1eae015e5185d5ef59c4",
+          "src/core/hle/kernel/process_execution_stop.cpp": "c98ec7c773fb5c059a9e450b6476ca3678acec43e575d0732eaf3b4bbc9f8e4f",
+          "src/core/hle/kernel/process_execution_stop.h": "8ed2dc77fbd9b3143c08c27a6d9b41d6e0a616be6b0f8501b993139f0face8f4",
+          "src/core/hle/kernel/process_owner_roster.cpp": "92ec12e7e86b2cc045543330c97f739ede959a968e129d436271b2c64813b026",
+          "src/core/hle/kernel/process_owner_roster.h": "523d6f254debb7702c88d2c400a4dfcf81ece83b8076315bd06be0eabfa21da3",
+          "src/core/hle/result.h": "058fab0caac9bd55b07f5f77f5f3ea54f5e5f985472a3aa705f03f0c72ca1c28",
+          "src/core/hle/service/audio/audio_in_manager.h": "0b5409c1350ee2e11ecfa2330ca23aeaa50c1fd0d46a21bac061c47fbab6b5f9",
+          "src/core/hle/service/audio/audio_out_manager.h": "a01c7e0a9c7cae2d51f3f979a5c25a9ef178ada32175ead922d746467d43333d",
+          "src/core/hle/service/audio/errors.h": "7def0bf43f7929d7fc1f62b6aef2c003c89cae52aaf0679ed956443fea314a5a",
+          "src/core/managed_guest_writes.h": "86e264b83fc072b1b90d66bffaa3d22cb8a9f89a0409964d751f4732635f51ea",
+          "src/core/managed_host_producer.h": "aab2e5a4b9fbbedc86848539195191c8bd2722517b5ed8d4422cc9eb13b3352e",
+          "src/core/memory.cpp": "799ca1fa3405ccd736e65b8baa64a9fb13535870a1b0b54a354f10918777809f",
+          "src/core/memory.h": "e32bfd7e1037468f102068390371981f7401b56aebe15e875bcc986f68f664b6",
+          "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+          "src/video_core/gpu.cpp": "adecb4d24aadd6a34d5964d307b02becc7945b8316ad480183d2c7f8dfb9d486",
+          "src/video_core/gpu_thread.cpp": "d56e13d853d2bf51c3cc106e72e1903c4d418b4f93a61a70e19c8ff6df4f1c0c",
+          "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+          "tools/gpu_lifecycle_tests/run_thread_tests.py": "bd9332fa187d85285874a756548ea5d78e26c90c54ef00e39e7e032d8255ab07",
+          "tools/physical_coherency_tests/owner_closure_composition.cpp.in": "9671e2b92bddb43b0b05d0e97cb220805411bbccfa94b35c5c4aa86fdf9cdde8",
+          "tools/physical_coherency_tests/owner_closure_memory.cpp.in": "4636b0861edc77a3606bb69126931424f0d32f6a63c1baf27a15231c9a460227",
+          "tools/physical_coherency_tests/process_execution_stop_fixture.cpp.in": "66b656e0e117d72a4438d8d745ea37ddfbb89054c93f8bdac0a611b013663aee",
+          "tools/physical_coherency_tests/run_owner_closure_composition_tests.py": "f84795c9ce8a59fb680255bb42f3229087086f147bde16f7d3bbc4f3cf6320e3",
+          "tools/physical_coherency_tests/run_process_execution_stop_tests.py": "0a81eebcf7702aaa009a607fcd144ee7db7e6da14afe058d69a2c607b8d07590"
+        },
+        "actual": [
+          "Full AudioManager declaration and all method bodies; Event declaration/bodies",
+          "Full ThreadManager declaration, queue, RunThread/Stop/callback acknowledgement bodies",
+          "ProcessCohortStop/ProcessExecutionStop/roster types and bodies; actual KProcess stop factories",
+          "Memory::Write8 facade, Impl::GetPointerImpl and PageInfo bodies; shared ProducerDrain and backing owner type"
+        ],
+        "fixtures": [
+          "One combined Core::System, KProcess lifecycle/refcount/PTE/backend collaborators",
+          "Native renderer/queue completion; scalar Impl store and fixed PTE mapping",
+          "HostMemory allocation is a shared byte array; no actual HostMemory remap/freeze proof"
+        ],
+        "timing_only": [
+          "Existing GPU wait/enqueue/stop/join signals",
+          "Audio event wait observer after prior counted callback scope exits",
+          "ManagedHostProducer closed-entry observer before its real pause mutex"
+        ],
+        "uncovered_actual_registration": {
+          "out": "ServerManager service owns IAudio manager; unique impl target is registered by raw this, not the prepared shared Session tested here",
+          "in": "ServerManager service owns IAudio manager; unique impl target is registered by raw this, not the prepared shared Session tested here"
+        },
+        "negative_coverage_witness": "A pre-resolved owned raw pointer still stores after managed closure; GuestBackingAdmission must remain Unknown",
+        "boundary": "Joined owner-chain evidence for named callback subset; no full KProcess runtime, native Vulkan, whole service closure or Guest admission."
+      }
+    },
+    "m4-owner-d7c/cpu": {
+      "command": "python tools/physical_coherency_tests/run_process_execution_stop_tests.py --output-dir .diagnostics/m4-owner-d7c/cpu",
+      "exit_code": 0,
+      "input_verification": {
+        "src/core/hle/kernel/physical_core.cpp": "current_raw",
+        "src/core/hle/kernel/physical_core.h": "current_raw",
+        "src/core/hle/kernel/k_process.cpp": "current_raw",
+        "src/core/hle/kernel/k_process.h": "current_raw",
+        "src/core/hle/kernel/kernel.h": "current_raw",
+        "src/tests/core/controlled_cpu_scheduler.cpp": "current_raw",
+        "src/core/hle/kernel/kernel.cpp": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.h": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.cpp": "current_raw",
+        "src/common/producer_drain.h": "current_raw",
+        "src/core/hle/kernel/guest_execution_drain.h": "current_raw",
+        "tools/physical_coherency_tests/process_execution_stop_fixture.cpp.in": "current_raw",
+        "src/common/retained_backing_storage.h": "current_raw",
+        "tools/physical_coherency_tests/run_process_execution_stop_tests.py": "current_raw"
+      },
+      "manifest": {
+        "positive_repeats": 3,
+        "assertion_mutants": [
+          "count-suspended-svc-as-backend",
+          "request-is-acknowledgement",
+          "omit-running-owner-retention",
+          "omit-initialization-drain",
+          "stopped-forgets-seal"
+        ],
+        "sha256": {
+          "src/core/hle/kernel/physical_core.cpp": "0292cf16f3ffc871fae30ecf319a81e6ec8452a39b5f78ced27736a22601849e",
+          "src/core/hle/kernel/physical_core.h": "6742af493b1d6020e024f412ad300d9fa3c2823be5ca15e02e40102e51d46624",
+          "src/core/hle/kernel/k_process.cpp": "69d795ff3a2cdaa8e29917ee03120f70f464a5fff4e1387d51fb00c24aaacf8b",
+          "src/core/hle/kernel/k_process.h": "1cfe6a548016cdd563fc0744268c87dd3dbd3a18f23b10bc59f29ba90b9d43dc",
+          "src/core/hle/kernel/kernel.h": "e343df91960ce1b5f213327beae1a9d846e11ffc8bd98676011b93175f0d6fff",
+          "src/tests/core/controlled_cpu_scheduler.cpp": "9d3baefc77d50c179d6fed35d21b8a2c65044857934f6e05a3de96847e7a4f7d",
+          "src/core/hle/kernel/kernel.cpp": "a69fb40294d28128fbc27d575fb5d15b9df64cf49dc1af32e137d6bce67163ea",
+          "src/core/hle/kernel/process_execution_stop.h": "8ed2dc77fbd9b3143c08c27a6d9b41d6e0a616be6b0f8501b993139f0face8f4",
+          "src/core/hle/kernel/process_execution_stop.cpp": "c98ec7c773fb5c059a9e450b6476ca3678acec43e575d0732eaf3b4bbc9f8e4f",
+          "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+          "src/core/hle/kernel/guest_execution_drain.h": "eaf19635a3c101e98751da564c3181d52624c0ea35d9540f032616a5831ac750",
+          "tools/physical_coherency_tests/process_execution_stop_fixture.cpp.in": "66b656e0e117d72a4438d8d745ea37ddfbb89054c93f8bdac0a611b013663aee",
+          "src/common/retained_backing_storage.h": "a062c5dfa1d86c7715037b7b744d9865d1a66956b5a1334d7667e6be69d51254",
+          "tools/physical_coherency_tests/run_process_execution_stop_tests.py": "0a81eebcf7702aaa009a607fcd144ee7db7e6da14afe058d69a2c607b8d07590"
+        },
+        "boundary": "Actual execution/stop bodies; injected backend/kernel, no NCE or guest admission proof"
+      }
+    },
+    "m4-owner-d7c-cohort-reg": {
+      "command": "python tools/physical_coherency_tests/run_process_cohort_stop_tests.py --prerequisite-dir .diagnostics/m4-owner-d7c/cpu --output-dir .diagnostics/m4-owner-d7c-cohort-reg",
+      "exit_code": 0,
+      "input_verification": {
+        "src/core/hle/kernel/process_cohort_stop.cpp": "current_raw",
+        "src/core/hle/kernel/process_cohort_stop.h": "current_raw",
+        "src/core/hle/kernel/k_process.cpp": "current_raw",
+        "src/core/hle/kernel/k_process.h": "current_raw",
+        "src/core/hle/kernel/kernel.h": "current_raw",
+        "src/core/hle/kernel/k_page_table_base.h": "current_raw",
+        "src/core/hle/kernel/k_process_page_table.h": "current_raw",
+        "src/common/producer_drain.h": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.cpp": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.h": "current_raw",
+        "src/tests/core/controlled_cpu_scheduler.cpp": "current_raw",
+        "src/tests/CMakeLists.txt": "current_raw",
+        ".github/workflows/pr375-pr380-integration.yml": {
+          "tested_input": "baseline workflow metadata, Windows CRLF; current workflow only adds joint suite",
+          "tested_sha256": "da38fc7f513fdab3236f6af28cb380c58d38b72f3e39f8f558cab0cce983de22",
+          "current_sha256": "5406beea477eb6915ed2f6e57c8450646024217767378d6bf50ad6939136ccd1"
+        },
+        "src/core/hle/kernel/k_slab_heap.h": "current_raw",
+        "src/core/hle/kernel/process_owner_roster.cpp": "current_raw",
+        "src/core/hle/kernel/process_owner_roster.h": "current_raw",
+        "src/core/controlled_mapping_publication.h": "current_raw",
+        "src/core/memory.cpp": "current_raw",
+        "src/core/hle/kernel/kernel.cpp": "current_raw",
+        "src/core/hle/service/os/process.cpp": "current_raw",
+        "tools/physical_coherency_tests/run_process_execution_stop_tests.py": "current_raw",
+        "tools/physical_coherency_tests/process_execution_stop_fixture.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/process_cohort_stop_tests.cpp.in": "current_raw",
+        "tools/physical_coherency_tests/run_process_cohort_stop_tests.py": "current_raw"
+      },
+      "manifest": {
+        "positive_repeats": 3,
+        "assertion_mutants": [
+          "halt-before-cohort-capture",
+          "omit-publication-drain",
+          "omit-managed-write-drain",
+          "omit-audio-render-drain",
+          "omit-audio-callback-drain",
+          "omit-host1x-submit-drain",
+          "omit-nvdrv-dispatch-drain",
+          "close-inner-before-dispatch-drain",
+          "omit-creation-closure",
+          "detach-publication-closure",
+          "reserve-roster-after-reopening",
+          "omit-reserved-cohort-revision",
+          "omit-publication-from-batch",
+          "omit-managed-writes-from-batch",
+          "omit-audio-render-from-batch",
+          "omit-audio-callbacks-from-batch",
+          "omit-host1x-submits-from-batch",
+          "omit-nvdrv-dispatch-from-batch",
+          "sequential-cohort-release"
+        ],
+        "sha256": {
+          "src/core/hle/kernel/process_cohort_stop.cpp": "4a82749d5c8d4d4250285317c06c0667bdd4ca41daf98ad805b422bd4102bea2",
+          "src/core/hle/kernel/process_cohort_stop.h": "133ca868d6d92fc305bb99558bf2f254791b431de8aa1eae015e5185d5ef59c4",
+          "src/core/hle/kernel/k_process.cpp": "69d795ff3a2cdaa8e29917ee03120f70f464a5fff4e1387d51fb00c24aaacf8b",
+          "src/core/hle/kernel/k_process.h": "1cfe6a548016cdd563fc0744268c87dd3dbd3a18f23b10bc59f29ba90b9d43dc",
+          "src/core/hle/kernel/kernel.h": "e343df91960ce1b5f213327beae1a9d846e11ffc8bd98676011b93175f0d6fff",
+          "src/core/hle/kernel/k_page_table_base.h": "087ca579a892c4c33ba61eac1eb03026f443f41ab9fb0a3a25c217fed16be230",
+          "src/core/hle/kernel/k_process_page_table.h": "db284d181205fb9fb16a08fc4e6cc49286c5d3f52fff26e41cbd920acdd3a512",
+          "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+          "src/core/hle/kernel/process_execution_stop.cpp": "c98ec7c773fb5c059a9e450b6476ca3678acec43e575d0732eaf3b4bbc9f8e4f",
+          "src/core/hle/kernel/process_execution_stop.h": "8ed2dc77fbd9b3143c08c27a6d9b41d6e0a616be6b0f8501b993139f0face8f4",
+          "src/tests/core/controlled_cpu_scheduler.cpp": "9d3baefc77d50c179d6fed35d21b8a2c65044857934f6e05a3de96847e7a4f7d",
+          "src/tests/CMakeLists.txt": "871083e5cb3de6281ca8c4befa9c9ef12e1da6b950b5b05b2e3e57536c3d39e1",
+          ".github/workflows/pr375-pr380-integration.yml": "da38fc7f513fdab3236f6af28cb380c58d38b72f3e39f8f558cab0cce983de22",
+          "src/core/hle/kernel/k_slab_heap.h": "8367ddd7af6fd5e782a94c9d721e69f56456a0e35d94226e03607ca56d61b646",
+          "src/core/hle/kernel/process_owner_roster.cpp": "92ec12e7e86b2cc045543330c97f739ede959a968e129d436271b2c64813b026",
+          "src/core/hle/kernel/process_owner_roster.h": "523d6f254debb7702c88d2c400a4dfcf81ece83b8076315bd06be0eabfa21da3",
+          "src/core/controlled_mapping_publication.h": "4560b8960a2771bef634c1228307804bf7b674d4888f69459e6c56178454963f",
+          "src/core/memory.cpp": "799ca1fa3405ccd736e65b8baa64a9fb13535870a1b0b54a354f10918777809f",
+          "src/core/hle/kernel/kernel.cpp": "a69fb40294d28128fbc27d575fb5d15b9df64cf49dc1af32e137d6bce67163ea",
+          "src/core/hle/service/os/process.cpp": "4a70aa846dbcfb9bd24f78f265e24a4bd632f3017ffe57b025105a6e7eddf351",
+          "tools/physical_coherency_tests/run_process_execution_stop_tests.py": "0a81eebcf7702aaa009a607fcd144ee7db7e6da14afe058d69a2c607b8d07590",
+          "tools/physical_coherency_tests/process_execution_stop_fixture.cpp.in": "66b656e0e117d72a4438d8d745ea37ddfbb89054c93f8bdac0a611b013663aee",
+          "tools/physical_coherency_tests/process_cohort_stop_tests.cpp.in": "909761528d98eeaf5a072dfc8ce6c46a216fccc15b3525db2411b3cb626215a1",
+          "tools/physical_coherency_tests/run_process_cohort_stop_tests.py": "69b4e3f5c09d1c435ccb06c88f28ac6f9b38c4dc3a29d569b49b030e29a9ec53"
+        },
+        "boundary": "Sustained creation/init/cold mapping cohort plus backend stop; injected collaborators; no Guest admission"
+      }
+    },
+    "m4-owner-d7c-memory-reg": {
+      "command": "python tools/physical_coherency_tests/run_managed_guest_write_tests.py --repeat 3 --output-dir .diagnostics/m4-owner-d7c-memory-reg",
+      "exit_code": 0,
+      "input_verification": {
+        "src/core/memory.cpp": "current_raw",
+        "src/core/memory.h": "current_raw",
+        "src/core/managed_guest_writes.h": "current_raw",
+        "src/core/hle/kernel/kernel.cpp": "current_raw",
+        "src/core/hle/kernel/kernel.h": "current_raw",
+        "src/common/producer_drain.h": "current_raw",
+        "tools/physical_coherency_tests/run_managed_guest_write_tests.py": "current_raw"
+      },
+      "manifest": {
+        "sha256": {
+          "src/core/memory.cpp": "799ca1fa3405ccd736e65b8baa64a9fb13535870a1b0b54a354f10918777809f",
+          "src/core/memory.h": "e32bfd7e1037468f102068390371981f7401b56aebe15e875bcc986f68f664b6",
+          "src/core/managed_guest_writes.h": "86e264b83fc072b1b90d66bffaa3d22cb8a9f89a0409964d751f4732635f51ea",
+          "src/core/hle/kernel/kernel.cpp": "a69fb40294d28128fbc27d575fb5d15b9df64cf49dc1af32e137d6bce67163ea",
+          "src/core/hle/kernel/kernel.h": "e343df91960ce1b5f213327beae1a9d846e11ffc8bd98676011b93175f0d6fff",
+          "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+          "tools/physical_coherency_tests/run_managed_guest_write_tests.py": "07c23cd5a9b18dc1ebfb389ef129f22ce915c95d7bac4e132d702ec38116def8"
+        },
+        "positive_repeats": 3,
+        "controls": [
+          "Write8",
+          "Write16",
+          "Write32",
+          "Write64",
+          "WriteExclusive8",
+          "WriteExclusive16",
+          "WriteExclusive32",
+          "WriteExclusive64",
+          "WriteExclusive128",
+          "WriteBlock",
+          "WriteBlockUnsafe",
+          "CopyBlock",
+          "ZeroBlock",
+          "WritePrepared8",
+          "WritePrepared16",
+          "WritePrepared32",
+          "WritePrepared64",
+          "WritePreparedCached8",
+          "WritePreparedCached16",
+          "WritePreparedCached32",
+          "WritePreparedCached64"
+        ],
+        "actual": [
+          "21 complete Memory facade write methods",
+          "ManagedGuestWrites and ProducerDrain"
+        ],
+        "fixtures": [
+          "Impl stores/callbacks and facade construction using an explicitly shared domain"
+        ],
+        "boundary": "Managed API effects only; no NCE/fastmem/raw/GPU or whole service exclusion, no Guest admission."
+      }
+    },
+    "m4-owner-d7c-audio-reg": {
+      "command": "python tools/physical_coherency_tests/run_audio_callback_drain_tests.py --repeat 3 --output-dir .diagnostics/m4-owner-d7c-audio-reg",
+      "exit_code": 0,
+      "input_verification": {
+        "src/audio_core/audio_manager.cpp": "current_raw",
+        "src/audio_core/audio_manager.h": "current_raw",
+        "src/audio_core/audio_event.cpp": "current_raw",
+        "src/audio_core/audio_event.h": "current_raw",
+        "src/audio_core/audio_core.cpp": "current_raw",
+        "src/core/managed_host_producer.h": "current_raw",
+        "src/common/producer_drain.h": "current_raw",
+        "tools/physical_coherency_tests/run_audio_callback_drain_tests.py": "current_raw"
+      },
+      "manifest": {
+        "sha256": {
+          "src/audio_core/audio_manager.cpp": "c8f7631f8e43b36c47a4a6416ac3d92559ed304d84d7e6088cf3744fc2329f37",
+          "src/audio_core/audio_manager.h": "f6a14d391ebdb21a588f0965278b5d0f5a7c5a189dad89b713f2ba89905c71a3",
+          "src/audio_core/audio_event.cpp": "4e895db3018dedf2b808526ba62767e6646a3f8e215d1c4227448014b333a437",
+          "src/audio_core/audio_event.h": "f72c33125698c2f803c724ed32ead490aa29b6441b86993e45bf4dc1bd391d06",
+          "src/audio_core/audio_core.cpp": "018f030b9cc4e76bc6acb8afc8a06470e27073f1d1725aac3f474703173f0e4b",
+          "src/core/managed_host_producer.h": "aab2e5a4b9fbbedc86848539195191c8bd2722517b5ed8d4422cc9eb13b3352e",
+          "src/common/producer_drain.h": "c36b5e0514014be4bc908fb950b7007a6dce5263cad68ea886d23ee0718800ce",
+          "tools/physical_coherency_tests/run_audio_callback_drain_tests.py": "48e3c53791a45e7ab032a9ade7b73f79826f85d56812b1439bc538a7412d8213"
+        },
+        "positive_repeats": 3,
+        "controls": [
+          "omit-callback-admission",
+          "hold-event-lock",
+          "release-before-callback",
+          "omit-shutdown-wakeup",
+          "omit-failure-seal"
+        ],
+        "actual": [
+          "AudioManager constructor, ThreadFunc, Shutdown",
+          "Event bodies",
+          "ManagedHostProducer and ProducerDrain"
+        ],
+        "fixtures": [
+          "AudioManager member layout, registered callbacks and session/guest writes"
+        ],
+        "boundary": "Manager callback subset only; no sink/device, HLE/service, NCE/GPU or Guest admission proof."
+      }
+    },
+    "m4-owner-d7c-gpu-reg": {
+      "command": "python tools/gpu_lifecycle_tests/run_thread_tests.py --repeat 3 --output-dir .diagnostics/m4-owner-d7c-gpu-reg",
+      "exit_code": 0,
+      "input_verification": {
+        "src/video_core/gpu_thread.cpp": "current_raw",
+        "src/video_core/gpu_thread.h": "current_raw",
+        "src/video_core/gpu.cpp": "current_raw",
+        "src/common/terminal_ingress.h": "current_raw",
+        "src/common/bounded_threadsafe_queue.h": "current_raw",
+        "src/core/gpu_dirty_memory_manager.h": "current_raw",
+        "src/core/core.cpp": "current_raw",
+        "src/core/device_memory_manager.h": "current_raw",
+        "tools/gpu_lifecycle_tests/run_thread_tests.py": "current_raw"
+      },
+      "manifest": {
+        "source_sha256": "0cbe0d8f3722bbb805c80f8d53f0817449144c7a2ea379b856be7d8bc96bf785",
+        "instrumentation": [
+          "signal immediately before queue-space wait",
+          "signal after request_stop",
+          "signal before acknowledged callback future wait",
+          "signal after worker join and command enqueue",
+          "observer before terminal join and direct-entry RMW"
+        ],
+        "sha256": {
+          "src/video_core/gpu_thread.cpp": "d56e13d853d2bf51c3cc106e72e1903c4d418b4f93a61a70e19c8ff6df4f1c0c",
+          "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+          "src/video_core/gpu.cpp": "adecb4d24aadd6a34d5964d307b02becc7945b8316ad480183d2c7f8dfb9d486",
+          "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+          "src/common/bounded_threadsafe_queue.h": "9c2746cc8d722f5a24d72c4f3a5bbbae65bef3775971e5de8f5da1fec3508948",
+          "src/core/gpu_dirty_memory_manager.h": "f752ba7d44d5c0164321887e63d452b42c28fa2c41df042fa88fcadb0835c288",
+          "src/core/core.cpp": "6b8fbeef5ae64cfcb3174a469f5dcc0f42132938173048ed2cc423e5c77b3a37",
+          "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+          "tools/gpu_lifecycle_tests/run_thread_tests.py": "bd9332fa187d85285874a756548ea5d78e26c90c54ef00e39e7e032d8255ab07"
+        },
+        "production": [
+          "ThreadManager class",
+          "RunThread and all ThreadManager definitions",
+          "MPSCQueue/SPSCQueue",
+          "stop-token wait"
+        ],
+        "fixtures": [
+          "renderer/engine/scheduler/platform/Core/System"
+        ],
+        "boundary": "Terminal worker and selected direct cache/command callbacks; actual dirty Collect remains possible after Stop; no live GPU freeze or Vulkan completion",
+        "positive_repeats": 3,
+        "direct_control_mutants": [
+          "direct-entry-released-early",
+          "direct-stop-skips-ingress",
+          "direct-join-before-capture-cancel",
+          "direct-late-entry-bypasses-close",
+          "direct-rejects-entered-owner"
+        ],
+        "cpu_write_control_mutants": [
+          "direct-cpu-write-bypasses-manager",
+          "direct-cpu-write-released-early",
+          "direct-cpu-write-closed-success",
+          "direct-cpu-write-rejects-owner"
+        ],
+        "read_query_control_mutants": [
+          "direct-query-bypasses-manager",
+          "direct-query-released-early",
+          "direct-query-closed-coverage",
+          "direct-query-rejects-owner"
+        ],
+        "command_tail_control_mutants": [
+          "direct-command-flush-bypasses-manager",
+          "direct-command-gather-bypasses-manager",
+          "direct-command-end-bypasses-manager",
+          "direct-command-released-early",
+          "direct-command-rejects-owner",
+          "direct-command-gather-callback-only"
+        ]
+      }
+    },
+    "m4-owner-d7c-windows": {
+      "command": "python tools/physical_coherency_tests/run_windows_production_checks.py --source src/core/hle/kernel/process_cohort_stop.cpp --source src/core/hle/kernel/process_execution_stop.cpp --source src/core/hle/kernel/process_owner_roster.cpp --source src/core/hle/kernel/physical_core.cpp --source src/audio_core/audio_manager.cpp --source src/audio_core/audio_event.cpp --source src/video_core/gpu_thread.cpp --source src/core/memory.cpp --output-dir .diagnostics/m4-owner-d7c-windows",
+      "exit_code": 0,
+      "input_verification": {
+        "src/audio_core/audio_event.cpp": "current_raw",
+        "src/audio_core/audio_manager.cpp": "current_raw",
+        "src/common/frame_mapping.h": "current_raw",
+        "src/common/terminal_ingress.h": "current_raw",
+        "src/core/device_memory_manager.h": "current_raw",
+        "src/core/device_memory_manager.inc": "current_raw",
+        "src/core/hle/kernel/physical_core.cpp": "current_raw",
+        "src/core/hle/kernel/process_cohort_stop.cpp": "current_raw",
+        "src/core/hle/kernel/process_execution_stop.cpp": "current_raw",
+        "src/core/hle/kernel/process_owner_roster.cpp": "current_raw",
+        "src/core/hle/service/nvdrv/core/container.h": "current_raw",
+        "src/core/hle/service/nvdrv/core/nvmap.h": "current_raw",
+        "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "current_raw",
+        "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "current_raw",
+        "src/core/memory.cpp": "current_raw",
+        "src/video_core/acknowledged_callback.h": "current_raw",
+        "src/video_core/control/channel_state.h": "current_raw",
+        "src/video_core/framebuffer_config.h": "current_raw",
+        "src/video_core/gpu.h": "current_raw",
+        "src/video_core/gpu_thread.cpp": "current_raw",
+        "src/video_core/gpu_thread.h": "current_raw",
+        "src/video_core/memory_manager.h": "current_raw",
+        "src/video_core/rasterizer_binding_state.h": "current_raw",
+        "src/video_core/rasterizer_interface.h": "current_raw",
+        "src/video_core/renderer_vulkan/present/layer.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_blit_screen.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_master_semaphore.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_presentation_source.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_rasterizer.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_scheduler.h": "current_raw",
+        "src/video_core/renderer_vulkan/vk_texture_cache.h": "current_raw",
+        "src/video_core/unmap_failure.h": "current_raw",
+        "tools/physical_coherency_tests/run_windows_production_checks.py": "current_raw"
+      },
+      "manifest": {
+        "platform": "Windows-11-10.0.26300-SP0",
+        "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+        "compiler": "g++.exe (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+        "boost_root": "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+        "boost_version_header": "//  Boost version.hpp configuration header file  ------------------------------//\n\n//  (C) Copyright John maddock 1999. Distributed under the Boost\n//  Software License, Version 1.0. (See accompanying file\n//  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)\n\n//  See http://www.boost.org/libs/config for documentation\n\n#ifndef BOOST_VERSION_HPP\n#define BOOST_VERSION_HPP\n\n//\n//  Caution: this is the only Boost header that is guaranteed\n//  to change with every Boost release. Including this header\n//  will cause a recompile every time a new Boost version is\n//  used.\n//\n//  BOOST_VERSION % 100 is the patch level\n//  BOOST_VERSION / 100 % 1000 is the minor version\n//  BOOST_VERSION / 100000 is the major version\n\n#define BOOST_VERSION 108700\n\n//\n//  BOOST_LIB_VERSION must be defined to be the same as BOOST_VERSION\n//  but as a *string* in the form \"x_y[_z]\" where x is the major version\n//  number, y is the minor version number, and z is the patch level if not 0.\n//  This is used by <config/auto_link.hpp> to select which library version to link to.\n\n#define BOOST_LIB_VERSION \"1_87\"\n\n#endif\n",
+        "boost_official_archive_sha256": null,
+        "sha256": {
+          "src/audio_core/audio_event.cpp": "4e895db3018dedf2b808526ba62767e6646a3f8e215d1c4227448014b333a437",
+          "src/audio_core/audio_manager.cpp": "c8f7631f8e43b36c47a4a6416ac3d92559ed304d84d7e6088cf3744fc2329f37",
+          "src/common/frame_mapping.h": "2c3f4b71f81f6d438fda189ad9fa8e6257fcd2987108c7e8df585f6aa1e425eb",
+          "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+          "src/core/device_memory_manager.h": "e7c6a812518c4e3e25110c6e7510e1cc3d4812b735ca7e10487e8214cb13c720",
+          "src/core/device_memory_manager.inc": "67d93d945a0644a141bb241bce2c4c2f449f672aa69fcf31ea23565fb44b5a0d",
+          "src/core/hle/kernel/physical_core.cpp": "0292cf16f3ffc871fae30ecf319a81e6ec8452a39b5f78ced27736a22601849e",
+          "src/core/hle/kernel/process_cohort_stop.cpp": "4a82749d5c8d4d4250285317c06c0667bdd4ca41daf98ad805b422bd4102bea2",
+          "src/core/hle/kernel/process_execution_stop.cpp": "c98ec7c773fb5c059a9e450b6476ca3678acec43e575d0732eaf3b4bbc9f8e4f",
+          "src/core/hle/kernel/process_owner_roster.cpp": "92ec12e7e86b2cc045543330c97f739ede959a968e129d436271b2c64813b026",
+          "src/core/hle/service/nvdrv/core/container.h": "7f7f117669e99242f84506994e2f3af3bb538a962ef0a0c1208d39cfb96bd562",
+          "src/core/hle/service/nvdrv/core/nvmap.h": "d7f2a47809996f93b040c0c9965c041e53e1c494de1626e17fc9710e773af759",
+          "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+          "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+          "src/core/memory.cpp": "799ca1fa3405ccd736e65b8baa64a9fb13535870a1b0b54a354f10918777809f",
+          "src/video_core/acknowledged_callback.h": "b2a76c3efb36b711ef12392fbb8f876e33b18cdf9ed275c36c33e370714fbd15",
+          "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+          "src/video_core/framebuffer_config.h": "7b7d17656e00fc36a35040ec86e76c6251da123fe2280cb5b1e7e518a48b1490",
+          "src/video_core/gpu.h": "b55625f616af2deb74407ec05104babd5712211c56dce28bad5c3b9f73b68786",
+          "src/video_core/gpu_thread.cpp": "d56e13d853d2bf51c3cc106e72e1903c4d418b4f93a61a70e19c8ff6df4f1c0c",
+          "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+          "src/video_core/memory_manager.h": "db03427bd693d7b20812828e60a59c4e2cc6cf314b1c206cfd720e4f56906682",
+          "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+          "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+          "src/video_core/renderer_vulkan/present/layer.h": "a5ae6c6c6523f43de2bc0a7ed2c462c66daf489748f831a3805aae75d706878d",
+          "src/video_core/renderer_vulkan/vk_blit_screen.h": "6a9da58b53835ebbf6fe1ca1bc24f940b8cb0d0a99cdc4994d6fdab3896b3ddd",
+          "src/video_core/renderer_vulkan/vk_master_semaphore.h": "33584679044080c5defd0ab256d879788736382ce825bcb86260013fc602c5b6",
+          "src/video_core/renderer_vulkan/vk_native_source_retainer.h": "c97f053301e7aaca6c666dbe230fb0f9bb2505164b0d493c59e6218820978859",
+          "src/video_core/renderer_vulkan/vk_presentation_source.h": "759b4534d73aefc8a5f47f2e8da996d95dc71ee39b834304f2f7b288974f0640",
+          "src/video_core/renderer_vulkan/vk_rasterizer.h": "03c3f2a44a2010ef4c002db2b6d5ed71ff16f2ed2ec467ff799f529caceb0a79",
+          "src/video_core/renderer_vulkan/vk_scheduler.h": "6da3dbbc5741a059fab77f1e876c9c00fcf3fbf37efbe46841bc7cf50d081dc6",
+          "src/video_core/renderer_vulkan/vk_texture_cache.h": "294de0f628432503d9302c018686ed67d94eb5dbd641c6789f2c450a413fd8d5",
+          "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+          "tools/physical_coherency_tests/run_windows_production_checks.py": "1ae9d09175865c12f30f67048237e361d66be5510a382cf6730c39efb478897f"
+        },
+        "objects": [
+          {
+            "source": "src/core/hle/kernel/process_cohort_stop.cpp",
+            "sha256": "4a82749d5c8d4d4250285317c06c0667bdd4ca41daf98ad805b422bd4102bea2",
+            "object_sha256": "7d96763428163f026ca5e6eb7206d4fa3768eafbc94329c0c954f0e6e2a47f94",
+            "object_size": 35928,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\kernel\\process_cohort_stop.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-owner-d7c-windows\\0-process_cohort_stop.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/core/hle/kernel/process_execution_stop.cpp",
+            "sha256": "c98ec7c773fb5c059a9e450b6476ca3678acec43e575d0732eaf3b4bbc9f8e4f",
+            "object_sha256": "76509c4ef1a5281b2be4a0770622f9d7e3926f19a446ea9f15ae395414e2efc5",
+            "object_size": 22541,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\kernel\\process_execution_stop.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-owner-d7c-windows\\1-process_execution_stop.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/core/hle/kernel/process_owner_roster.cpp",
+            "sha256": "92ec12e7e86b2cc045543330c97f739ede959a968e129d436271b2c64813b026",
+            "object_sha256": "2c0aad3e74745b217daf8c18dfb170a6f910ccfac33853d189fd745b14962bb3",
+            "object_size": 18412,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\kernel\\process_owner_roster.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-owner-d7c-windows\\2-process_owner_roster.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/core/hle/kernel/physical_core.cpp",
+            "sha256": "0292cf16f3ffc871fae30ecf319a81e6ec8452a39b5f78ced27736a22601849e",
+            "object_sha256": "0f6518bfae0b47f92716d3b70ce817410fcb3ac0550e301d5ab3ac17268e341c",
+            "object_size": 22488,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\hle\\kernel\\physical_core.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-owner-d7c-windows\\3-physical_core.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/audio_core/audio_manager.cpp",
+            "sha256": "c8f7631f8e43b36c47a4a6416ac3d92559ed304d84d7e6088cf3744fc2329f37",
+            "object_sha256": "feb1e22eda5653307ab69f09b08e8a562182c121d3c1cc3c457b4a320a7637c6",
+            "object_size": 42516,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\audio_core\\audio_manager.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-owner-d7c-windows\\4-audio_manager.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/audio_core/audio_event.cpp",
+            "sha256": "4e895db3018dedf2b808526ba62767e6646a3f8e215d1c4227448014b333a437",
+            "object_sha256": "bddfe16db19516713627b3e8666fa1479a4482302507db166fac68f915b33850",
+            "object_size": 6815,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\audio_core\\audio_event.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-owner-d7c-windows\\5-audio_event.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/video_core/gpu_thread.cpp",
+            "sha256": "d56e13d853d2bf51c3cc106e72e1903c4d418b4f93a61a70e19c8ff6df4f1c0c",
+            "object_sha256": "fb990d144fc6e42392950a347eec52b6a707695f88ebf9d098907ed5d62b40af",
+            "object_size": 83663,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\video_core\\gpu_thread.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-owner-d7c-windows\\6-gpu_thread.o"
+            ],
+            "warnings": ""
+          },
+          {
+            "source": "src/core/memory.cpp",
+            "sha256": "799ca1fa3405ccd736e65b8baa64a9fb13535870a1b0b54a354f10918777809f",
+            "object_sha256": "2fce3eab1e9f9541a0237f4d3c3446f9661540624b93ebc6a59029712c2e1362",
+            "object_size": 208631,
+            "command": [
+              "C:/Strawberry/c/bin/g++.exe",
+              "-std=c++23",
+              "-O1",
+              "-DNDEBUG",
+              "-DARCHITECTURE_x86_64",
+              "-DBOOST_ASIO_DISABLE_CONCEPTS",
+              "-fno-strict-aliasing",
+              "-Werror=conversion",
+              "-Wno-sign-conversion",
+              "-I",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.cache\\citron-deps\\boost_1_87_0",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\externals\\fmt\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\VulkanMemoryAllocator\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\Vulkan-Utility-Libraries\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\SPIRV-Headers\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\sirit\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\unordered_dense\\include",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\dynarmic\\src",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\tz",
+              "-isystem",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\externals\\renderdoc",
+              "-c",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\src\\core\\memory.cpp",
+              "-o",
+              "C:\\Users\\BDM11\\.codex\\worktrees\\issue-372-fixes\\emulator\\.diagnostics\\m4-owner-d7c-windows\\7-memory.o"
+            ],
+            "warnings": ""
+          }
+        ],
+        "shader_evidence": null,
+        "window_shader_evidence": null,
+        "boundary": "Actual production Windows x64 object compilation with real headers. No application link, runtime, native Vulkan or Android claim."
+      }
+    }
+  },
+  "local_log_and_manifest_evidence": [
+    {
+      "path": ".diagnostics/m4-owner-d7c/bypass-write-admission-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/bypass-write-admission-normal-0.log",
+      "sha256": "bc84c5b10c91fb23a0daf11a62e9bf26a13c27247e48982b12ef412832c61993",
+      "bytes": 48
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/bypass-write-admission-normal-1.log",
+      "sha256": "bc84c5b10c91fb23a0daf11a62e9bf26a13c27247e48982b12ef412832c61993",
+      "bytes": 48
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/bypass-write-admission-normal-2.log",
+      "sha256": "bc84c5b10c91fb23a0daf11a62e9bf26a13c27247e48982b12ef412832c61993",
+      "bytes": 48
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/close-memory-before-callback-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/close-memory-before-callback-normal-0.log",
+      "sha256": "d3eb045a58fa4db50013cc334e9ed53336334ba4c459aea6ee9f3d27b7591e0c",
+      "bytes": 50
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/close-memory-before-callback-normal-1.log",
+      "sha256": "d3eb045a58fa4db50013cc334e9ed53336334ba4c459aea6ee9f3d27b7591e0c",
+      "bytes": 50
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/close-memory-before-callback-normal-2.log",
+      "sha256": "d3eb045a58fa4db50013cc334e9ed53336334ba4c459aea6ee9f3d27b7591e0c",
+      "bytes": 50
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/cpu/count-suspended-svc-as-backend-1.txt",
+      "sha256": "c0e8b08210dfa87afed82104a496db47f43288c57176786425cf601b0d2aa04c",
+      "bytes": 256
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/cpu/extraction.json",
+      "sha256": "e0429bcf8b2796e21e8d285df9fdf85c48cd3c5da160a060392843aa9a2c8dba",
+      "bytes": 2007
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/cpu/omit-initialization-drain-1.txt",
+      "sha256": "6bdc362bcba8e6990fef8cd43bda1d7569602ef94f081818715e1d0aa7767e9b",
+      "bytes": 231
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/cpu/omit-running-owner-retention-1.txt",
+      "sha256": "002fe8b4d8b6f4e3459598239d3206fcb1f627d4d94aa223ebe079461e9c59a9",
+      "bytes": 233
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/cpu/production-1.txt",
+      "sha256": "7531e1881ec5028fc336888d54d2a48457e7bdb2ad050499feb3afe8f98121cb",
+      "bytes": 168
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/cpu/production-2.txt",
+      "sha256": "7531e1881ec5028fc336888d54d2a48457e7bdb2ad050499feb3afe8f98121cb",
+      "bytes": 168
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/cpu/production-3.txt",
+      "sha256": "7531e1881ec5028fc336888d54d2a48457e7bdb2ad050499feb3afe8f98121cb",
+      "bytes": 168
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/cpu/request-is-acknowledgement-1.txt",
+      "sha256": "da28063c873ef04f29525d9e282b16a4497a0e3dc527b22492499f6d9f7eac9e",
+      "bytes": 233
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/cpu/stopped-forgets-seal-1.txt",
+      "sha256": "0eea7eee4ef640d9272ed766e62188636ede60618f36c8ea8d731f128f2ab626",
+      "bytes": 217
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/extraction.json",
+      "sha256": "76716ea72b7594892c7801d8a77a24acac63e83425ebf1e4d13fd0b0e9e06d19",
+      "bytes": 7113
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/omit-callback-drain-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/omit-callback-drain-normal-0.log",
+      "sha256": "4daaea27573edddbd6a98a723e8a4dcbd38a5e0eed12e508d727486faf887a59",
+      "bytes": 42
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/omit-callback-drain-normal-1.log",
+      "sha256": "4daaea27573edddbd6a98a723e8a4dcbd38a5e0eed12e508d727486faf887a59",
+      "bytes": 42
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/omit-callback-drain-normal-2.log",
+      "sha256": "4daaea27573edddbd6a98a723e8a4dcbd38a5e0eed12e508d727486faf887a59",
+      "bytes": 42
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/omit-callback-seal-callback-fail-0.log",
+      "sha256": "1e8c2885e0f736347fbb72ffe91c23ed4b8a073df9f76d8e6021235a4aec4f35",
+      "bytes": 49
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/omit-callback-seal-callback-fail-1.log",
+      "sha256": "1e8c2885e0f736347fbb72ffe91c23ed4b8a073df9f76d8e6021235a4aec4f35",
+      "bytes": 49
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/omit-callback-seal-callback-fail-2.log",
+      "sha256": "1e8c2885e0f736347fbb72ffe91c23ed4b8a073df9f76d8e6021235a4aec4f35",
+      "bytes": 49
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/omit-callback-seal-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-active-stop-0.log",
+      "sha256": "fe852ec148e339ec88789e5faa598a386b80a5b42b54b7f3943445596542db49",
+      "bytes": 36
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-active-stop-1.log",
+      "sha256": "fe852ec148e339ec88789e5faa598a386b80a5b42b54b7f3943445596542db49",
+      "bytes": 36
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-active-stop-2.log",
+      "sha256": "fe852ec148e339ec88789e5faa598a386b80a5b42b54b7f3943445596542db49",
+      "bytes": 36
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-backend-active-0.log",
+      "sha256": "6f0df5e8e4a0d2c67402bbc7e3495339bc18f89186b7f9679e0b087a15199778",
+      "bytes": 39
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-backend-active-1.log",
+      "sha256": "6f0df5e8e4a0d2c67402bbc7e3495339bc18f89186b7f9679e0b087a15199778",
+      "bytes": 39
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-backend-active-2.log",
+      "sha256": "6f0df5e8e4a0d2c67402bbc7e3495339bc18f89186b7f9679e0b087a15199778",
+      "bytes": 39
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-callback-fail-0.log",
+      "sha256": "888cc68a280e905cde5201319542184d10efc05b5bac83829a49d86573e98449",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-callback-fail-1.log",
+      "sha256": "888cc68a280e905cde5201319542184d10efc05b5bac83829a49d86573e98449",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-callback-fail-2.log",
+      "sha256": "888cc68a280e905cde5201319542184d10efc05b5bac83829a49d86573e98449",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-escaped-alias-0.log",
+      "sha256": "b304092129c6dd369d4b3196c2dd3edd634977064be88a70c0eb15fd40e2fdbb",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-escaped-alias-1.log",
+      "sha256": "b304092129c6dd369d4b3196c2dd3edd634977064be88a70c0eb15fd40e2fdbb",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-escaped-alias-2.log",
+      "sha256": "b304092129c6dd369d4b3196c2dd3edd634977064be88a70c0eb15fd40e2fdbb",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-late-seal-0.log",
+      "sha256": "b7776bf2bd7be0d1d7c9665a3e1f04de543caf9ef8bbd6937067ab18eb8ff796",
+      "bytes": 34
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-late-seal-1.log",
+      "sha256": "b7776bf2bd7be0d1d7c9665a3e1f04de543caf9ef8bbd6937067ab18eb8ff796",
+      "bytes": 34
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-late-seal-2.log",
+      "sha256": "b7776bf2bd7be0d1d7c9665a3e1f04de543caf9ef8bbd6937067ab18eb8ff796",
+      "bytes": 34
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-memory-active-0.log",
+      "sha256": "2b4b903be82efa79bbb5192e245931032bb87f501a033f3d878571d2abc5a016",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-memory-active-1.log",
+      "sha256": "2b4b903be82efa79bbb5192e245931032bb87f501a033f3d878571d2abc5a016",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-memory-active-2.log",
+      "sha256": "2b4b903be82efa79bbb5192e245931032bb87f501a033f3d878571d2abc5a016",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-normal-0.log",
+      "sha256": "91ba1e9c28cac29b879a80a7a5560c501fa1a57ceef5ba018196e3141c624e1c",
+      "bytes": 31
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-normal-1.log",
+      "sha256": "91ba1e9c28cac29b879a80a7a5560c501fa1a57ceef5ba018196e3141c624e1c",
+      "bytes": 31
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-normal-2.log",
+      "sha256": "91ba1e9c28cac29b879a80a7a5560c501fa1a57ceef5ba018196e3141c624e1c",
+      "bytes": 31
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-queued-cancel-0.log",
+      "sha256": "c7c21c8a732a89e3ee0ac458c28587e33b8709da28bdafb93d7d6e5bbeb9390c",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-queued-cancel-1.log",
+      "sha256": "c7c21c8a732a89e3ee0ac458c28587e33b8709da28bdafb93d7d6e5bbeb9390c",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-queued-cancel-2.log",
+      "sha256": "c7c21c8a732a89e3ee0ac458c28587e33b8709da28bdafb93d7d6e5bbeb9390c",
+      "bytes": 38
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-timeout-0.log",
+      "sha256": "2c8cab4e22a36a27a87124525136a0801383634e0a117953e234ab1fd0e46cb1",
+      "bytes": 32
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-timeout-1.log",
+      "sha256": "2c8cab4e22a36a27a87124525136a0801383634e0a117953e234ab1fd0e46cb1",
+      "bytes": 32
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/production-timeout-2.log",
+      "sha256": "2c8cab4e22a36a27a87124525136a0801383634e0a117953e234ab1fd0e46cb1",
+      "bytes": 32
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/raw-session-capture-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/raw-session-capture-normal-0.log",
+      "sha256": "3f506e0e7b9f406476b7437855cd06f8ffb992f80609c09b46a7a31fdfdddb4e",
+      "bytes": 41
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/raw-session-capture-normal-1.log",
+      "sha256": "3f506e0e7b9f406476b7437855cd06f8ffb992f80609c09b46a7a31fdfdddb4e",
+      "bytes": 41
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/raw-session-capture-normal-2.log",
+      "sha256": "3f506e0e7b9f406476b7437855cd06f8ffb992f80609c09b46a7a31fdfdddb4e",
+      "bytes": 41
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/weak-backing-owner-compile.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/weak-backing-owner-normal-0.log",
+      "sha256": "63212b173c26d595b6a191188e292fae531795db6c25d2b9ca8203b852829225",
+      "bytes": 35
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/weak-backing-owner-normal-1.log",
+      "sha256": "63212b173c26d595b6a191188e292fae531795db6c25d2b9ca8203b852829225",
+      "bytes": 35
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c/weak-backing-owner-normal-2.log",
+      "sha256": "63212b173c26d595b6a191188e292fae531795db6c25d2b9ca8203b852829225",
+      "bytes": 35
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/close-inner-before-dispatch-drain-1.txt",
+      "sha256": "30a74392e99a029e0dcb29a9a38094cff90c221a7062ffb9db44262e38971fde",
+      "bytes": 266
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/detach-publication-closure-1.txt",
+      "sha256": "8eeecc3138282e62084f1ceeda3cf97e679038f7d97ac031d55620e8579cc95e",
+      "bytes": 228
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/extraction.json",
+      "sha256": "82e14f2b2e7928125b73a61294aec63a345a73f4a9e2dcc4ad46fc9f87628cf6",
+      "bytes": 3724
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/halt-before-cohort-capture-1.txt",
+      "sha256": "cf1a49cb332372f2e1fe4fe3b4303a932189c0852697d8b6efd0e1b286d0f5cb",
+      "bytes": 253
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-callback-drain-1.txt",
+      "sha256": "43edcafe640d20360d402b905781e9cc83090fe3c9f93a115f59c172be10277e",
+      "bytes": 231
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-callbacks-from-batch-1.txt",
+      "sha256": "a026e10098247f35a97ab68f81506d87e2fc11a1ee9185ef6371d503bbf45111",
+      "bytes": 260
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-render-drain-1.txt",
+      "sha256": "e3f73a24ce6df13b0824ecef1a0b6e45b2cb30df0500d1e25391deb4d200481a",
+      "bytes": 233
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-render-from-batch-1.txt",
+      "sha256": "437e63f2de7e9ef8eb02115fc3b5a2bb638f5405f78d9e74bd684d3b7e2900c2",
+      "bytes": 255
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-creation-closure-1.txt",
+      "sha256": "ae781a09304f36ed6d0c819b52b1cfffc888fbcc155c9b2fbc866acfda79f435",
+      "bytes": 213
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-host1x-submit-drain-1.txt",
+      "sha256": "5bf4bd2d4f2a8a10143ec656a93841ce18def2e29060f843a2d702963a177f76",
+      "bytes": 230
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-host1x-submits-from-batch-1.txt",
+      "sha256": "a600f5dff9f675a528e585939293bc76a9f1b709855b766cb217a95e241cf609",
+      "bytes": 257
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-managed-write-drain-1.txt",
+      "sha256": "1f4b41bc7091c641d25982483bfdfcf95863ff52acf4622a200b06b1e8561765",
+      "bytes": 227
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-managed-writes-from-batch-1.txt",
+      "sha256": "154d512f91910993ff4b886c122b21a3bb2114f212f495e32df9d78cfd0c7c7f",
+      "bytes": 262
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-nvdrv-dispatch-drain-1.txt",
+      "sha256": "5de7f70dbbb014e6df287cc6f2399cf2800458cd80e50192861ea24ccc7afe75",
+      "bytes": 231
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-nvdrv-dispatch-from-batch-1.txt",
+      "sha256": "d1d51b742066210f7c91583adf69546c293de2b2ee2a025a8f6dab20007f2aa5",
+      "bytes": 258
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-publication-drain-1.txt",
+      "sha256": "c9a3c10e8e82395a9008737879d608a92e9d1549d168315a949a249dca9c72c2",
+      "bytes": 211
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-publication-from-batch-1.txt",
+      "sha256": "e65596d42ca264d5f086db44c37aff976faaff60f6687c635e4b3e7b78e5d937",
+      "bytes": 268
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-reserved-cohort-revision-1.txt",
+      "sha256": "a71864091451752109d29bfe2d8fece74441e53e792533c51714ea3d8d144305",
+      "bytes": 252
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/production-1.txt",
+      "sha256": "4c6c9049b4f4ba5d12ca4d0232a3e3f1a4ecfe1d82272beb539e1ab151564e2f",
+      "bytes": 196
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/production-2.txt",
+      "sha256": "4c6c9049b4f4ba5d12ca4d0232a3e3f1a4ecfe1d82272beb539e1ab151564e2f",
+      "bytes": 196
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/production-3.txt",
+      "sha256": "4c6c9049b4f4ba5d12ca4d0232a3e3f1a4ecfe1d82272beb539e1ab151564e2f",
+      "bytes": 196
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/reserve-roster-after-reopening-1.txt",
+      "sha256": "7dd3358603d5374908f5a0dce93748ef16cc4b816b6a2f80ac2950f6b80bb559",
+      "bytes": 278
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-cohort-reg/sequential-cohort-release-1.txt",
+      "sha256": "d44c2064c77e4655b273bb5e76cd9c659ad6791d41a79fa99dd71368d5fa5cb8",
+      "bytes": 263
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/extraction.json",
+      "sha256": "4d26e3702795fe30e608e5300af11d450fd58c696cb79c9cd5389526cd1886a7",
+      "bytes": 1645
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/nce-unsupported.log",
+      "sha256": "69a40ba111ae32914177bdb7634b2ca36f657900ab2e20968f82f66bf138c204",
+      "bytes": 81
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-CopyBlock.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write16.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write32.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write64.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write8.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteBlock.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteBlockUnsafe.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive128.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive16.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive32.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive64.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive8.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared16.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared32.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared64.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared8.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached16.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached32.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached64.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached8.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-ZeroBlock.log",
+      "sha256": "2b502049d8976e1a34008c0102dc7b368454316d336d3b10775dee045af9ca29",
+      "bytes": 69
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/positive-0.log",
+      "sha256": "3520260055c3b0fa3438021e1775a7cd5dd6cec5a326f257e66718920692e1df",
+      "bytes": 97
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/positive-1.log",
+      "sha256": "3520260055c3b0fa3438021e1775a7cd5dd6cec5a326f257e66718920692e1df",
+      "bytes": 97
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-memory-reg/positive-2.log",
+      "sha256": "3520260055c3b0fa3438021e1775a7cd5dd6cec5a326f257e66718920692e1df",
+      "bytes": 97
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-audio-reg/extraction.json",
+      "sha256": "2dd154c37c3badbc04c0303d9239fe309904ae5d36947c730204a4629a87c6c9",
+      "bytes": 1459
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-audio-reg/hold-event-lock.log",
+      "sha256": "56a02ccfc3fc3bfdaa06891aa97c191197d9a9095b828e0bc5dc688a184710ea",
+      "bytes": 53
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-audio-reg/omit-callback-admission.log",
+      "sha256": "435b86a466ed4b4591b3ebb97332a90042ff0ba3696e5b7cec225c6ec194327e",
+      "bytes": 54
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-audio-reg/omit-failure-seal.log",
+      "sha256": "5dcec3477632d94505e861617f2e68a6cc77b459d057de0863a99aa2774705a8",
+      "bytes": 52
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-audio-reg/omit-shutdown-wakeup.log",
+      "sha256": "072fddf7f24e649fb03f0ce7d540d9fa2cc12fb7f0a118fce7b8963ab0a5459a",
+      "bytes": 50
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-audio-reg/positive-0.log",
+      "sha256": "cc16cf4f095cb86ee39809e4cd9038f245b11cb1176878cf38f95057069d0863",
+      "bytes": 88
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-audio-reg/positive-1.log",
+      "sha256": "cc16cf4f095cb86ee39809e4cd9038f245b11cb1176878cf38f95057069d0863",
+      "bytes": 88
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-audio-reg/positive-2.log",
+      "sha256": "cc16cf4f095cb86ee39809e4cd9038f245b11cb1176878cf38f95057069d0863",
+      "bytes": 88
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-audio-reg/release-before-callback.log",
+      "sha256": "2a00444fe228290df732c36a8d736aeb187243ef0d7f256c762aba4ce2291b02",
+      "bytes": 51
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-end-bypasses-manager.log",
+      "sha256": "46a194c5d946c1dfc45f8b8eb6c15087e33663cd8ddf5f37238b9921aa4a7cfe",
+      "bytes": 47
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-flush-bypasses-manager.log",
+      "sha256": "46a194c5d946c1dfc45f8b8eb6c15087e33663cd8ddf5f37238b9921aa4a7cfe",
+      "bytes": 47
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-gather-bypasses-manager.log",
+      "sha256": "ab67790f8471c4f6696788a9d2863f39b2858c15b4a1cb5f6210f8418d36f30b",
+      "bytes": 52
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-gather-callback-only.log",
+      "sha256": "ab67790f8471c4f6696788a9d2863f39b2858c15b4a1cb5f6210f8418d36f30b",
+      "bytes": 52
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-rejects-owner.log",
+      "sha256": "a442d57c5fe7778667e0a19360658c0fbfe9e5c6a3ae2aa1fca304448388c58d",
+      "bytes": 49
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-released-early.log",
+      "sha256": "3c867c11878af2b5aeb193793e3abaadfe949faaddf84f0a38170abc104d7c36",
+      "bytes": 50
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-bypasses-manager.log",
+      "sha256": "1bf862f03039e42d5b888a7ed4ea23dc29a8f28c9ebacbf2744d210c0cd38331",
+      "bytes": 45
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-closed-success.log",
+      "sha256": "a71823b20752ad652e2eec3396e60d9ca7f4b71012ccc6b0bdd396615726365a",
+      "bytes": 58
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-rejects-owner.log",
+      "sha256": "fa595bb07466e44bde97348b2ffb1ec68af84a81d1eeb4cc667133bd766aecce",
+      "bytes": 64
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-released-early.log",
+      "sha256": "f78c0f5a9b0845ac84e3405ed08b213315e5148cba479b7046b440e6918c1607",
+      "bytes": 43
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-entry-released-early.log",
+      "sha256": "54fd52a0ce8d3085e7d16ac37c9d83fdee9a8477c687821d9d200b45cc6ac2da",
+      "bytes": 46
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-join-before-capture-cancel.log",
+      "sha256": "658690d12f6fa69c748fb10ed05c3965bf74ba5520c7c0a0270d3b6ba5fd9ea2",
+      "bytes": 241
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-late-entry-bypasses-close.log",
+      "sha256": "d84c7d8a5dbfbb9632e97b4a98450b7eb52ffb5ade66e1c48732f30732d12b85",
+      "bytes": 54
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-bypasses-manager.log",
+      "sha256": "fd6e2a64208cec8f02af9ff889e6f4f03b0ad874d1796da4acea011c41ac4ca7",
+      "bytes": 50
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-closed-coverage.log",
+      "sha256": "11378c313b85ce64642654962c7715d253babc64859aed3e07895a0be514806d",
+      "bytes": 49
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-rejects-owner.log",
+      "sha256": "9594177bbb57ea7439ae8d37eb996b6ee1bf5fa122d1ad169399809bd0866539",
+      "bytes": 60
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-released-early.log",
+      "sha256": "f266a5cdabbb2d9972163b03bd3e49dbf5f14e93c7feb317d79db473c856ed95",
+      "bytes": 48
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-rejects-entered-owner.log",
+      "sha256": "7d876a0ca85347902ff33719f0657204429fe67f3636a2a7508eca4e0ba3576f",
+      "bytes": 67
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-stop-skips-ingress.log",
+      "sha256": "54fd52a0ce8d3085e7d16ac37c9d83fdee9a8477c687821d9d200b45cc6ac2da",
+      "bytes": 46
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/thread-0.log",
+      "sha256": "ad874fd2a862b07bf3655c9a0564babe01e17fdd3d8eb2113582e3c851aa7be3",
+      "bytes": 127
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/thread-1.log",
+      "sha256": "ad874fd2a862b07bf3655c9a0564babe01e17fdd3d8eb2113582e3c851aa7be3",
+      "bytes": 127
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/thread-2.log",
+      "sha256": "ad874fd2a862b07bf3655c9a0564babe01e17fdd3d8eb2113582e3c851aa7be3",
+      "bytes": 127
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-gpu-reg/thread-extraction.json",
+      "sha256": "3c39ac89826fea6a42ef7d412c188505d1ada911f80aef9e12dec77178b5f2e2",
+      "bytes": 2697
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-windows/0-process_cohort_stop.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-windows/1-process_execution_stop.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-windows/2-process_owner_roster.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-windows/3-physical_core.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-windows/4-audio_manager.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-windows/5-audio_event.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-windows/6-gpu_thread.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-windows/7-memory.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".diagnostics/m4-owner-d7c-windows/extraction.json",
+      "sha256": "4c01e6250a0e1c43d59549cb40b397eaf01a01e6f04a3a74b3b9a6e456a66c9b",
+      "bytes": 24548
+    }
+  ],
+  "cleanup": {
+    "deleted": true,
+    "scope": "Exact bounded current-run generated paths, hashes verified before deletion; logs/JSON retained.",
+    "files": [
+      {
+        "path": ".diagnostics/m4-owner-d7c/bypass-write-admission.cpp",
+        "sha256": "e92834e1e2beff47d590faee214cf41e1acc6bc8011ec87cdbec353a1cc7474c",
+        "bytes": 76488
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/bypass-write-admission.exe",
+        "sha256": "a0df9711a2f84df83c028235c93e34184ad7a80c7b3cc830f5b384e8f755678d",
+        "bytes": 327580
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/close-memory-before-callback.cpp",
+        "sha256": "983f6f0f91ba752b2ce88e53bf625f1ca3c8509ef8caa1ce70fece076480d5a7",
+        "bytes": 76641
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/close-memory-before-callback.exe",
+        "sha256": "b7073de4159fda71a7d4ac2bcbb736502ad209e2be55810ccd8e4c763126a1bf",
+        "bytes": 329405
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/count-suspended-svc-as-backend.cpp",
+        "sha256": "206d6a411fccbedc80a6973e7d5195795bd86d63acea51f145e96d84056a9767",
+        "bytes": 38351
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/count-suspended-svc-as-backend.exe",
+        "sha256": "e7845cb84792ce580cfd3a7dde2eccd40e9e40c32c1c7fc970bb9674d2e734fc",
+        "bytes": 222266
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/omit-initialization-drain.cpp",
+        "sha256": "6c5202ece1ec86be8822be532f3d87c0ac6af1f0f14edb03e0b63e6fd757f50a",
+        "bytes": 38302
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/omit-initialization-drain.exe",
+        "sha256": "d382138f72711b1012df168283ea452313e4627f76836d84c2e72728dde1f00d",
+        "bytes": 221749
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/omit-running-owner-retention.cpp",
+        "sha256": "f2a94db91088e3744d0cb61d33275c407dd855e196b70fd35ff2fe373db2773b",
+        "bytes": 38218
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/omit-running-owner-retention.exe",
+        "sha256": "ed8a9da96af62a576838e6b178be3b9916e9c36d085d0cbbafa45c3d1482bfbb",
+        "bytes": 222264
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/production.cpp",
+        "sha256": "111fb321016cfb4853402d4db23a2ce667a1c466b16017dfd675ef30f85ec340",
+        "bytes": 38279
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/production.exe",
+        "sha256": "8625c75347a77623f866e0f2faaaedb27557f35f148fc45e40aa39a9b5207c95",
+        "bytes": 221719
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/request-is-acknowledgement.cpp",
+        "sha256": "68f32538ed46df3a647ee6b244187d4f5aff7055ad1ade47149ccb02eb40f038",
+        "bytes": 38307
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/request-is-acknowledgement.exe",
+        "sha256": "b5492794d7d3e24e3571d4fae76ca7980bf5e385082bcea7e5cf0bc40f2a591e",
+        "bytes": 222262
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/stopped-forgets-seal.cpp",
+        "sha256": "f1977aa64abe540032e6c05aea4e7dee9d628f32a3565b470a324ba7e8b47b86",
+        "bytes": 38031
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/stopped-forgets-seal.exe",
+        "sha256": "0ab351e3e46b87db6d11efee73e6db875f8622abed31cdbf08b40aec2c8feeba",
+        "bytes": 221232
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/stubs/core/arm/arm_interface.h",
+        "sha256": "6c605ce103e1cac92556f3425d9ccfd048d557e5e72dae2a5dd6d3f4f48da122",
+        "bytes": 997
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/stubs/core/hle/kernel/k_auto_object.h",
+        "sha256": "cf221ed88b0fb40640b55c43d6d97a1de94450fa04480b04548b16b8c14cd03c",
+        "bytes": 766
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/cpu/stubs/core/hle/kernel/k_process.h",
+        "sha256": "aecb9819eb04bf5ad6cd2535cfac9b1bed5ef7946e551eff2224759862e16294",
+        "bytes": 14
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/gpu/gpu_thread.cpp",
+        "sha256": "dde88e952fb52238159f33c50748a950078d7cdbbee8e6190f33bb9f2874278b",
+        "bytes": 44495
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/gpu/shims/common/terminal_ingress.h",
+        "sha256": "a40b48cf2a00e20c1e93736e9e7f32dce22f6e53a18d9bb7f422c09c9312ff05",
+        "bytes": 2924
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/gpu/shims/core/device_memory_manager.h",
+        "sha256": "1187df800a1315362d92a1e9f5e74d5610e27e07dccece1674cc035bbc1629fc",
+        "bytes": 112
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/gpu/shims/video_core/acknowledged_callback.h",
+        "sha256": "555c20ec3fedf525ac62ffb0c62ae9a0d23c104e48326be1028a1c81c472f8bc",
+        "bytes": 2761
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/gpu/shims/video_core/framebuffer_config.h",
+        "sha256": "b0e2f87dac5afd6b56445aedf7ee932635cc22a5652ffb43d0461a4cc7a2a95a",
+        "bytes": 138
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/omit-callback-drain.cpp",
+        "sha256": "a2ac204cc931fb2bd6b41dd502e42500f55392b6212e1afdd45d5043fbba56c7",
+        "bytes": 76524
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/omit-callback-drain.exe",
+        "sha256": "82a91e2100f481981676712c73c63b52c3fd9796d4294ba4806f907c9ee3c1af",
+        "bytes": 328884
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/omit-callback-seal.cpp",
+        "sha256": "2b7153b725e830846e86b5f9f0530a18978451387c61a47d5950e0c3a7a3c2fa",
+        "bytes": 76496
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/omit-callback-seal.exe",
+        "sha256": "18d55c1b0901ccb066ca8235a48791cb70c21a6b9c90cc048eb775ac11fbcdb9",
+        "bytes": 328883
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/production.cpp",
+        "sha256": "d99ac2fdfb68ee975c6bbc1a8101548d2c4b6959263a6a80128feccf623cfefe",
+        "bytes": 76531
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/production.exe",
+        "sha256": "5622c870d26b6ac83a4ae389603530f47751c67a4f53b361e2038e63a459cd71",
+        "bytes": 328860
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/raw-session-capture.cpp",
+        "sha256": "6cfbdb8eeddc29c40edf1abcdaeefb772da5d99cfe6c1b8bd07e3c4f64145106",
+        "bytes": 76537
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/raw-session-capture.exe",
+        "sha256": "2735e6eba634dfb0eac7638f6af87b9e8cf38cb9a57662fe8854e9bd0998cbda",
+        "bytes": 328494
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/timing/core/managed_host_producer.h",
+        "sha256": "016f0ab4e498fb9cbf9d89f43d682e904531015395d1eb3a965b8908c55499b6",
+        "bytes": 1777
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/weak-backing-owner/common/retained_backing_storage.h",
+        "sha256": "f4281c6555350a64325c104a459aa7a59e01efd2ff5d36dd59d67679085a3d92",
+        "bytes": 1493
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/weak-backing-owner.cpp",
+        "sha256": "d99ac2fdfb68ee975c6bbc1a8101548d2c4b6959263a6a80128feccf623cfefe",
+        "bytes": 76531
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c/weak-backing-owner.exe",
+        "sha256": "880c659bab8030360a5870d503790462744fc5427cb6134c6f68939a1b5fc16e",
+        "bytes": 328883
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/close-inner-before-dispatch-drain.cpp",
+        "sha256": "4060bc64468cf60b635810bcc50b4b22cec93767f837a7bbb02b52926f79e029",
+        "bytes": 53786
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/close-inner-before-dispatch-drain.exe",
+        "sha256": "e6f880d82e18887f260ae29f6c731ccf45aa454bcb4ecb5f92376972150a1e31",
+        "bytes": 250362
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/detach-publication-closure.cpp",
+        "sha256": "d1952dfbb3b0af9b58eb57cf1cd8c07a3732014602c5a1590aa3ab271c67af12",
+        "bytes": 53804
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/detach-publication-closure.exe",
+        "sha256": "3c9027e2b67896ea9424ed473acd9fb3184daff32776de21764b891f94b27b5f",
+        "bytes": 252829
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/halt-before-cohort-capture.cpp",
+        "sha256": "61b4ad36ebe4f411f028e6bd39b94c6a1334ed594c804e4c6c6d4d77176de99e",
+        "bytes": 53788
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/halt-before-cohort-capture.exe",
+        "sha256": "49b1fb13b61f2c9dc4ac6b6a47dafff04b3423a41db89bba5f76895b59faa107",
+        "bytes": 251125
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-callback-drain.cpp",
+        "sha256": "633372bd7207a9efbef4bbc1ad6549eeca566d7787a9075ab751680c041bb0f1",
+        "bytes": 53779
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-callback-drain.exe",
+        "sha256": "d86a2811b21cd0ef2dd6b638b1b16a5512b7ec708f8686eaccf2783aefa25358",
+        "bytes": 250354
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-callbacks-from-batch.cpp",
+        "sha256": "58f5406312e34835662f713be5024ff912a2c87caa288b13f00c0984e2791b7d",
+        "bytes": 53763
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-callbacks-from-batch.exe",
+        "sha256": "49366f38c0323d88dc76e0e6bbba9426ea6bfde7ed5cb6ea6d1e13a74270388f",
+        "bytes": 250360
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-render-drain.cpp",
+        "sha256": "31875a8efd83714ed216ef08c5eaf991f0be84ca8bb6c7a75059dafb863d7915",
+        "bytes": 53782
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-render-drain.exe",
+        "sha256": "40038d069d75800eb43d580821e2d06a9661dc69d499c7008e0739408c3d0579",
+        "bytes": 250352
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-render-from-batch.cpp",
+        "sha256": "e023be2585bd81477565489060ea9d36b9a330711dd886de7aec2478d47557ba",
+        "bytes": 53766
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-audio-render-from-batch.exe",
+        "sha256": "6f51e31cde3d99882e644c655878566dcbfa4a0953de3857add835f45e51db8a",
+        "bytes": 250357
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-creation-closure.cpp",
+        "sha256": "e2525885d65e19b623ebb69e53eab811f4062b9cb8e5de286489556efa3f3fb0",
+        "bytes": 53731
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-creation-closure.exe",
+        "sha256": "c428872eb6139bd66c4d49f54be91c6155f47856c094c704979cb24e91f7822f",
+        "bytes": 249737
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-host1x-submit-drain.cpp",
+        "sha256": "689d5ec34a3a2959705cb625400bf02ba2c0c0724ed8bcb1de967d23549a379f",
+        "bytes": 53780
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-host1x-submit-drain.exe",
+        "sha256": "7658f1d11259f16ac4c20d584cb342891ce32327afe931c4ab57b997ad68fdd7",
+        "bytes": 250353
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-host1x-submits-from-batch.cpp",
+        "sha256": "f19886b47a67e593f38b792f253c7b845196c03adc9a52fb724446b1d3e99ee3",
+        "bytes": 53764
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-host1x-submits-from-batch.exe",
+        "sha256": "0132fd35704e9f755175f56079d6053268301817a3900eb74f0190a7348dcdb7",
+        "bytes": 250359
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-managed-write-drain.cpp",
+        "sha256": "3a8d2faf7a036994ec55a5684ca77a7191a6bbf5d643c75d131933b00aceda1b",
+        "bytes": 53780
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-managed-write-drain.exe",
+        "sha256": "e125bb3ff047dbf732fc9cc58738bb472c28723c9826c3494631b79d1767cab8",
+        "bytes": 250353
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-managed-writes-from-batch.cpp",
+        "sha256": "fe671b0ad4a60586f25f6b4b495682261c1e555978297641b147b9eca1614522",
+        "bytes": 53764
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-managed-writes-from-batch.exe",
+        "sha256": "ba214bf306eed0b4a74f9cca6263000af571c24b2136e609aedd5e698cacf2fc",
+        "bytes": 250359
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-nvdrv-dispatch-drain.cpp",
+        "sha256": "28be3d28b0ec696da98e3c015b42eeab2fc8850042c23ca68e076146710d6e7a",
+        "bytes": 53780
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-nvdrv-dispatch-drain.exe",
+        "sha256": "cc0a100296ade0277b7d5f657f076ba9498988d071b01092ac2e570954eee508",
+        "bytes": 250354
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-nvdrv-dispatch-from-batch.cpp",
+        "sha256": "b5ca7b8fba653964a97c107b6ac321a968f928adbea9695b1bf43a029ac73a99",
+        "bytes": 53764
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-nvdrv-dispatch-from-batch.exe",
+        "sha256": "7de7c4cd700d12636873ee7ad27b6ae64e3f4154246943c25c6748fca1421b53",
+        "bytes": 250359
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-publication-drain.cpp",
+        "sha256": "eece0673f99841a23ef48fd892c4113a0b8fbbd44a753bc9fce42a51f96481d9",
+        "bytes": 53784
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-publication-drain.exe",
+        "sha256": "920ab694fc8c279d1df49fd5bccec671b4fec7e051406d6d83b6ee2bc7bd6c12",
+        "bytes": 250609
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-publication-from-batch.cpp",
+        "sha256": "9835ebbdfbdca5333e42390702d3da7b9dbc697516e791ef2cf3acd582273391",
+        "bytes": 53768
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-publication-from-batch.exe",
+        "sha256": "d4a996314cc0035b8a15f60e6d7fbda0cdc9d389f5915b0f3ffde1bfc6f2b16c",
+        "bytes": 250356
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-reserved-cohort-revision.cpp",
+        "sha256": "dd7c2f652a461a4092f0b40aa606a432a526308ec16f6c5aefda445d58a540ca",
+        "bytes": 53687
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/omit-reserved-cohort-revision.exe",
+        "sha256": "9bea5f002ee213515f43957a66e0043e10662e80656ff7b15d87c10cb5a92ef4",
+        "bytes": 250358
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/production.cpp",
+        "sha256": "442903edacc79c93ced9e874bc4461297d63a026a212c31a407f1b0cd069e6f3",
+        "bytes": 53786
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/production.exe",
+        "sha256": "669aa07c76ecdbf7fd4dd982786d568311b7fda17f8bae042e56e00596f867dc",
+        "bytes": 250324
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/reserve-roster-after-reopening.cpp",
+        "sha256": "2bc1179af4486ef4da55f6b702741cc1fc02981148b924a5b958f52cb49aaf6a",
+        "bytes": 53786
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/reserve-roster-after-reopening.exe",
+        "sha256": "b576232c0b3cb9fe7fe52848d6b7afd49740661561037807e5d8f2867ce158b3",
+        "bytes": 250359
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/sequential-cohort-release.cpp",
+        "sha256": "7cf0daf16e955f852fd5ef68dcd2a990f265da166b45bb28470e4a33719577d7",
+        "bytes": 53651
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/sequential-cohort-release.exe",
+        "sha256": "f17c3d6ce1fcd92504dab5304f78058ee55941f9babc64f4bd6c6c8f2658301e",
+        "bytes": 250234
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-cohort-reg/stubs/common/producer_drain.h",
+        "sha256": "fd5d6dcdb56c8cf2c1d5ab4d3de6adda5dff3778e4f43426bed2e1a108bc239f",
+        "bytes": 11519
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/managed-writes.cpp",
+        "sha256": "37c1eb799ac6249e249fe60d90ad791f1a98cf3ecd6ac10fd9ef758e9cc5846e",
+        "bytes": 13504
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/managed-writes.exe",
+        "sha256": "6471a3e9f340146b3b596af0404ec24b280b610ec044b53ddf33b7847098351c",
+        "bytes": 191713
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/nce-unsupported.cpp",
+        "sha256": "af3c08e97fc5a8636145e3b67da5dbe9b5c71687cb4f3ef42e5f227c1be9ff08",
+        "bytes": 13740
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/nce-unsupported.exe",
+        "sha256": "336c0f8f606226ddd5ffbdf75306adee62cb6e4e9827e1dfab5390effbd1dcce",
+        "bytes": 186366
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-CopyBlock.cpp",
+        "sha256": "97d5b27795dae636256ade4390be04898ab19f5a248115f632ff970f44136e92",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-CopyBlock.exe",
+        "sha256": "d77c3209b5394737da4c6f72593150450a0a42c5449ee654bc912ccb82911de7",
+        "bytes": 191713
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write16.cpp",
+        "sha256": "f06aa278c4fb09bcb41e9991fc312ee734ba9b95ced74a91479812f8f98d500e",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write16.exe",
+        "sha256": "41df7112d4fd41f0875bc61e3f49ee7d80bdaa10eab77b8b1d62d8972866049a",
+        "bytes": 191713
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write32.cpp",
+        "sha256": "461ff154944d160253d695f0ac26ece828291709209e9c34c4b5af5d6bdac64f",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write32.exe",
+        "sha256": "d039a041be704f3308dd7076989923629b83106b921358f366ab38d0bf831ffb",
+        "bytes": 191713
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write64.cpp",
+        "sha256": "b98e6ae9b03f9e22ae85f15a701af1b5490317f089d14cfbe7d726fba5e5dd88",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write64.exe",
+        "sha256": "803826994466b281cd88da0d87bc82a5e446d6cba081807f76e64c825e6e900c",
+        "bytes": 191713
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write8.cpp",
+        "sha256": "9a5d68b6a09b4370a6c9bb4b4de1a5aec515d7550e505b57f082af51a50ffc10",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-Write8.exe",
+        "sha256": "323bd68582fe559886dc07da203da64f7b736dc5975ee23daca1c78ac2adbe64",
+        "bytes": 191201
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteBlock.cpp",
+        "sha256": "8af9494832983642b1f9840ad767608160639da73dfd20f086988cc100a4c7fd",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteBlock.exe",
+        "sha256": "7500d9db47493288f323da1722f0321bcdff97fd5fccb5d7cd78b8702c33e277",
+        "bytes": 191733
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteBlockUnsafe.cpp",
+        "sha256": "5c5255fa61c4981517dcf4926fd775d342c5cdd5861d0391abf6193f48fe0c96",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteBlockUnsafe.exe",
+        "sha256": "59d708410e00d232fcc5d6701e78dd24af57031b3471e885650d088c1ac6544d",
+        "bytes": 191739
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive128.cpp",
+        "sha256": "ce9f08feb4601a55517777a88f04d044ebbe496afade7a798f3c999085af5626",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive128.exe",
+        "sha256": "1bb9f35c65503c876880874094999ae02aae6dd28f545526432cd9730b629e0e",
+        "bytes": 191740
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive16.cpp",
+        "sha256": "6f28f0ac57df0d6163a3660d85506cb8ce5417320b6ba8431049b195ddaf9d66",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive16.exe",
+        "sha256": "039cd9b57a704b0f39850137db4e7f819d7782e8f7fd3d18fcc79480775c1932",
+        "bytes": 191739
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive32.cpp",
+        "sha256": "5c0c8ba771f63f874422f8f02cc2eaa3071f6699dadb994029f383f84484a3c8",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive32.exe",
+        "sha256": "ecaa2c73172f6ddf8e486b63f661d27c03932e633735c3aeb3106e4b151e86f2",
+        "bytes": 191739
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive64.cpp",
+        "sha256": "ec45797379a770681189fe2a428caf4d343efc35a77fc713282ca8100cab201e",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive64.exe",
+        "sha256": "71877ce73f6bfbf077ed91810df33aea962928905fe09f0d186117135634fb55",
+        "bytes": 191739
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive8.cpp",
+        "sha256": "4489351f0105b7ab7a3c640aaa2c93f176c98aef34fa49d820210c2fdf58f834",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WriteExclusive8.exe",
+        "sha256": "0b866515d746f47749e5226a1b4b0772f94c52dc512dec877f826901b92e3ac4",
+        "bytes": 191738
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared16.cpp",
+        "sha256": "2527c7969cea58f58371505fdf497986d4b752a867c7ec3be049135c12a7a089",
+        "bytes": 13328
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared16.exe",
+        "sha256": "1d4dcc46341adbab4ed881a92ac01d313b67dd5910ff588d5aeaf48b9e06e26d",
+        "bytes": 191738
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared32.cpp",
+        "sha256": "62e108cc617797de5aadfa0a08edfe53ef835c890f266ba2d11d886c47406019",
+        "bytes": 13328
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared32.exe",
+        "sha256": "1b337906306aa392632d45e337affec326cc09626681f4e9a8ad8f4e624d40db",
+        "bytes": 191738
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared64.cpp",
+        "sha256": "5fae0b8373f603a42797d356d7a1265216352992239dbac1830fc5678fda4701",
+        "bytes": 13328
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared64.exe",
+        "sha256": "8f7fbe6013df9cfccf1ea9c5021c53c6bc427a28ebe23fb50bdf15639d035365",
+        "bytes": 191738
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared8.cpp",
+        "sha256": "af15dd28dfca26e6bdcf610b73395c6b3f6bebb3a2d5ca11bd849acee4f4ac58",
+        "bytes": 13328
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePrepared8.exe",
+        "sha256": "87000a86be35bb76181da0a202a9988874e0e196e703daad58416eaf172f81fd",
+        "bytes": 191737
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached16.cpp",
+        "sha256": "3cdcc22e416e33bb04e35ea5efa23b75fc70fd311d09e3df8b2c0f647da88979",
+        "bytes": 13328
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached16.exe",
+        "sha256": "aab726303982ef5e92c1015d3e1310e181bd1ea43ac52f63f855c19fa25c84de",
+        "bytes": 191744
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached32.cpp",
+        "sha256": "ea3b8352c04422252ae12d0adaacbb0db727a14a39fb2b9652c23b784a85d76a",
+        "bytes": 13328
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached32.exe",
+        "sha256": "0860d9ff3d96683d7757f02e8a9345e24e62752065d9b8fb684b6dcbf35c1fea",
+        "bytes": 191744
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached64.cpp",
+        "sha256": "21ef25ed40c68db5c6dd729c8d33956606dfb5ed60bfb8ae4110731b4a05ce39",
+        "bytes": 13328
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached64.exe",
+        "sha256": "ad048ae900c3dcd2a0f6b1dc865d955dc54f8cd5cc5d7237eacb8ef7ab5ce18a",
+        "bytes": 191744
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached8.cpp",
+        "sha256": "217d4d5a84fbb250491f26b9f682fc892215cae1dac04cde67ad21631f3f9506",
+        "bytes": 13328
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-WritePreparedCached8.exe",
+        "sha256": "b2950746a4b4a2399868ab962c5564eec1144e16bfd1add12c7d53d951ff4033",
+        "bytes": 191743
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-ZeroBlock.cpp",
+        "sha256": "f25f2ce87725c9c6073100c71541a63345b3b82e5bb1f4d0fa2e316476806813",
+        "bytes": 13461
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-memory-reg/omit-ZeroBlock.exe",
+        "sha256": "7c23056bffe8f4e18da35aed89e5108896b2fda9a1914638ae281e2bea9ca67c",
+        "bytes": 191713
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/audio-callback.cpp",
+        "sha256": "38ebb1c13f82a089a17937ebf10d5244da0e17782108457f474a0a3a314160c6",
+        "bytes": 7266
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/audio-callback.exe",
+        "sha256": "b30bbff339b876ffe6efc6706befdea414459db8836354053d48d24edf7afb1d",
+        "bytes": 197978
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/hold-event-lock.cpp",
+        "sha256": "92e3f5336c585c3c08ec14d7f7c2ec825d38e424890ad2a50f95c62870f51ffe",
+        "bytes": 7230
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/hold-event-lock.exe",
+        "sha256": "f5c4387adc305b5594e52bc072ae49b9558b331f02ac3fbb74cab33427d997ee",
+        "bytes": 197486
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/omit-callback-admission.cpp",
+        "sha256": "87487fc75a8f6872c88664324318900fd24cfb30536f53c4f684a957e8ac7757",
+        "bytes": 7182
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/omit-callback-admission.exe",
+        "sha256": "0984a308f0a0c841c6923370b55eb1172394bb970a577239599f528bcc0b167d",
+        "bytes": 189414
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/omit-failure-seal.cpp",
+        "sha256": "eff1d832a8aec8f9ba381581bf46385675cef485fa728987fcd588927966d549",
+        "bytes": 7231
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/omit-failure-seal.exe",
+        "sha256": "d8843503d76303439fd460ad896e868d33b83331e4afb16f22d76714dade15d6",
+        "bytes": 198000
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/omit-shutdown-wakeup.cpp",
+        "sha256": "9f972e7b8a6059e7860a0701f781f4b8f5038fb0d0ab415d6f58d4c6f6df756e",
+        "bytes": 7240
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/omit-shutdown-wakeup.exe",
+        "sha256": "21a88fe4bfe146a90a76c3f9bf579e572063620cfbcf3b6ff608e919569033a1",
+        "bytes": 198003
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/release-before-callback.cpp",
+        "sha256": "f170b1dbca298559cd2934bab4b86c8333ce278ff5e60fbb07d7d7916bbf8e3e",
+        "bytes": 7293
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-audio-reg/release-before-callback.exe",
+        "sha256": "5cdad987717ad42a35cdf1a787550384bd90cdf10bcf42c64a856fe1fd9dc746",
+        "bytes": 198006
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-end-bypasses-manager.cpp",
+        "sha256": "47b685c615600c3fcf11ba25e24934d8add8d2fc19782a61f0e04b49188ba713",
+        "bytes": 44529
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-end-bypasses-manager.exe",
+        "sha256": "b788032149fa60dab39aad20566c178f5a1e6583893ca71dabf95a946298b1bc",
+        "bytes": 4734875
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-flush-bypasses-manager.cpp",
+        "sha256": "5430651f14969fa8d6238c555eac39d77566361cf2358bc00bdf4423150534bc",
+        "bytes": 44496
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-flush-bypasses-manager.exe",
+        "sha256": "f85a0c1e69b4eb9e4b2ae4e3e99b2f78e6556b1e53702b9d704a9163e1200185",
+        "bytes": 4734877
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-gather-bypasses-manager.cpp",
+        "sha256": "9179fe162b065e2fb9901b3e3baa01571c2425e2ed744a2797af244906a8c49f",
+        "bytes": 44619
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-gather-bypasses-manager.exe",
+        "sha256": "274c02944cfaf804e058c685564434f084537cdb4ed5eb04ac488a60a13518b1",
+        "bytes": 4744481
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-gather-callback-only.cpp",
+        "sha256": "9969ee876cdef43892c23d48c8c2e54c93ff130235a0845b061799d7287e9ef2",
+        "bytes": 44338
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-gather-callback-only.exe",
+        "sha256": "6c0dbdbde305ac267afffd45f058b25ff33325e84bdb0964e917874a7af33766",
+        "bytes": 4733851
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-rejects-owner.cpp",
+        "sha256": "add2c5833c539da671951ac3e4dde6004c302bc55b48457af3e31add54037781",
+        "bytes": 44471
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-rejects-owner.exe",
+        "sha256": "0e40932548caa0ddc87f880c02ed5f244964a5025eafe631107568f38421b28b",
+        "bytes": 4732308
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-released-early.cpp",
+        "sha256": "179695ca067b316d286de5c871d7e07a77cfd0c8bff6d743b1fe1da65e46fdf0",
+        "bytes": 44537
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-command-released-early.exe",
+        "sha256": "1ac59f8c705f426a1b6141fcdf63baedd05c372e25ad5d90a651818a887ca929",
+        "bytes": 4728213
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-bypasses-manager.cpp",
+        "sha256": "9fd44dda8f469a6b30dac5589a570387eb3ba6669168f7dfab3f13ca724366fc",
+        "bytes": 44496
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-bypasses-manager.exe",
+        "sha256": "3a80166be746d91d60a79dfd3bb959f54105339f591ba147a9010bdef57d3f59",
+        "bytes": 4735897
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-closed-success.cpp",
+        "sha256": "ec4701eab24f7537290f94641c24bd0e16feee5abafa9ab276b8f78531a4484d",
+        "bytes": 44494
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-closed-success.exe",
+        "sha256": "72bd993dd5dd64aa0c448d507fe1f2dfa1d91b7a221d3bba04af49a55ba54b5b",
+        "bytes": 4734359
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-rejects-owner.cpp",
+        "sha256": "34a69fd9fe208b0ab25ce76e123134c6eeffdb1b2e48df6abe3c9768296c42f7",
+        "bytes": 44487
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-rejects-owner.exe",
+        "sha256": "eb520d148e6f979b3e80b20b6a8c91dc88eb7f11d4d49254ccdb36bb651aebbf",
+        "bytes": 4733846
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-released-early.cpp",
+        "sha256": "1860836aeb13a168c3290e2fcbf5696662f673f0d5a161c43868437150cf3a0f",
+        "bytes": 44509
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-cpu-write-released-early.exe",
+        "sha256": "c825f957bd818040642d65e8b28c3a26002f677ac97b6471111815d1c5aebe3b",
+        "bytes": 4732823
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-entry-released-early.cpp",
+        "sha256": "5420e3890bc1328d7e41cecb1f0bae6ad02942dcb30ecb52cf4ccc808f09965c",
+        "bytes": 44565
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-entry-released-early.exe",
+        "sha256": "7388cb1533f5b3d39872286078d15db010747989b5f4d7da7eeeb8ddd4521ec4",
+        "bytes": 4724115
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-join-before-capture-cancel.cpp",
+        "sha256": "02c587d412813c9870dedeab3be6f83f86e8d016f79c1045ac437ba9adc78460",
+        "bytes": 44333
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-join-before-capture-cancel.exe",
+        "sha256": "58aca31600ca33c809704056d09c29c90d9444a295d58438b19c22f8b18d2109",
+        "bytes": 4734361
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-late-entry-bypasses-close.cpp",
+        "sha256": "dde88e952fb52238159f33c50748a950078d7cdbbee8e6190f33bb9f2874278b",
+        "bytes": 44495
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-late-entry-bypasses-close.exe",
+        "sha256": "5a06d2bd33aef6a32ad54bc68f1dc87f12b83f00e929c8fd1cd26b644dd07a15",
+        "bytes": 4730776
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-bypasses-manager.cpp",
+        "sha256": "b61bc4a7c176095b9987c645287efd6518d53a7dc0f939c4aba3bd6e680352a1",
+        "bytes": 44508
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-bypasses-manager.exe",
+        "sha256": "31e87c8da36bd7f04fcb3e870648e3a8d774bf527a181b4c18dfc7a86970d62d",
+        "bytes": 4738965
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-closed-coverage.cpp",
+        "sha256": "155a4180137636d381f2740770abe7536e60dc4daa59cd9649de797c0e451cba",
+        "bytes": 44537
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-closed-coverage.exe",
+        "sha256": "40cdcbd9efc6edae6711eeb970411afd946aa063cfe65f1902e889e4c7bbbb9d",
+        "bytes": 4733844
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-rejects-owner.cpp",
+        "sha256": "95e03b0d559023d111130dce62e065d75cb7156dacd255f23fc70943321c6a57",
+        "bytes": 44487
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-rejects-owner.exe",
+        "sha256": "100a17a4659e5542574c27c2b8fd314ef20dfc1a33c32393121104b0c5fc4bc6",
+        "bytes": 4733842
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-released-early.cpp",
+        "sha256": "12c70016760be118e18e1d35af9d191442d39391d3a4120e8b30bf12b55eb267",
+        "bytes": 44509
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-query-released-early.exe",
+        "sha256": "0f6d9cc72eb25b1bef7318ef8d539daeb7165b97dfaf6c310932823216418815",
+        "bytes": 4732819
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-rejects-entered-owner.cpp",
+        "sha256": "45400bb972d3d70731d0cff9cc263579845900792ab0bd9e99c0f7579d2066f2",
+        "bytes": 44439
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-rejects-entered-owner.exe",
+        "sha256": "c80a081d52df4cde7af3c88737b2ea52b3d8ad6e54bbef58c5de1943ae57f901",
+        "bytes": 4728724
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-stop-skips-ingress.cpp",
+        "sha256": "e307c91206615e527adb0b44a7f540828d3215c3b7b27492a475a99cdab982e9",
+        "bytes": 44388
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/direct-stop-skips-ingress.exe",
+        "sha256": "412712d27b7a239667e48633d189e483fbd9504483ae68b2005ccf8e1d1e2398",
+        "bytes": 4732817
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/gpu_thread.cpp",
+        "sha256": "dde88e952fb52238159f33c50748a950078d7cdbbee8e6190f33bb9f2874278b",
+        "bytes": 44495
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/gpu_thread.exe",
+        "sha256": "edc7b1f39874ce269e6467982fdfd1fd53425ba55c2b27612500968ba5376a3a",
+        "bytes": 4734323
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/shims/common/terminal_ingress.h",
+        "sha256": "a40b48cf2a00e20c1e93736e9e7f32dce22f6e53a18d9bb7f422c09c9312ff05",
+        "bytes": 2924
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/shims/core/device_memory_manager.h",
+        "sha256": "1187df800a1315362d92a1e9f5e74d5610e27e07dccece1674cc035bbc1629fc",
+        "bytes": 112
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/shims/video_core/acknowledged_callback.h",
+        "sha256": "555c20ec3fedf525ac62ffb0c62ae9a0d23c104e48326be1028a1c81c472f8bc",
+        "bytes": 2761
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-gpu-reg/shims/video_core/framebuffer_config.h",
+        "sha256": "b0e2f87dac5afd6b56445aedf7ee932635cc22a5652ffb43d0461a4cc7a2a95a",
+        "bytes": 138
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-windows/0-process_cohort_stop.o",
+        "sha256": "7d96763428163f026ca5e6eb7206d4fa3768eafbc94329c0c954f0e6e2a47f94",
+        "bytes": 35928
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-windows/1-process_execution_stop.o",
+        "sha256": "76509c4ef1a5281b2be4a0770622f9d7e3926f19a446ea9f15ae395414e2efc5",
+        "bytes": 22541
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-windows/2-process_owner_roster.o",
+        "sha256": "2c0aad3e74745b217daf8c18dfb170a6f910ccfac33853d189fd745b14962bb3",
+        "bytes": 18412
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-windows/3-physical_core.o",
+        "sha256": "0f6518bfae0b47f92716d3b70ce817410fcb3ac0550e301d5ab3ac17268e341c",
+        "bytes": 22488
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-windows/4-audio_manager.o",
+        "sha256": "feb1e22eda5653307ab69f09b08e8a562182c121d3c1cc3c457b4a320a7637c6",
+        "bytes": 42516
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-windows/5-audio_event.o",
+        "sha256": "bddfe16db19516713627b3e8666fa1479a4482302507db166fac68f915b33850",
+        "bytes": 6815
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-windows/6-gpu_thread.o",
+        "sha256": "fb990d144fc6e42392950a347eec52b6a707695f88ebf9d098907ed5d62b40af",
+        "bytes": 83663
+      },
+      {
+        "path": ".diagnostics/m4-owner-d7c-windows/7-memory.o",
+        "sha256": "2fce3eab1e9f9541a0237f4d3c3446f9661540624b93ebc6a59029712c2e1362",
+        "bytes": 208631
+      }
+    ],
+    "count": 187,
+    "exe_count": 82
+  },
+  "limits": [
+    "Full AudioManager/ThreadManager declarations; actual factories/cohort/core/roster and Memory Write8/GetPointerImpl/PageInfo bodies",
+    "KProcess/System/kernel/backend/PTE/refcount and HostMemory byte allocation are fixtures; no full production KProcess runtime",
+    "Session is a prepared shared callback packet; actual service callback raw-this lifetime is unproven",
+    "No native Vulkan completion, remap freeze, NCE exclusion or whole-service/device closure proof",
+    "Caller retains System/Kernel/context through joins; durable global Unknown resource isolation is not implemented"
+  ],
+  "post_validation_formatting": {
+    "path": "tools/physical_coherency_tests/run_owner_closure_composition_tests.py",
+    "tested_sha256": "f84795c9ce8a59fb680255bb42f3229087086f147bde16f7d3bbc4f3cf6320e3",
+    "final_sha256": "55c144ffb1cb0b6aea0dbcdf93c527596eb0298a2407dd23fe45a67b7dcafdf9",
+    "change": "Trailing whitespace only; Python AST identical. Test manifests retain original tested-input hashes.",
+    "python_ast_identical": true
+  }
+}

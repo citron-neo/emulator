@@ -419,6 +419,14 @@ Id EmitGlobalAtomicDec32(EmitContext& ctx);
 Id EmitGlobalAtomicAnd32(EmitContext& ctx, Id address, Id value);
 Id EmitGlobalAtomicOr32(EmitContext& ctx, Id address, Id value);
 Id EmitGlobalAtomicXor32(EmitContext& ctx, Id address, Id value);
+Id EmitGlobalAtomicCompareExchange32(EmitContext& ctx, const IR::Value& address, Id compare,
+                                     Id value);
+Id EmitGlobalAtomicCompareExchange64(EmitContext& ctx, const IR::Value& address, Id compare,
+                                     Id value);
+Id EmitStorageAtomicCompareExchange32(EmitContext& ctx, const IR::Value& binding,
+                                     const IR::Value& offset, Id compare, Id value);
+Id EmitStorageAtomicCompareExchange64(EmitContext& ctx, const IR::Value& binding,
+                                     const IR::Value& offset, Id compare, Id value);
 Id EmitGlobalAtomicExchange32(EmitContext& ctx, Id address, Id value);
 Id EmitGlobalAtomicIAdd64(EmitContext& ctx);
 Id EmitGlobalAtomicSMin64(EmitContext& ctx);

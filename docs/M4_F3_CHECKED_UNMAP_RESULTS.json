@@ -1,0 +1,180 @@
+{
+  "baseline_commit": "e170622029daf88dd816c24b634949162b982d39",
+  "positive_repeats": 3,
+  "executed_controls": {
+    "worker": [
+      "cancel-is-success",
+      "failure-is-success",
+      "optional-false-is-failure",
+      "missing-preservation-check",
+      "missing-active-completion-wait"
+    ],
+    "ownership": [
+      "low-area-ignored-map-refusal",
+      "cleanup-missing-quarantine",
+      "last-pin-before-queue",
+      "NV-cancel-under-lock",
+      "low-area-cancel-under-lock",
+      "missing-quarantine",
+      "lost-prefix-effects",
+      "reopened-direct-mapping",
+      "low-area-lost-duplicate"
+    ],
+    "mapping": [
+      "AllocateSpace-ignored-refusal",
+      "AllocateSpace-early-release",
+      "FreeSpace-ignored-refusal",
+      "FreeSpace-early-release",
+      "Remap-ignored-refusal",
+      "Remap-early-release",
+      "MapBufferEx-ignored-refusal",
+      "MapBufferEx-early-release",
+      "UnmapBuffer-ignored-refusal",
+      "UnmapBuffer-early-release",
+      "Remap-missing-lock",
+      "missing-owner-join"
+    ],
+    "channel": [
+      "quarantined-gmmu-binding",
+      "omit-ready",
+      "omit-partial",
+      "reject-same-owner",
+      "ignore-materialized-refusal",
+      "allow-ready-null",
+      "same-owner-clears-failure",
+      "same-address-wrong-owner",
+      "shared-owner-wrong-address",
+      "bypass-initialization-lock"
+    ],
+    "production": []
+  },
+  "precise_control_count": 36,
+  "source_hash_entries_checked": 57,
+  "unique_inputs_checked": 29,
+  "sha256": {
+    "src/video_core/acknowledged_callback.h": "30866f46d363cd3553c158ca141cde41af41bddf9fc0a339f6103da8eda04c15",
+    "src/video_core/gpu_thread.cpp": "d56e13d853d2bf51c3cc106e72e1903c4d418b4f93a61a70e19c8ff6df4f1c0c",
+    "src/video_core/gpu_thread.h": "acbf6a96714266049fa4e99d893bb64bdd6f7be3b834e9e32e43b56011f73281",
+    "src/video_core/renderer_vulkan/vk_rasterizer.cpp": "c271c4fad1057c886335d62d572ec9d8b4387bea5a9bd2fd73dcccd1f973a16b",
+    "src/video_core/unmap_failure.h": "6b6c85c5aedd57c9bdc72a41ddcf016a7ee2fde4442c949125654573b89ead8f",
+    "tools/gpu_lifecycle_tests/run_thread_tests.py": "bd9332fa187d85285874a756548ea5d78e26c90c54ef00e39e7e032d8255ab07",
+    "tools/gpu_lifecycle_tests/run_checked_unmap_tests.py": "5454696ec8b679aa4c22ae435d775a88026d2a3702298177e790c8ca554cc189",
+    "src/video_core/memory_manager.cpp": "6d071246cc1b47177f2048a55ed8323840c7ce870fa511a4e96050edf3c87800",
+    "src/video_core/memory_manager.h": "db03427bd693d7b20812828e60a59c4e2cc6cf314b1c206cfd720e4f56906682",
+    "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.cpp": "e2379d4806aa609d2974d0a8ec43ffa8e40282b9a2c59033d68052685562a5f9",
+    "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.h": "cac884597c878dca81f644ea95ae73ea0dffd76ab5ffc23e02042dad32554f09",
+    "src/core/hle/service/nvdrv/core/nvmap.cpp": "be297bbbc3029d85f5daf58e68b66f83ed5c35a596805c515146f22908e038ad",
+    "src/core/hle/service/nvdrv/core/nvmap.h": "624935701a9b4830e771093abcb6061a2a036a0ec0d80ffcec788475d831edb4",
+    "tools/gpu_lifecycle_tests/run_address_space_mapping_tests.py": "5902e1157f066e6a7a123ed865452791fe4e5c0c22ab868df20c3fd2f5b17dc1",
+    "tools/gpu_lifecycle_tests/run_unmap_ownership_tests.py": "e0f029e41cf80939891b3bb97a3c018824215ae72388356831673b3579d52fab",
+    "src/video_core/gpu.cpp": "f4016909612046c2201932baa248b343c21a9020277c0498673fef7e9f1712da",
+    "src/video_core/gpu.h": "1337d726f0f46376ee258f26db9147d061ed606278d2b7875fb90ecf75936f29",
+    "src/video_core/rasterizer_binding_state.h": "9d3b490d8b9fef3ff5ecdfbf405ee8928811dfe007fa37fec49ab253a7c21e25",
+    "src/common/terminal_ingress.h": "22e98d51e55c51cf0b21d872c9e37e5bd2a10be90b7fcf208f020479bfad1f75",
+    "tools/gpu_lifecycle_tests/run_tests.py": "c085bb76634eec3556ee50254d00faba889d1d62211395010493115142850203",
+    "src/video_core/control/channel_state.cpp": "e7374891fdca91d9f095b5c5882b267988943ba160852d77d77c01ad15a24311",
+    "src/video_core/control/channel_state.h": "96c7c3fa2ea8a1da70af8079409dba352e4a34619f093aea6465be3df7d3d433",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.cpp": "b147fb98d6b71bd0a094e815dba87c9f27a538dc7d0f4b271f86d397e1845c74",
+    "tools/gpu_lifecycle_tests/run_channel_rebind_tests.py": "bcf66c58d426e4aeb31c4e2e379840ea866a24dbac320e2cee45a7feb231aa3d",
+    "src/core/hle/service/nvdrv/devices/nvhost_gpu.h": "95a023d688d5d01676d2549bd7a5ae5a2ed6f95531e88627e2a296c0105fed8a",
+    "src/core/hle/service/nvdrv/nvdrv.cpp": "3a72c654320190ad39b788bba5728768d62baa0d1e64165177d16cb9a1ef7cf0",
+    "src/video_core/rasterizer_interface.h": "3a095883928df615d034dd5200dbab333af30420a1cda6bb8a2e7ba85ae6234f",
+    "src/video_core/renderer_vulkan/vk_rasterizer.h": "83eedc42b63f6b74becdd205b39322abd4a38452a361c45c4dd7a487bd3fda1d",
+    "tools/physical_coherency_tests/run_windows_production_checks.py": "1303539088d5b889a8cf96f087e51fce45b0ca487dd40983416a3dbc8d09ee38"
+  },
+  "additional_source_sha256": {
+    ".github/workflows/pr375-pr380-integration.yml": "6509c1467149c32543af63f8af413644011704b52839bcf2cb5ca5a3b9798cbe",
+    "src/video_core/CMakeLists.txt": "a8b7744d775ec69514478550dc2a968bc73b71f01dd51e73d369ef34eac0e962",
+    "tools/gather_buffer_tests/run_unmap_alias_tests.py": "56816c765932b4340b20f65f44c062edb01c0577b2df7339bdac140bf067442b",
+    "tools/gpu_lifecycle_tests/README.md": "2acd8212d4d43eb1918e5814a3194f928b39b728162146aba18ae770eeb02bcf",
+    "tools/gpu_lifecycle_tests/run_owner_publication_tests.py": "0bb4921f36fed57e8f7430ff2fd130b777a340fc9d2d152d927b0a3107b0ea36",
+    "tools/physical_resolver_tests/run_tests.py": "ad47c67e7b982a26e64256ae07f93eb0636bdca4278a80c9e33e495657860cc7",
+    "tools/physical_resolver_tests/tests.cpp": "a86ac12b6ae8e748a04c5604bae4c45dc8e5f48be09955727af3b8ef6beeb1c3"
+  },
+  "compiler": "g++ (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r8) 13.2.0",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "no_compiler_diagnostics": true,
+  "production_objects": [
+    {
+      "source": "src/video_core/gpu.cpp",
+      "sha256": "f4016909612046c2201932baa248b343c21a9020277c0498673fef7e9f1712da",
+      "object_sha256": "db327d28bffed56be97b20973b5d3687d64deb38d9d2e97c56d53723e220e676",
+      "object_size": 148343
+    },
+    {
+      "source": "src/video_core/gpu_thread.cpp",
+      "sha256": "d56e13d853d2bf51c3cc106e72e1903c4d418b4f93a61a70e19c8ff6df4f1c0c",
+      "object_sha256": "fb990d144fc6e42392950a347eec52b6a707695f88ebf9d098907ed5d62b40af",
+      "object_size": 83663
+    },
+    {
+      "source": "src/video_core/renderer_vulkan/vk_rasterizer.cpp",
+      "sha256": "c271c4fad1057c886335d62d572ec9d8b4387bea5a9bd2fd73dcccd1f973a16b",
+      "object_sha256": "2336f18a27b53056860916d5e894409235004518517d1085b567d09c7cb531d7",
+      "object_size": 1135900
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/core/nvmap.cpp",
+      "sha256": "be297bbbc3029d85f5daf58e68b66f83ed5c35a596805c515146f22908e038ad",
+      "object_sha256": "6434debefbfaf3de5d6eccdfd0f32c08448db0b351e95ec95634eae33edc179d",
+      "object_size": 56476
+    },
+    {
+      "source": "src/video_core/memory_manager.cpp",
+      "sha256": "6d071246cc1b47177f2048a55ed8323840c7ce870fa511a4e96050edf3c87800",
+      "object_sha256": "3e660d37cdb2a0bba1f1a25ce881d1f8f2eb554420e3d57419bf9fbdade308b5",
+      "object_size": 134928
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/devices/nvhost_as_gpu.cpp",
+      "sha256": "e2379d4806aa609d2974d0a8ec43ffa8e40282b9a2c59033d68052685562a5f9",
+      "object_sha256": "0923a74c2b9b1b7ad022373b6b15a7d92838832a7cdb70e63cba32a6befccc1c",
+      "object_size": 168231
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/devices/nvhost_gpu.cpp",
+      "sha256": "b147fb98d6b71bd0a094e815dba87c9f27a538dc7d0f4b271f86d397e1845c74",
+      "object_sha256": "fa1cdf31e334ba757dd0cc0f6ab98aeae8fe871465ce4e2cb326c559e2fff655",
+      "object_size": 82124
+    },
+    {
+      "source": "src/core/hle/service/nvdrv/nvdrv.cpp",
+      "sha256": "3a72c654320190ad39b788bba5728768d62baa0d1e64165177d16cb9a1ef7cf0",
+      "object_sha256": "44a23db8dac09c8c9a3a105b91a271440105364abb892751d47561f4d1eb89d3",
+      "object_size": 172075
+    },
+    {
+      "source": "src/video_core/control/channel_state.cpp",
+      "sha256": "e7374891fdca91d9f095b5c5882b267988943ba160852d77d77c01ad15a24311",
+      "object_sha256": "9103c8f1af4995d8c04ffd132daac572e2006a7b70323a80aed8f44a57e9f3eb",
+      "object_size": 4963
+    }
+  ],
+  "expected_failure_witnesses": {
+    "m4-unmap-baseline": "cancelled unmap reported callback completion",
+    "m4-unmap-pin-baseline": "failed queue allocation dropped last pin",
+    "m4-unmap-cleanup-baseline": "post-callback cleanup failure escaped quarantine",
+    "m4-unmap-race-baseline": "quarantine race escaped low-area pin"
+  },
+  "pinned_dependencies": [
+    " 00898b201b4153d7198c3e0134dbf953c83bbfd7 externals/SPIRV-Headers (1.5.4.raytracing.fixed-466-g00898b2)",
+    " 450bd2232225d6c7728a4108055ac2e37cef6475 externals/Vulkan-Headers (v1.4.337)",
+    " 9a3f4105c16bde4e2717eeab0fcc5a49236f7294 externals/Vulkan-Utility-Libraries (v1.4.337)",
+    " e722e57c891a8fbe3cc73ca56c19dd76be242759 externals/VulkanMemoryAllocator (v2.1.0-1021-ge722e57)",
+    " ab75463999f4f3291976b079d42d52ee91eebf3f externals/sirit (ab75463)",
+    " 7b55cab8418da1603496462ce3ccdb4cb1dc3368 externals/unordered_dense (v4.8.1-1-g7b55cab)"
+  ],
+  "regressions": [
+    "alias scatter/readback/surviving upload, once",
+    "production resolver, once",
+    "ten GPU lifecycle cases, three repetitions and cancelled-read control"
+  ],
+  "boundary": "Callback completion/cancellation/failure and retained remaining mapping owners only. Nine actual Windows COFF objects; no app link, native Vulkan/device, whole physical publication, all-producer drain, F2 routing or main merge. Guest admission Unknown.",
+  "cleanup": {
+    "temporary_files_removed": 554,
+    "executables_removed": 84,
+    "objects_removed": 28,
+    "final_evidence_dir": ".diagnostics/m4-unmap-results",
+    "pinned_dependencies_retained": true
+  }
+}

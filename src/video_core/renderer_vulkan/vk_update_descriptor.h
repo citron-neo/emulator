@@ -118,7 +118,7 @@ public:
     }
 
     bool CanAdd(size_t count) const noexcept {
-        return std::distance(payload_start, payload_cursor) + count < FRAME_PAYLOAD_SIZE;
+        return count <= FRAME_PAYLOAD_SIZE - GetCurrentSize();
     }
 
 protected:
@@ -128,7 +128,7 @@ protected:
     static constexpr size_t PAYLOAD_SIZE = FRAME_PAYLOAD_SIZE * FRAMES_IN_FLIGHT;
 
     void EnsureCapacity(size_t required_entries);
-    void HandleOverflow();
+    void HandleOverflow(size_t required_entries = 0);
 
     const Device& device;
     Scheduler& scheduler;
