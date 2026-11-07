@@ -47,6 +47,7 @@
 #include <random>
 #include <shared_mutex>
 #include <stdexcept>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -608,15 +609,13 @@ public:
                         "Lazy backing VMA merging disabled pending mapping-use validation");
         }
 
+        // Android's SELinux policy keeps apps from reading /proc/sys/vm/max_map_count, so an
+        // unreadable value is taken to be the kernel default. A device with a higher limit only
+        // merges earlier than it had to.
         max_map_count = ReadUnsignedFile("/proc/sys/vm/max_map_count");
-        if (max_map_count != 0) {
-            vma_budget = max_map_count > VmaSafetyReserve ? max_map_count - VmaSafetyReserve
-                                                          : max_map_count;
-            merge_threshold = vma_budget / 2;
-            LOG_INFO(HW_Memory, "Host VMA limit: max_map_count={}, budget={}, reserve={}",
-                     max_map_count, vma_budget, max_map_count - vma_budget);
-            vma_sampler_thread =
-                std::jthread([this](std::stop_token stop_token) { VmaSamplerLoop(stop_token); });
+        const bool assumed_map_count = max_map_count == 0;
+        if (assumed_map_count) {
+            max_map_count = DefaultMaxMapCount;
         }
         if (lazy_backing) {
             backing_stats_thread = std::jthread([this](std::stop_token token) {
@@ -625,6 +624,19 @@ public:
                 }
             });
         }
+        vma_budget = max_map_count > VmaSafetyReserve ? max_map_count - VmaSafetyReserve
+                                                      : max_map_count;
+        merge_threshold = vma_budget / 2;
+        LOG_INFO(HW_Memory, "Host VMA limit: max_map_count={}{}, budget={}, reserve={}",
+                 max_map_count, assumed_map_count ? " (assumed)" : "", vma_budget,
+                 max_map_count - vma_budget);
+        if (merge_by_hand) {
+            // Merging happens when the process cannot get another mapping, and growing a vector
+            // then needs one: reserve the whole list once, while mappings are still available.
+            merge_scratch.reserve(max_map_count);
+        }
+        vma_sampler_thread =
+            std::jthread([this](std::stop_token stop_token) { VmaSamplerLoop(stop_token); });
         good = true;
     }
 
@@ -951,6 +963,10 @@ public:
 private:
     static constexpr u64 VmaSampleInterval = 1024;
     static constexpr u64 VmaSafetyReserve = 4096;
+    /// The kernel's DEFAULT_MAX_MAP_COUNT, used when /proc/sys/vm/max_map_count is unreadable.
+    static constexpr u64 DefaultMaxMapCount = 65530;
+    /// Longest /proc/self/maps line looked at; the rest of a longer one is dropped.
+    static constexpr size_t MapsLineLimit = 512;
 
     static u64 ReadUnsignedFile(const char* path) {
         std::FILE* file = std::fopen(path, "r");
@@ -963,19 +979,55 @@ private:
         return std::fscanf(file, "%llu", &value) == 1 ? static_cast<u64>(value) : 0;
     }
 
-    static u64 CountProcessVmas() {
-        std::FILE* file = std::fopen("/proc/self/maps", "r");
-        if (!file) {
+    /// Calls `line` with each line of /proc/self/maps, without the newline and cut at
+    /// MapsLineLimit, until it returns false. Reads with the stack only: it runs when the process
+    /// may be out of mappings, and a heap allocation can need one. Returns the number of lines
+    /// read, 0 if the file won't open.
+    template <typename Line>
+    static u64 ForEachMapsLine(Line&& line) {
+        const int fd = open("/proc/self/maps", O_RDONLY | O_CLOEXEC);
+        if (fd < 0) {
             return 0;
         }
-        SCOPE_EXIT { std::fclose(file); };
+        SCOPE_EXIT { close(fd); };
 
-        u64 count = 0;
-        char buffer[4096];
-        while (std::fgets(buffer, sizeof(buffer), file)) {
-            ++count;
+        u64 lines = 0;
+        char current[MapsLineLimit];
+        size_t current_length = 0;
+        char buffer[8192];
+        while (true) {
+            const ssize_t got = read(fd, buffer, sizeof(buffer));
+            if (got < 0 && errno == EINTR) {
+                continue;
+            }
+            if (got <= 0) {
+                break;
+            }
+            for (ssize_t i = 0; i < got; ++i) {
+                const char c = buffer[i];
+                if (c != '\n') {
+                    if (current_length < sizeof(current)) {
+                        current[current_length++] = c;
+                    }
+                    continue;
+                }
+                ++lines;
+                const bool more = line(std::string_view{current, current_length});
+                current_length = 0;
+                if (!more) {
+                    return lines;
+                }
+            }
         }
-        return count;
+        if (current_length != 0) {
+            ++lines;
+            line(std::string_view{current, current_length});
+        }
+        return lines;
+    }
+
+    static u64 CountProcessVmas() {
+        return ForEachMapsLine([](std::string_view) { return true; });
     }
 
     void LogBackingStats() const {
@@ -1126,24 +1178,24 @@ private:
         const u64 low = reinterpret_cast<uintptr_t>(virtual_map_base);
         const u64 high = low + virtual_size;
 
-        // Read the whole list before changing the layout.
-        std::vector<HostMapping> mappings;
-        u64 lines = 0;
-        {
-            std::FILE* file = std::fopen("/proc/self/maps", "r");
-            if (!file) {
-                return;
+        // Read the whole list before changing the layout. The process may be at its mapping
+        // limit here, where a heap allocation fails, so the list goes into storage reserved at
+        // construction and the file is read with the stack. A list longer than the reservation
+        // (the limit was assumed too low) is merged as far as it was read.
+        std::vector<HostMapping>& mappings = merge_scratch;
+        mappings.clear();
+        const size_t reserved = mappings.capacity();
+        assert(reserved != 0 && "MergeMappings without a reservation");
+        const u64 lines = ForEachMapsLine([&](std::string_view line) {
+            HostMapping mapping{};
+            if (ParseHostMapping(line, mapping) && mapping.shared && mapping.start >= low &&
+                mapping.end <= high && BackingChunkOf(mapping)) {
+                mappings.push_back(mapping);
             }
-            SCOPE_EXIT { std::fclose(file); };
-            char line[512];
-            while (std::fgets(line, sizeof(line), file)) {
-                ++lines;
-                HostMapping mapping{};
-                if (ParseHostMapping(line, mapping) && mapping.shared && mapping.start >= low &&
-                    mapping.end <= high && BackingChunkOf(mapping)) {
-                    mappings.push_back(mapping);
-                }
-            }
+            return mappings.size() < reserved;
+        });
+        if (lines == 0) {
+            return;
         }
 
         u64 merged = 0;
@@ -1257,6 +1309,8 @@ private:
     bool merge_by_hand{};
     /// Map, Unmap and Protect hold it shared, MergeMappings exclusively.
     std::shared_mutex layout_mutex;
+    /// MergeMappings' copy of the mapping list, reserved up front (see the constructor).
+    std::vector<HostMapping> merge_scratch;
     std::atomic<u64> layout_op_count{0};
     /// Mapping count at which the sampler thread runs MergeMappings.
     std::atomic<u64> merge_threshold{0};

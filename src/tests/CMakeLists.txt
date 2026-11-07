@@ -31,6 +31,7 @@ add_executable(tests
     video_core/uma.cpp
     video_core/direct_guest_mapping.cpp
 
+    video_core/usage_tracker.cpp
     input_common/calibration_configuration_job.cpp
 )
 
