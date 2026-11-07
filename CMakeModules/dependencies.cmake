@@ -322,7 +322,7 @@ endif()
 
 # ── SPIRV-Headers ─────────────────────────────────────────────────────────────
 # Must be declared before sirit.
-if (NOT CITRON_CLANGCL AND NOT TARGET SPIRV-Headers)
+if (NOT TARGET SPIRV-Headers)
     CPMAddPackage(
         NAME SPIRV-Headers
         GITHUB_REPOSITORY KhronosGroup/SPIRV-Headers

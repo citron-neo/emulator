@@ -1045,7 +1045,9 @@ void PatchImageSampleImplicitLod(IR::Block& block, IR::Inst& inst) {
     IR::IREmitter ir{block, block.IteratorTo(inst)};
     const auto info{inst.Flags<IR::TextureInstInfo>()};
     const IR::Value coord(inst.Arg(1));
-    const IR::Value handle(ir.Imm32(0));
+    // Use the descriptor index the texture pass resolved for the sample, so the size query
+    // targets the same descriptor (and image type) as the sample itself.
+    const IR::Value handle(inst.Arg(0));
     const IR::U32 lod{ir.Imm32(0)};
     const IR::U1 skip_mips{ir.Imm1(true)};
     const IR::Value texture_size = ir.ImageQueryDimension(handle, lod, skip_mips, info);
@@ -1135,6 +1137,7 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
         const auto& cbuf{texture_inst.cbuf};
         auto flags{inst->Flags<IR::TextureInstInfo>()};
         bool is_multisample{false};
+        bool patch_rect_sample{false};
         switch (inst->GetOpcode()) {
         case IR::Opcode::ImageQueryDimensions:
             flags.type.Assign(ReadTextureType(env, cbuf));
@@ -1145,7 +1148,8 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
                 break;
             }
             if (ReadTextureType(env, cbuf) == TextureType::Color2DRect) {
-                PatchImageSampleImplicitLod(*texture_inst.block, *texture_inst.inst);
+                // Patched below, once the descriptor index has been assigned
+                patch_rect_sample = true;
             }
             break;
         case IR::Opcode::ImageFetch:
@@ -1284,6 +1288,10 @@ void TexturePass(Environment& env, IR::Program& program, const HostTranslateInfo
                 0, ir.UMin(ir.ShiftRightLogical(cbuf.dynamic_offset, shift), ir.Imm32(count - 1)));
         } else {
             inst->SetArg(0, IR::Value{});
+        }
+
+        if (patch_rect_sample) {
+            PatchImageSampleImplicitLod(*texture_inst.block, *texture_inst.inst);
         }
 
         if (!host_info.support_snorm_render_buffer && inst->GetOpcode() == IR::Opcode::ImageFetch &&
