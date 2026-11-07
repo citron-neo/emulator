@@ -33,7 +33,11 @@ IAsyncContext::~IAsyncContext() {
 }
 
 void IAsyncContext::GetSystemEvent(HLERequestContext& ctx) {
-    LOG_DEBUG(Service_ACC, "called");
+    LOG_INFO(Service_ACC, "called, complete={}", IsComplete());
+
+    if (IsComplete()) {
+        completion_event->Signal();
+    }
 
     IPC::ResponseBuilder rb{ctx, 2, 1};
     rb.Push(ResultSuccess);
@@ -51,9 +55,8 @@ void IAsyncContext::Cancel(HLERequestContext& ctx) {
 }
 
 void IAsyncContext::HasDone(HLERequestContext& ctx) {
-    LOG_DEBUG(Service_ACC, "called");
-
     is_complete.store(IsComplete());
+    LOG_INFO(Service_ACC, "called, done={}", is_complete.load());
 
     IPC::ResponseBuilder rb{ctx, 3};
     rb.Push(ResultSuccess);
@@ -61,10 +64,15 @@ void IAsyncContext::HasDone(HLERequestContext& ctx) {
 }
 
 void IAsyncContext::GetResult(HLERequestContext& ctx) {
-    LOG_DEBUG(Service_ACC, "called");
+    const Result result = GetResult();
+    LOG_INFO(Service_ACC, "called, result=0x{:08X}", result.raw);
 
-    IPC::ResponseBuilder rb{ctx, 3};
-    rb.Push(GetResult());
+    IPC::ResponseBuilder rb{ctx, 2};
+    rb.Push(result);
+}
+
+void IAsyncContext::SignalCompletion() {
+    MarkComplete();
 }
 
 void IAsyncContext::MarkComplete() {
